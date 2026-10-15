@@ -1,0 +1,85 @@
+package com.example.checklist
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.ui.NavDisplay
+import com.example.checklist.theme.SpaceBlack
+import com.example.checklist.ui.ChecklistViewModel
+import com.example.checklist.ui.home.HomeScreen
+import com.example.checklist.ui.phase.PhaseScreen
+import com.example.checklist.ui.settings.SettingsScreen
+import com.example.checklist.ui.template.TemplateManageScreen
+
+@Composable
+fun MainNavigation(
+    viewModel: ChecklistViewModel = viewModel()
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val backStack = rememberNavBackStack(PhaseNavKey)
+
+    NavDisplay(
+        backStack = backStack,
+        onBack = {
+            if (backStack.size > 1) {
+                backStack.removeLastOrNull()
+            }
+        },
+        modifier = Modifier
+            .fillMaxSize()
+            .background(SpaceBlack),
+        entryProvider = entryProvider {
+            entry<PhaseNavKey> {
+                PhaseScreen(
+                    state = state,
+                    viewModel = viewModel,
+                    onNavigateHome = { backStack.add(HomeNavKey) },
+                    onNavigateSettings = { backStack.add(SettingsNavKey) },
+                    modifier = Modifier.safeDrawingPadding()
+                )
+            }
+
+            entry<HomeNavKey> {
+                HomeScreen(
+                    state = state,
+                    viewModel = viewModel,
+                    onSelectPhase = { _ ->
+                        backStack.removeLastOrNull()
+                    },
+                    onNavigateSettings = { backStack.add(SettingsNavKey) },
+                    onBack = { backStack.removeLastOrNull() },
+                    modifier = Modifier.safeDrawingPadding()
+                )
+            }
+
+            entry<SettingsNavKey> {
+                SettingsScreen(
+                    state = state,
+                    viewModel = viewModel,
+                    onBack = { backStack.removeLastOrNull() },
+                    onOpenTemplateEditor = { templateId ->
+                        backStack.add(TemplateEditorNavKey(templateId))
+                    },
+                    modifier = Modifier.safeDrawingPadding()
+                )
+            }
+
+            entry<TemplateEditorNavKey> { key ->
+                TemplateManageScreen(
+                    templateId = key.templateId,
+                    state = state,
+                    viewModel = viewModel,
+                    onBack = { backStack.removeLastOrNull() },
+                    modifier = Modifier.safeDrawingPadding()
+                )
+            }
+        }
+    )
+}
