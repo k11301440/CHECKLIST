@@ -98,12 +98,17 @@ fun PrivacyPolicyScreen(
                 )
 
                 PolicySection(
-                    title = "5. データの管理と削除 (Data Deletion)",
+                    title = "5. 端末権限の利用 (Device Permissions)",
+                    body = "本アプリは、設定画面で「未完了REQタスクの通知」を有効にした場合に限り、通知権限（POST_NOTIFICATIONS）を要求します。この権限は、現在フェーズの未完了必須タスクを端末の通知バーに表示するためのみに使用され、外部へのデータ送信や他の目的には一切使用されません。"
+                )
+
+                PolicySection(
+                    title = "6. データの管理と削除 (Data Deletion)",
                     body = "保存されたデータは、設定画面内の「初期化」操作、または端末の設定から「アプリのデータを消去」もしくはアプリのアンインストールを行うことで、完全に削除されます。"
                 )
 
                 PolicySection(
-                    title = "6. お問い合わせ (Contact)",
+                    title = "7. お問い合わせ (Contact)",
                     body = "プライバシーポリシーや本アプリに関するお問い合わせは、GitHubリポジトリ（https://github.com/k11301440/flight-checklist）のIssueよりご連絡ください。"
                 )
 

@@ -5,7 +5,9 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -46,15 +49,17 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -123,8 +128,9 @@ fun PhaseScreen(
     val selectedIndex = state.selectedPhaseIndex.coerceIn(0, state.phases.size - 1)
     val currentPhase = state.phases[selectedIndex]
 
-    val activeRequired = currentPhase.items.filter { it.priority == Priority.REQUIRED && !it.isCompleted && !it.isDeleted }
-    val activeNormal = currentPhase.items.filter { it.priority == Priority.NORMAL && !it.isCompleted && !it.isDeleted }
+    val activeItems = currentPhase.items.filter { !it.isCompleted && !it.isDeleted }
+    val activeRequired = activeItems.filter { it.priority == Priority.REQUIRED }
+    val activeNormal = activeItems.filter { it.priority == Priority.NORMAL }
     val completedItems = currentPhase.items.filter { it.isCompleted && !it.isDeleted }
     val discardedItems = currentPhase.items.filter { it.isDeleted }
     val totalRequired = currentPhase.items.filter { it.priority == Priority.REQUIRED && !it.isDeleted }
@@ -157,55 +163,22 @@ fun PhaseScreen(
             .background(SpaceBlack)
             .padding(horizontal = 20.dp, vertical = 12.dp)
     ) {
-        // TOP CONTROL BAR: 4-Phase Selector & Navigation Icons
+        // ROW 1: TOP NAVIGATION (Calendar / Home / Settings / Menu)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 12.dp),
+                .padding(bottom = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Equal-width phase selector tabs (01 朝 / 02 午前 / 03 午後 / 04 夜)
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                state.phases.forEachIndexed { index, phase ->
-                    val isSelected = index == selectedIndex
-                    val phaseNumber = String.format("%02d", index + 1)
-                    val label = "$phaseNumber ${phase.name}"
+            Text(
+                text = "FLIGHT CHECKLIST",
+                color = TextPrimary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.5.sp
+            )
 
-                    Box(
-                        modifier = Modifier
-                            .width(66.dp)
-                            .border(
-                                width = 1.dp,
-                                color = if (isSelected) TextPrimary else BorderSubtle,
-                                shape = RoundedCornerShape(2.dp)
-                            )
-                            .background(if (isSelected) SurfaceElevated else SpaceBlack)
-                            .combinedClickable(
-                                onClick = { viewModel.selectPhase(index) }
-                            )
-                            .padding(vertical = 6.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = label,
-                            color = if (isSelected) TextPrimary else TextSecondary,
-                            fontSize = 11.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            letterSpacing = 0.8.sp
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // Right icons (Calendar / Home / Menu)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(
                     onClick = onNavigateCalendar,
@@ -226,6 +199,18 @@ fun PhaseScreen(
                     Icon(
                         imageVector = Icons.Default.Home,
                         contentDescription = "Home Overview",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = onNavigateSettings,
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings",
                         tint = TextSecondary,
                         modifier = Modifier.size(18.dp)
                     )
@@ -261,27 +246,6 @@ fun PhaseScreen(
                             )
                         }
                         DropdownMenuItem(
-                            text = { Text("カレンダー・履歴一覧", color = TextPrimary, fontSize = 13.sp) },
-                            onClick = {
-                                showMenu = false
-                                onNavigateCalendar()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("4フェーズ構成 (朝/午前/午後/夜) に初期化", color = TextPrimary, fontSize = 13.sp) },
-                            onClick = {
-                                showMenu = false
-                                showResetDefaultDialog = true
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("テンプレートから適用", color = TextPrimary, fontSize = 13.sp) },
-                            onClick = {
-                                showMenu = false
-                                showTemplateSelectDialog = true
-                            }
-                        )
-                        DropdownMenuItem(
                             text = { Text("現在のリストをテンプレート保存", color = TextPrimary, fontSize = 13.sp) },
                             onClick = {
                                 showMenu = false
@@ -303,6 +267,42 @@ fun PhaseScreen(
                             }
                         )
                     }
+                }
+            }
+        }
+
+        // ROW 2: 4-PHASE OVERVIEW BAR (画面を横に4等分して朝〜夜の各フェーズが一望できる構成)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            state.phases.forEachIndexed { index, phase ->
+                val isSelected = index == selectedIndex
+                val phaseNumber = String.format("%02d", index + 1)
+                val label = "$phaseNumber ${phase.name}"
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .border(
+                            width = if (isSelected) 1.5.dp else 1.dp,
+                            color = if (isSelected) TextPrimary else BorderSubtle,
+                            shape = RoundedCornerShape(2.dp)
+                        )
+                        .background(if (isSelected) SurfaceElevated else SpaceBlack)
+                        .clickable { viewModel.selectPhase(index) }
+                        .padding(vertical = 7.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = label,
+                        color = if (isSelected) TextPrimary else TextSecondary,
+                        fontSize = 11.5.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        letterSpacing = 0.5.sp
+                    )
                 }
             }
         }
@@ -382,84 +382,65 @@ fun PhaseScreen(
                 .fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // REQUIRED ITEMS (Mandatory priority on top, active only)
-            if (activeRequired.isNotEmpty()) {
+            // ACTIVE TASKS (REQ / NORM を単一リストとして描画し、自由に相互並び替え可能)
+            if (activeItems.isNotEmpty()) {
                 item {
-                    Text(
-                        text = "CRITICAL / REQUIRED (${activeRequired.size})",
-                        color = TextSecondary,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.5.sp,
-                        modifier = Modifier.padding(bottom = 2.dp)
-                    )
-                }
-
-                items(activeRequired, key = { it.id }) { item ->
-                    val indexInPhase = currentPhase.items.indexOfFirst { it.id == item.id }
-                    ChecklistItemRow(
-                        item = item,
-                        isCritical = true,
-                        onTap = { viewModel.completeItem(currentPhase.id, item.id) },
-                        onLongPress = { viewModel.undoItem(currentPhase.id, item.id) },
-                        onEdit = { editingItem = item },
-                        onDelete = { viewModel.removeItem(currentPhase.id, item.id) },
-                        onMoveUp = if (indexInPhase > 0) {
-                            { viewModel.reorderItems(currentPhase.id, indexInPhase, indexInPhase - 1) }
-                        } else null,
-                        onMoveDown = if (indexInPhase < currentPhase.items.size - 1) {
-                            { viewModel.reorderItems(currentPhase.id, indexInPhase, indexInPhase + 1) }
-                        } else null
-                    )
-                }
-            }
-
-            // NORMAL ITEMS (Active only, collapsible)
-            if (activeNormal.isNotEmpty()) {
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .combinedClickable(onClick = { isNormalExpanded = !isNormalExpanded })
-                            .padding(vertical = 4.dp),
+                            .padding(bottom = 2.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "NORMAL (${activeNormal.size})",
+                            text = "ACTIVE TASKS (${activeItems.size})",
                             color = TextSecondary,
                             fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium,
-                            letterSpacing = 1.2.sp
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.5.sp
                         )
-                        Icon(
-                            imageVector = if (isNormalExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = if (isNormalExpanded) "Collapse" else "Expand",
-                            tint = TextSecondary,
-                            modifier = Modifier.size(16.dp)
+                        Text(
+                            text = "左端をドラッグして上下に並び替え",
+                            color = TextTertiary,
+                            fontSize = 9.5.sp,
+                            letterSpacing = 0.5.sp
                         )
                     }
                 }
 
-                if (isNormalExpanded) {
-                    items(activeNormal, key = { it.id }) { item ->
-                        val indexInPhase = currentPhase.items.indexOfFirst { it.id == item.id }
-                        ChecklistItemRow(
-                            item = item,
-                            isCritical = false,
-                            onTap = { viewModel.completeItem(currentPhase.id, item.id) },
-                            onLongPress = { viewModel.undoItem(currentPhase.id, item.id) },
-                            onEdit = { editingItem = item },
-                            onDelete = { viewModel.removeItem(currentPhase.id, item.id) },
-                            onMoveUp = if (indexInPhase > 0) {
-                                { viewModel.reorderItems(currentPhase.id, indexInPhase, indexInPhase - 1) }
-                            } else null,
-                            onMoveDown = if (indexInPhase < currentPhase.items.size - 1) {
-                                { viewModel.reorderItems(currentPhase.id, indexInPhase, indexInPhase + 1) }
-                            } else null
-                        )
-                    }
+                itemsIndexed(activeItems, key = { _, item -> item.id }) { activeIndex, item ->
+                    val indexInPhase = currentPhase.items.indexOfFirst { it.id == item.id }
+                    ChecklistItemRow(
+                        item = item,
+                        isCritical = item.priority == Priority.REQUIRED,
+                        onTap = { viewModel.completeItem(currentPhase.id, item.id) },
+                        onLongPress = { viewModel.undoItem(currentPhase.id, item.id) },
+                        onEdit = { editingItem = item },
+                        onDelete = { viewModel.removeItem(currentPhase.id, item.id) },
+                        onMoveUp = if (activeIndex > 0) {
+                            val prevItem = activeItems[activeIndex - 1]
+                            val prevPhaseIndex = currentPhase.items.indexOfFirst { it.id == prevItem.id }
+                            val action: () -> Unit = { viewModel.reorderItems(currentPhase.id, indexInPhase, prevPhaseIndex) }
+                            action
+                        } else null,
+                        onMoveDown = if (activeIndex < activeItems.size - 1) {
+                            val nextItem = activeItems[activeIndex + 1]
+                            val nextPhaseIndex = currentPhase.items.indexOfFirst { it.id == nextItem.id }
+                            val action: () -> Unit = { viewModel.reorderItems(currentPhase.id, indexInPhase, nextPhaseIndex) }
+                            action
+                        } else null,
+                        onDragSwap = { direction ->
+                            if (direction < 0 && activeIndex > 0) {
+                                val prevItem = activeItems[activeIndex - 1]
+                                val prevPhaseIndex = currentPhase.items.indexOfFirst { it.id == prevItem.id }
+                                viewModel.reorderItems(currentPhase.id, indexInPhase, prevPhaseIndex)
+                            } else if (direction > 0 && activeIndex < activeItems.size - 1) {
+                                val nextItem = activeItems[activeIndex + 1]
+                                val nextPhaseIndex = currentPhase.items.indexOfFirst { it.id == nextItem.id }
+                                viewModel.reorderItems(currentPhase.id, indexInPhase, nextPhaseIndex)
+                            }
+                        }
+                    )
                 }
             }
 
@@ -838,7 +819,8 @@ fun ChecklistItemRow(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onMoveUp: (() -> Unit)? = null,
-    onMoveDown: (() -> Unit)? = null
+    onMoveDown: (() -> Unit)? = null,
+    onDragSwap: ((Int) -> Unit)? = null
 ) {
     val isCompleted = item.isCompleted
 
@@ -861,39 +843,77 @@ fun ChecklistItemRow(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Reorder controls (タスク並び替えエリア: 左端の幅を広げ、上下移動ボタンを配置)
-            if (onMoveUp != null || onMoveDown != null) {
-                Column(
-                    modifier = Modifier.width(26.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+            // Reorder controls (ドラッグハンドル & 上下微調整ボタン)
+            if (onDragSwap != null || onMoveUp != null || onMoveDown != null) {
+                var dragAccumulated by remember { mutableFloatStateOf(0f) }
+                val thresholdPx = with(LocalDensity.current) { 40.dp.toPx() }
+
+                Row(
+                    modifier = Modifier.padding(end = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(
-                        onClick = { onMoveUp?.invoke() },
-                        enabled = onMoveUp != null,
-                        modifier = Modifier.size(18.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .pointerInput(item.id) {
+                                detectDragGestures(
+                                    onDragStart = { dragAccumulated = 0f },
+                                    onDragEnd = { dragAccumulated = 0f },
+                                    onDragCancel = { dragAccumulated = 0f },
+                                    onDrag = { change, dragAmount ->
+                                        change.consume()
+                                        dragAccumulated += dragAmount.y
+                                        if (dragAccumulated > thresholdPx) {
+                                            onDragSwap?.invoke(1)
+                                            dragAccumulated = 0f
+                                        } else if (dragAccumulated < -thresholdPx) {
+                                            onDragSwap?.invoke(-1)
+                                            dragAccumulated = 0f
+                                        }
+                                    }
+                                )
+                            },
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.KeyboardArrowUp,
-                            contentDescription = "Move up",
-                            tint = if (onMoveUp != null) TextSecondary else BorderSubtle,
-                            modifier = Modifier.size(16.dp)
+                            imageVector = Icons.Default.DragHandle,
+                            contentDescription = "Drag to reorder",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
-                    IconButton(
-                        onClick = { onMoveDown?.invoke() },
-                        enabled = onMoveDown != null,
-                        modifier = Modifier.size(18.dp)
+
+                    Column(
+                        modifier = Modifier.width(18.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.KeyboardArrowDown,
-                            contentDescription = "Move down",
-                            tint = if (onMoveDown != null) TextSecondary else BorderSubtle,
+                        IconButton(
+                            onClick = { onMoveUp?.invoke() },
+                            enabled = onMoveUp != null,
                             modifier = Modifier.size(16.dp)
-                        )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowUp,
+                                contentDescription = "Move up",
+                                tint = if (onMoveUp != null) TextSecondary else BorderSubtle,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                        IconButton(
+                            onClick = { onMoveDown?.invoke() },
+                            enabled = onMoveDown != null,
+                            modifier = Modifier.size(16.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowDown,
+                                contentDescription = "Move down",
+                                tint = if (onMoveDown != null) TextSecondary else BorderSubtle,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
                     }
                 }
-                Spacer(modifier = Modifier.width(4.dp))
             } else {
                 Spacer(modifier = Modifier.width(4.dp))
             }
@@ -903,32 +923,45 @@ fun ChecklistItemRow(
                 Box(
                     modifier = Modifier
                         .width(3.dp)
-                        .height(20.dp)
+                        .height(22.dp)
                         .background(if (isCompleted) TextTertiary else TextPrimary)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
             }
 
-            // SpaceX Wireframe Checkbox
+            // SpaceX Wireframe Checkbox (大きめ 24.dp)
             SpaceXCheckbox(
                 checked = isCompleted,
-                size = 18.dp
+                size = 24.dp
             )
 
             Spacer(modifier = Modifier.width(10.dp))
 
-            // Title
+            // Title and Priority Badges
             Column(modifier = Modifier.weight(1f)) {
-                if (item.isCarryover) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "CARRYOVER // FROM ${item.sourcePhaseName ?: "PREVIOUS"}",
-                        color = TextSecondary,
+                        text = if (isCritical) "REQ" else "NORM",
+                        color = if (isCritical) TextPrimary else TextTertiary,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
+                        letterSpacing = 0.8.sp,
+                        modifier = Modifier
+                            .border(1.dp, if (isCritical) TextPrimary else BorderSubtle, RoundedCornerShape(2.dp))
+                            .padding(horizontal = 4.dp, vertical = 1.dp)
                     )
-                    Spacer(modifier = Modifier.height(1.dp))
+                    if (item.isCarryover) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "CARRYOVER // ${item.sourcePhaseName ?: "PREVIOUS"}",
+                            color = TextSecondary,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.8.sp
+                        )
+                    }
                 }
+                Spacer(modifier = Modifier.height(3.dp))
                 Text(
                     text = formatTaskText(item.title),
                     color = when {
@@ -1212,9 +1245,10 @@ fun ReviewDialog(
                     }
                     ReviewStep.NoteInput -> {
                         Text(
-                            text = "MISSION NOTE (OPTIONAL):",
+                            text = "振り返りメモ (任意)",
                             color = TextSecondary,
                             fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
                             letterSpacing = 0.8.sp
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -1240,7 +1274,7 @@ fun ReviewDialog(
                             )
                             if (noteText.isEmpty()) {
                                 Text(
-                                    text = "Enter brief mission note...",
+                                    text = "気づきや課題、ブロッカーを入力...",
                                     color = TextTertiary,
                                     fontSize = 13.sp
                                 )
@@ -1249,20 +1283,20 @@ fun ReviewDialog(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        Row(
+                        Column(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            SpaceXTextButton(
-                                text = "CANCEL",
-                                onClick = onDismiss,
-                                modifier = Modifier.weight(1f)
-                            )
                             SpaceXButton(
                                 text = "RECORD & COMPLETE",
                                 onClick = { onConfirm(true, noteText) },
                                 prominent = true,
-                                modifier = Modifier.weight(1.5f)
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            SpaceXTextButton(
+                                text = "CANCEL",
+                                onClick = onDismiss,
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
                     }

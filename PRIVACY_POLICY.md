@@ -17,21 +17,24 @@ The App does not request the `android.permission.INTERNET` permission in Android
 ## 3. Local-Only Storage
 All data entered or generated in the App—including checklist items, custom phases, templates, review notes, daily completion records, and settings—is stored exclusively on your device's private internal storage (`checklist_state.json`).
 
-## 4. Third-Party Services and Advertising
+## 4. Optional Notification Permission
+The App requests the `android.permission.POST_NOTIFICATIONS` permission solely to display active REQUIRED (REQ) checklist tasks in your device's notification bar when you explicitly enable this feature in Settings. This permission is strictly opt-in and operates 100% locally on your device with no external data transmission.
+
+## 5. Third-Party Services and Advertising
 The App contains:
 - **No advertisements (No ad SDKs)**
 - **No analytics or telemetry trackers (No Google Analytics, Firebase, etc.)**
 - **No third-party SDKs that process personal data**
 
-## 5. Data Retention and Deletion
+## 6. Data Retention and Deletion
 You maintain complete control over your data. You can delete all application data at any time by:
 1. Using the "Restore Default Phases" or "Reset All Phases" options in the App's settings, or
 2. Clearing the application data via your Android device's **Settings > Apps > Flight Checklist > Storage > Clear Data**, or
 3. Uninstalling the App.
 
-## 6. Children's Privacy
+## 7. Children's Privacy
 Because the App does not collect any personal information whatsoever, it complies with the Children's Online Privacy Protection Act (COPPA) and GDPR standards regarding minors.
 
-## 7. Contact
+## 8. Contact
 If you have any questions or feedback regarding this Privacy Policy, please open an issue on GitHub:
 - **GitHub Repository**: [https://github.com/k11301440/flight-checklist](https://github.com/k11301440/flight-checklist)

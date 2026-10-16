@@ -1,5 +1,12 @@
 package com.example.checklist.ui.settings
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -74,8 +81,20 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpenTemplateEditor: (templateId: String?) -> Unit,
     onNavigatePrivacyPolicy: () -> Unit = {},
+    onNavigateUserGuide: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            viewModel.setShowReqNotification(true)
+        } else {
+            viewModel.setShowReqNotification(false)
+        }
+    }
+
     var editingPhase by remember { mutableStateOf<Phase?>(null) }
     var showAddPhaseDialog by remember { mutableStateOf(false) }
     var editingSchedule by remember { mutableStateOf<com.example.checklist.data.PhaseSchedule?>(null) }
@@ -188,12 +207,41 @@ fun SettingsScreen(
 
                     SpaceXDivider()
 
-                    // フェーズ完了時の確認トグル (フィードバック対応)
+                    // フェーズ完了時の確認トグル
                     SettingToggleRow(
-                        title = "フェーズ進行時の確認 (Review Confirmation)",
+                        title = "フェーズ進行時の確認",
                         description = "次のフェーズへ進む際に完了確認ダイアログを表示する",
                         enabled = state.settings.confirmReviewOnAdvance,
                         onToggle = { viewModel.setConfirmReviewOnAdvance(!state.settings.confirmReviewOnAdvance) }
+                    )
+
+                    SpaceXDivider()
+
+                    // 未完了REQタスク通知トグル (オプトイン)
+                    SettingToggleRow(
+                        title = "未完了REQタスクの通知",
+                        description = "現在のフェーズで未処理の必須タスクをAndroid通知バーに常時表示",
+                        enabled = state.settings.showReqNotification,
+                        onToggle = {
+                            val targetState = !state.settings.showReqNotification
+                            if (targetState) {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    val hasPermission = ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.POST_NOTIFICATIONS
+                                    ) == PackageManager.PERMISSION_GRANTED
+                                    if (!hasPermission) {
+                                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                    } else {
+                                        viewModel.setShowReqNotification(true)
+                                    }
+                                } else {
+                                    viewModel.setShowReqNotification(true)
+                                }
+                            } else {
+                                viewModel.setShowReqNotification(false)
+                            }
+                        }
                     )
                 }
             }
@@ -333,18 +381,29 @@ fun SettingsScreen(
                 )
             }
 
-            // 5. TEMPLATES MANAGEMENT (テンプレート管理)
+            // 5. TEMPLATES MANAGEMENT (テンプレート管理: フェーズ数上限)
             item {
+                val canAddTemplate = state.templates.size < state.phases.size
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    SettingsSectionHeader("TEMPLATES (${state.templates.size})")
-                    SpaceXTextButton(
-                        text = "+ NEW TEMPLATE",
-                        onClick = { onOpenTemplateEditor(null) }
-                    )
+                    SettingsSectionHeader("TEMPLATES (${state.templates.size}/${state.phases.size})")
+                    if (canAddTemplate) {
+                        SpaceXTextButton(
+                            text = "+ NEW TEMPLATE",
+                            onClick = { onOpenTemplateEditor(null) }
+                        )
+                    } else {
+                        Text(
+                            text = "MAX REACHED // 上限(${state.phases.size})",
+                            color = TextTertiary,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.height(6.dp))
 
@@ -414,9 +473,9 @@ fun SettingsScreen(
                 }
             }
 
-            // 6. STORE & PRIVACY COMPLIANCE (ストア要件・プライバシーポリシー)
+            // 6. STORE & PRIVACY COMPLIANCE (ストア要件・チュートリアル・ポリシー)
             item {
-                SettingsSectionHeader("LEGAL & APP INFO // ストア要件")
+                SettingsSectionHeader("HELP & LEGAL // ガイドと規約")
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Column(
@@ -425,6 +484,38 @@ fun SettingsScreen(
                         .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
                         .background(SurfaceDark)
                 ) {
+                    // チュートリアル・機能説明
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onNavigateUserGuide() }
+                            .padding(horizontal = 14.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "使い方ガイド // チュートリアル",
+                                color = TextPrimary,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "4フェーズ運用、タスク並び替え、振り返り機能の解説",
+                                color = TextSecondary,
+                                fontSize = 11.sp
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = "Open",
+                            tint = TextSecondary
+                        )
+                    }
+
+                    SpaceXDivider()
+
+                    // プライバシーポリシー
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -456,7 +547,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("APPLICATION VERSION", color = TextSecondary, fontSize = 11.sp, letterSpacing = 1.sp)
-                        Text("v1.2.0 // TARGET API 36", color = TextPrimary, fontSize = 12.sp, fontFamily = FontFamily.SansSerif)
+                        Text("v0.2.0 (Closed Beta)", color = TextPrimary, fontSize = 12.sp, fontFamily = FontFamily.SansSerif)
                     }
 
                     SpaceXDivider()

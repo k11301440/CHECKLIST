@@ -14,6 +14,7 @@ import java.io.File
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import com.example.checklist.notification.ReqNotificationHelper
 
 class ChecklistRepository(private val context: Context) {
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -27,6 +28,15 @@ class ChecklistRepository(private val context: Context) {
 
     private val _appState = MutableStateFlow(loadInitialState())
     val appState: StateFlow<AppState> = _appState.asStateFlow()
+
+    init {
+        try {
+            ReqNotificationHelper.createNotificationChannel(context)
+            ReqNotificationHelper.updateNotification(context, _appState.value)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 
     private fun getTodayDateString(): String {
         return LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
@@ -158,6 +168,11 @@ class ChecklistRepository(private val context: Context) {
             try {
                 val jsonString = json.encodeToString(newState)
                 dataFile.writeText(jsonString)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            try {
+                ReqNotificationHelper.updateNotification(context, newState)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -388,7 +403,12 @@ class ChecklistRepository(private val context: Context) {
 
             // 各フェーズを初期化し、朝フェーズ（インデックス0）に未完了タスクを引き継ぐ
             val resetPhases = phasesAfterTargetCompletion.mapIndexed { index, p ->
-                val baseItems = p.items.filterNot { it.isDeleted }.map { it.copy(isCompleted = false, completedAt = null) }
+                val templateForPhase = current.templates.getOrNull(index)
+                val baseItems = if (templateForPhase != null && templateForPhase.items.isNotEmpty()) {
+                    templateForPhase.items.map { ChecklistItem(title = it.title, priority = it.priority) }
+                } else {
+                    p.items.filterNot { it.isDeleted }.map { it.copy(isCompleted = false, completedAt = null) }
+                }
                 val newItems = if (index == 0 && uncompletedItems.isNotEmpty()) {
                     val existingTitles = baseItems.map { it.title }.toSet()
                     val itemsToAdd = uncompletedItems.filter { it.title !in existingTitles }
@@ -519,14 +539,25 @@ class ChecklistRepository(private val context: Context) {
         }
 
         val resetPhases = current.phases.mapIndexed { index, p ->
-            val baseItems = p.items.filterNot { it.isDeleted }.map { it.copy(isCompleted = false, completedAt = null) }
-            val newItems = if (index == 0 && uncompletedItems.isNotEmpty()) {
-                val existingTitles = baseItems.map { it.title }.toSet()
+            val templateForPhase = current.templates.getOrNull(index)
+            val baseItems = if (templateForPhase != null && templateForPhase.items.isNotEmpty()) {
+                templateForPhase.items.map { ChecklistItem(title = it.title, priority = it.priority) }
+            } else {
+                p.items.filterNot { it.isDeleted }.map { it.copy(isCompleted = false, completedAt = null) }
+            }
+
+            // 明日指定タスク
+            val scheduledForTomorrow = p.items.filter { it.scheduledDate == tomorrow && !it.isDeleted }
+
+            val mergedItems = if (index == 0 && uncompletedItems.isNotEmpty()) {
+                val existingTitles = (baseItems + scheduledForTomorrow).map { it.title }.toSet()
                 val toAdd = uncompletedItems.filter { it.title !in existingTitles }
-                baseItems + toAdd
-            } else baseItems
+                baseItems + scheduledForTomorrow + toAdd
+            } else {
+                baseItems + scheduledForTomorrow
+            }
             p.copy(
-                items = newItems,
+                items = mergedItems,
                 isCompleted = false,
                 completedAt = null,
                 reviewNote = null
@@ -612,12 +643,52 @@ class ChecklistRepository(private val context: Context) {
         } else {
             current.templates + template
         }
-        persist(current.copy(templates = updatedTemplates))
+
+        val templateIndex = updatedTemplates.indexOfFirst { it.id == template.id }
+
+        // テンプレートを編集したら即座に現在いるフェーズ以降に反映
+        val updatedPhases = current.phases.mapIndexed { pIdx, phase ->
+            val isMatching = (pIdx == templateIndex) ||
+                    (phase.name.contains("朝") && template.name.contains("朝")) ||
+                    (phase.name.contains("午前") && template.name.contains("午前")) ||
+                    (phase.name.contains("午後") && template.name.contains("午後")) ||
+                    (phase.name.contains("夜") && template.name.contains("夜"))
+
+            if (isMatching && pIdx >= current.selectedPhaseIndex && !phase.isCompleted) {
+                val completedOrSpecial = phase.items.filter { it.isCompleted || it.isCarryover || it.scheduledDate != null }
+                val newTemplateItems = template.items.map { tItem ->
+                    completedOrSpecial.find { it.title == tItem.title } ?: ChecklistItem(
+                        title = tItem.title,
+                        priority = tItem.priority
+                    )
+                }
+                val templateTitles = template.items.map { it.title }.toSet()
+                val extraItems = phase.items.filter { it.title !in templateTitles && (it.isCompleted || it.isCarryover || it.scheduledDate != null) }
+                phase.copy(items = (newTemplateItems + extraItems).distinctBy { it.id })
+            } else {
+                phase
+            }
+        }
+
+        persist(current.copy(templates = updatedTemplates, phases = updatedPhases))
     }
 
     fun deleteTemplate(templateId: String) {
         val current = _appState.value
         persist(current.copy(templates = current.templates.filterNot { it.id == templateId }))
+    }
+
+    fun resetToToday() {
+        val today = getTodayDateString()
+        val current = _appState.value
+        if (current.currentDate != today) {
+            persist(current.copy(currentDate = today))
+        }
+    }
+
+    fun setShowReqNotification(enabled: Boolean) {
+        val current = _appState.value
+        persist(current.copy(settings = current.settings.copy(showReqNotification = enabled)))
     }
 
     // 設定更新

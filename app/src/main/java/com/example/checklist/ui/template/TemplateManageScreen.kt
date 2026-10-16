@@ -23,6 +23,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -242,6 +244,48 @@ fun TemplateManageScreen(
                                 letterSpacing = 0.5.sp
                             )
                         }
+
+                        // 上下並び替えボタン
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(
+                                onClick = {
+                                    if (index > 0) {
+                                        val temp = items[index]
+                                        items[index] = items[index - 1]
+                                        items[index - 1] = temp
+                                    }
+                                },
+                                enabled = index > 0,
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowUp,
+                                    contentDescription = "Move Up",
+                                    tint = if (index > 0) TextSecondary else BorderSubtle,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            IconButton(
+                                onClick = {
+                                    if (index < items.size - 1) {
+                                        val temp = items[index]
+                                        items[index] = items[index + 1]
+                                        items[index + 1] = temp
+                                    }
+                                },
+                                enabled = index < items.size - 1,
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowDown,
+                                    contentDescription = "Move Down",
+                                    tint = if (index < items.size - 1) TextSecondary else BorderSubtle,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(4.dp))
 
                         IconButton(
                             onClick = { items.removeAt(index) },

@@ -20,3 +20,6 @@ data object PrivacyPolicyNavKey : NavKey
 
 @Serializable
 data class TemplateEditorNavKey(val templateId: String? = null) : NavKey
+
+@Serializable
+data object UserGuideNavKey : NavKey

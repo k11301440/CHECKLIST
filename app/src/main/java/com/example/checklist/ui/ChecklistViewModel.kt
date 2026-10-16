@@ -145,4 +145,12 @@ class ChecklistViewModel(application: Application) : AndroidViewModel(applicatio
     fun updatePhaseScheduleTime(phaseIndex: Int, startHour: Int, startMinute: Int) {
         repository.updatePhaseScheduleTime(phaseIndex, startHour, startMinute)
     }
+
+    fun resetToToday() {
+        repository.resetToToday()
+    }
+
+    fun setShowReqNotification(enabled: Boolean) {
+        repository.setShowReqNotification(enabled)
+    }
 }

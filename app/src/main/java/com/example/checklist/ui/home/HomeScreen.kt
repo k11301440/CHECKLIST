@@ -68,12 +68,23 @@ fun HomeScreen(
 ) {
     var showResetAllDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
 
+    val isActualToday = remember(state.currentDate) {
+        val todayStr = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+        state.currentDate.isEmpty() || state.currentDate == todayStr
+    }
+
     val todayFormatted = remember(state.currentDate) {
         runCatching {
             LocalDate.parse(state.currentDate).format(DateTimeFormatter.ofPattern("yyyy.MM.dd EEEE", Locale.ENGLISH)).uppercase()
         }.getOrElse {
             LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy.MM.dd EEEE", Locale.ENGLISH)).uppercase()
         }
+    }
+
+    val headerDateText = if (isActualToday) {
+        "$todayFormatted // TODAY"
+    } else {
+        todayFormatted
     }
 
     Column(
@@ -142,13 +153,27 @@ fun HomeScreen(
         Spacer(modifier = Modifier.height(20.dp))
 
         // Date Display & Title
-        Text(
-            text = "$todayFormatted // TODAY",
-            color = TextSecondary,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.5.sp
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = headerDateText,
+                color = TextSecondary,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.5.sp
+            )
+
+            if (!isActualToday) {
+                com.example.checklist.ui.components.SpaceXTextButton(
+                    text = "TODAYに戻る",
+                    onClick = { viewModel.resetToToday() },
+                    prominent = true
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(2.dp))
 

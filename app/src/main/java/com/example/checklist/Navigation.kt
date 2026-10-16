@@ -14,6 +14,7 @@ import androidx.navigation3.ui.NavDisplay
 import com.example.checklist.theme.SpaceBlack
 import com.example.checklist.ui.ChecklistViewModel
 import com.example.checklist.ui.calendar.CalendarScreen
+import com.example.checklist.ui.guide.UserGuideScreen
 import com.example.checklist.ui.home.HomeScreen
 import com.example.checklist.ui.phase.PhaseScreen
 import com.example.checklist.ui.policy.PrivacyPolicyScreen
@@ -81,6 +82,14 @@ fun MainNavigation(
                         backStack.add(TemplateEditorNavKey(templateId))
                     },
                     onNavigatePrivacyPolicy = { backStack.add(PrivacyPolicyNavKey) },
+                    onNavigateUserGuide = { backStack.add(UserGuideNavKey) },
+                    modifier = Modifier.safeDrawingPadding()
+                )
+            }
+
+            entry<UserGuideNavKey> {
+                UserGuideScreen(
+                    onBack = { backStack.removeLastOrNull() },
                     modifier = Modifier.safeDrawingPadding()
                 )
             }

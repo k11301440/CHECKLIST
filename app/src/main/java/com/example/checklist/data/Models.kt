@@ -98,6 +98,7 @@ data class AppSettings(
     val carryoverUnfinishedReq: Boolean = true,
     val carryoverUnfinishedNorm: Boolean = false,
     val confirmReviewOnAdvance: Boolean = true,
+    val showReqNotification: Boolean = false,
     val phaseSchedules: List<PhaseSchedule> = listOf(
         PhaseSchedule(0, "朝", 6, 0),
         PhaseSchedule(1, "午前", 9, 0),
