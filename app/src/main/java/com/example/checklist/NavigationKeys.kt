@@ -13,4 +13,10 @@ data object HomeNavKey : NavKey
 data object SettingsNavKey : NavKey
 
 @Serializable
+data object CalendarNavKey : NavKey
+
+@Serializable
+data object PrivacyPolicyNavKey : NavKey
+
+@Serializable
 data class TemplateEditorNavKey(val templateId: String? = null) : NavKey

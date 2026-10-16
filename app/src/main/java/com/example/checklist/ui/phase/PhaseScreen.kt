@@ -28,6 +28,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
@@ -63,17 +64,22 @@ import com.example.checklist.data.Priority
 import com.example.checklist.theme.BorderProminent
 import com.example.checklist.theme.BorderSubtle
 import com.example.checklist.theme.SpaceBlack
+import com.example.checklist.theme.SpaceXLineBreak
 import com.example.checklist.theme.SurfaceDark
 import com.example.checklist.theme.SurfaceElevated
 import com.example.checklist.theme.TextDisabled
 import com.example.checklist.theme.TextPrimary
 import com.example.checklist.theme.TextSecondary
 import com.example.checklist.theme.TextTertiary
+import com.example.checklist.theme.formatTaskText
 import com.example.checklist.ui.ChecklistViewModel
 import com.example.checklist.ui.components.SpaceXButton
 import com.example.checklist.ui.components.SpaceXCheckbox
 import com.example.checklist.ui.components.SpaceXDivider
 import com.example.checklist.ui.components.SpaceXTextButton
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -82,6 +88,7 @@ fun PhaseScreen(
     viewModel: ChecklistViewModel,
     onNavigateHome: () -> Unit,
     onNavigateSettings: () -> Unit,
+    onNavigateCalendar: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     if (state.phases.isEmpty()) {
@@ -176,8 +183,20 @@ fun PhaseScreen(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // Right icons (Home / Menu)
+            // Right icons (Calendar / Home / Menu)
             Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = onNavigateCalendar,
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = "Flight Calendar",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
                 IconButton(
                     onClick = onNavigateHome,
                     modifier = Modifier.size(34.dp)
@@ -219,6 +238,13 @@ fun PhaseScreen(
                                 }
                             )
                         }
+                        DropdownMenuItem(
+                            text = { Text("カレンダー・履歴一覧", color = TextPrimary, fontSize = 13.sp) },
+                            onClick = {
+                                showMenu = false
+                                onNavigateCalendar()
+                            }
+                        )
                         DropdownMenuItem(
                             text = { Text("4フェーズ構成 (朝/午前/午後/夜) に初期化", color = TextPrimary, fontSize = 13.sp) },
                             onClick = {
@@ -263,6 +289,10 @@ fun PhaseScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
+        val todayStr = remember {
+            LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy.MM.dd EEE", Locale.ENGLISH)).uppercase()
+        }
+
         // PHASE STATUS HEADER
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -270,6 +300,14 @@ fun PhaseScreen(
             verticalAlignment = Alignment.Bottom
         ) {
             Column {
+                Text(
+                    text = "$todayStr // PHASE 0${selectedIndex + 1}",
+                    color = TextSecondary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.2.sp
+                )
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = currentPhase.name.uppercase(),
                     color = TextPrimary,
@@ -504,10 +542,11 @@ fun PhaseScreen(
         }
 
         // BOTTOM ACTION: Minimal Complete Button
-        val buttonLabel = if (currentPhase.isCompleted) {
-            "PHASE COMPLETED // RE-EVALUATE"
-        } else {
-            "COMPLETE PHASE"
+        val isLastPhase = selectedIndex >= state.phases.size - 1
+        val buttonLabel = when {
+            isLastPhase -> "COMPLETE DAY // ADVANCE TO MORNING"
+            currentPhase.isCompleted -> "PHASE COMPLETED // RE-EVALUATE"
+            else -> "COMPLETE PHASE // ADVANCE"
         }
 
         SpaceXButton(
@@ -615,8 +654,18 @@ fun ChecklistItemRow(
 
             // Title
             Column(modifier = Modifier.weight(1f)) {
+                if (item.isCarryover) {
+                    Text(
+                        text = "CARRYOVER // FROM ${item.sourcePhaseName ?: "REQ"}",
+                        color = TextSecondary,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(modifier = Modifier.height(1.dp))
+                }
                 Text(
-                    text = item.title,
+                    text = formatTaskText(item.title),
                     color = when {
                         isCompleted -> TextTertiary
                         isCritical -> TextPrimary
@@ -625,7 +674,8 @@ fun ChecklistItemRow(
                     fontSize = if (isCritical) 14.sp else 13.5.sp,
                     fontWeight = if (isCritical) FontWeight.Bold else FontWeight.Normal,
                     textDecoration = if (isCompleted) TextDecoration.LineThrough else null,
-                    letterSpacing = 0.3.sp
+                    letterSpacing = 0.3.sp,
+                    style = TextStyle(lineBreak = SpaceXLineBreak)
                 )
                 if (isCompleted) {
                     Text(

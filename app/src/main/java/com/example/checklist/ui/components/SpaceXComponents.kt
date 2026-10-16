@@ -4,7 +4,9 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -156,4 +158,43 @@ fun SpaceXDivider(
             .height(thickness)
             .background(color)
     )
+}
+
+// SpaceX Minimal Top Bar
+@Composable
+fun SpaceXTopBar(
+    title: String,
+    modifier: Modifier = Modifier,
+    navigationIcon: (@Composable () -> Unit)? = null,
+    actions: (@Composable () -> Unit)? = null
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (navigationIcon != null) {
+                    navigationIcon()
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
+                Text(
+                    text = title,
+                    color = TextPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.2.sp
+                )
+            }
+            if (actions != null) {
+                actions()
+            } else {
+                Spacer(modifier = Modifier.size(36.dp))
+            }
+        }
+        SpaceXDivider()
+    }
 }

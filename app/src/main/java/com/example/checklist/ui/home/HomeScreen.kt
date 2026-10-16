@@ -15,19 +15,23 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,6 +49,9 @@ import com.example.checklist.theme.TextTertiary
 import com.example.checklist.ui.ChecklistViewModel
 import com.example.checklist.ui.components.SpaceXButton
 import com.example.checklist.ui.components.SpaceXDivider
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -54,8 +61,13 @@ fun HomeScreen(
     onSelectPhase: (Int) -> Unit,
     onNavigateSettings: () -> Unit,
     onBack: () -> Unit,
+    onNavigateCalendar: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val todayFormatted = remember {
+        LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy.MM.dd EEEE", Locale.ENGLISH)).uppercase()
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -75,7 +87,7 @@ fun HomeScreen(
                 modifier = Modifier.size(36.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.ArrowBack,
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
                     tint = TextSecondary,
                     modifier = Modifier.size(20.dp)
@@ -90,22 +102,47 @@ fun HomeScreen(
                 letterSpacing = 2.sp
             )
 
-            IconButton(
-                onClick = onNavigateSettings,
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Settings",
-                    tint = TextSecondary,
-                    modifier = Modifier.size(20.dp)
-                )
+            Row {
+                IconButton(
+                    onClick = onNavigateCalendar,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = "Calendar",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = onNavigateSettings,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
 
         SpaceXDivider()
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Date Display & Title
+        Text(
+            text = "$todayFormatted // TODAY",
+            color = TextSecondary,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.5.sp
+        )
+
+        Spacer(modifier = Modifier.height(2.dp))
 
         Text(
             text = "DAILY TIMELINE",
@@ -122,7 +159,7 @@ fun HomeScreen(
             letterSpacing = 1.2.sp
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         // PHASE CARDS
         LazyColumn(
@@ -139,122 +176,156 @@ fun HomeScreen(
                 val normalDone = phase.items.count { it.priority == Priority.NORMAL && it.isCompleted }
 
                 val isCompleted = phase.isCompleted
+                val isSelected = index == state.selectedPhaseIndex
 
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .border(
-                            width = 1.dp,
-                            color = if (isCompleted) BorderProminent else TextPrimary,
+                            width = if (isSelected) 2.dp else 1.dp,
+                            color = if (isSelected) TextPrimary else BorderProminent,
                             shape = RoundedCornerShape(2.dp)
                         )
-                        .background(if (isCompleted) SurfaceDark else SurfaceElevated)
+                        .background(if (isSelected) SurfaceElevated else SurfaceDark)
                         .combinedClickable(
                             onClick = {
                                 viewModel.selectPhase(index)
                                 onSelectPhase(index)
                             }
                         )
-                        .padding(20.dp)
+                        .padding(18.dp)
                 ) {
                     Column {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.Top
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
-                                Text(
-                                    text = "PHASE $phaseNumber",
-                                    color = TextSecondary,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.5.sp
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = phase.name.uppercase(),
-                                    color = TextPrimary,
-                                    fontSize = 24.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.sp
-                                )
-                            }
-
+                            Text(
+                                text = "PHASE $phaseNumber",
+                                color = TextSecondary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.5.sp
+                            )
                             if (isCompleted) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier
-                                        .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                                ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
                                         imageVector = Icons.Default.Check,
                                         contentDescription = "Completed",
-                                        tint = TextSecondary,
-                                        modifier = Modifier.size(12.dp)
+                                        tint = TextPrimary,
+                                        modifier = Modifier.size(14.dp)
                                     )
-                                    Spacer(modifier = Modifier.size(4.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text(
                                         text = "DONE",
-                                        color = TextSecondary,
-                                        fontSize = 10.sp,
+                                        color = TextPrimary,
+                                        fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         letterSpacing = 1.sp
                                     )
                                 }
+                            } else if (isSelected) {
+                                Text(
+                                    text = "ACTIVE",
+                                    color = TextPrimary,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.sp,
+                                    modifier = Modifier
+                                        .border(1.dp, TextPrimary, RoundedCornerShape(2.dp))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
-                        SpaceXDivider(color = BorderSubtle)
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                        // Progress details
+                        Text(
+                            text = phase.name,
+                            color = TextPrimary,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(14.dp))
+                        SpaceXDivider()
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Counts breakdown
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "REQ: $requiredDone / $requiredTotal",
-                                color = if (requiredDone == requiredTotal && requiredTotal > 0) TextSecondary else TextPrimary,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                letterSpacing = 1.sp
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "REQ: ",
+                                    color = TextSecondary,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.sp
+                                )
+                                Text(
+                                    text = "$requiredDone / $requiredTotal",
+                                    color = if (requiredTotal > 0 && requiredDone == requiredTotal) TextPrimary else TextSecondary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.SansSerif
+                                )
+                            }
 
-                            Text(
-                                text = "NORM: $normalDone / $normalTotal",
-                                color = TextSecondary,
-                                fontSize = 12.sp,
-                                letterSpacing = 1.sp
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "NORM: ",
+                                    color = TextTertiary,
+                                    fontSize = 11.sp,
+                                    letterSpacing = 1.sp
+                                )
+                                Text(
+                                    text = "$normalDone / $normalTotal",
+                                    color = TextTertiary,
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.SansSerif
+                                )
+                            }
                         }
 
-                        if (!phase.reviewNote.isNullOrBlank()) {
+                        if (phase.reviewNote != null) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "LOG: ${phase.reviewNote}",
+                                text = "NOTE: ${phase.reviewNote}",
                                 color = TextSecondary,
                                 fontSize = 11.sp,
-                                letterSpacing = 0.5.sp
+                                lineHeight = 15.sp
                             )
                         }
                     }
                 }
             }
+
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    SpaceXButton(
+                        text = "RESET ALL PHASES",
+                        onClick = { viewModel.resetAllPhases() },
+                        prominent = false,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SpaceXButton(
+                        text = "ADVANCE TO NEXT DAY",
+                        onClick = { viewModel.advanceToNextDay() },
+                        prominent = false,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
         }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // RESET ALL PHASES BUTTON (For daily checklist restart)
-        SpaceXButton(
-            text = "RESET ALL PHASES // NEW DAY",
-            onClick = { viewModel.resetAllPhases() },
-            prominent = false,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp)
-        )
     }
 }

@@ -5,8 +5,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.checklist.data.AppState
 import com.example.checklist.data.ChecklistRepository
+import com.example.checklist.data.PhaseSchedule
 import com.example.checklist.data.PhaseTemplate
 import com.example.checklist.data.Priority
+import com.example.checklist.data.ThemeMode
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -19,6 +21,11 @@ class ChecklistViewModel(application: Application) : AndroidViewModel(applicatio
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = repository.appState.value
     )
+
+    init {
+        // 起動時に時間ベースのフェーズチェック
+        repository.checkAndAdvanceByTime()
+    }
 
     fun selectPhase(index: Int) {
         repository.selectPhase(index)
@@ -58,6 +65,14 @@ class ChecklistViewModel(application: Application) : AndroidViewModel(applicatio
         repository.completePhase(phaseId, hadIssue, note)
     }
 
+    fun advanceToNextDay() {
+        repository.advanceToNextDay()
+    }
+
+    fun checkAndAdvanceByTime() {
+        repository.checkAndAdvanceByTime()
+    }
+
     fun resetPhase(phaseId: String) {
         repository.resetPhase(phaseId)
     }
@@ -92,5 +107,22 @@ class ChecklistViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun deleteTemplate(templateId: String) {
         repository.deleteTemplate(templateId)
+    }
+
+    // 設定関連
+    fun setThemeMode(mode: ThemeMode) {
+        repository.setThemeMode(mode)
+    }
+
+    fun setAutoAdvanceByTime(enabled: Boolean) {
+        repository.setAutoAdvanceByTime(enabled)
+    }
+
+    fun setCarryoverUnfinishedReq(enabled: Boolean) {
+        repository.setCarryoverUnfinishedReq(enabled)
+    }
+
+    fun updatePhaseSchedules(schedules: List<PhaseSchedule>) {
+        repository.updatePhaseSchedules(schedules)
     }
 }

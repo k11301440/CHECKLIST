@@ -13,8 +13,10 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.example.checklist.theme.SpaceBlack
 import com.example.checklist.ui.ChecklistViewModel
+import com.example.checklist.ui.calendar.CalendarScreen
 import com.example.checklist.ui.home.HomeScreen
 import com.example.checklist.ui.phase.PhaseScreen
+import com.example.checklist.ui.policy.PrivacyPolicyScreen
 import com.example.checklist.ui.settings.SettingsScreen
 import com.example.checklist.ui.template.TemplateManageScreen
 
@@ -42,6 +44,7 @@ fun MainNavigation(
                     viewModel = viewModel,
                     onNavigateHome = { backStack.add(HomeNavKey) },
                     onNavigateSettings = { backStack.add(SettingsNavKey) },
+                    onNavigateCalendar = { backStack.add(CalendarNavKey) },
                     modifier = Modifier.safeDrawingPadding()
                 )
             }
@@ -54,6 +57,16 @@ fun MainNavigation(
                         backStack.removeLastOrNull()
                     },
                     onNavigateSettings = { backStack.add(SettingsNavKey) },
+                    onNavigateCalendar = { backStack.add(CalendarNavKey) },
+                    onBack = { backStack.removeLastOrNull() },
+                    modifier = Modifier.safeDrawingPadding()
+                )
+            }
+
+            entry<CalendarNavKey> {
+                CalendarScreen(
+                    state = state,
+                    viewModel = viewModel,
                     onBack = { backStack.removeLastOrNull() },
                     modifier = Modifier.safeDrawingPadding()
                 )
@@ -67,6 +80,14 @@ fun MainNavigation(
                     onOpenTemplateEditor = { templateId ->
                         backStack.add(TemplateEditorNavKey(templateId))
                     },
+                    onNavigatePrivacyPolicy = { backStack.add(PrivacyPolicyNavKey) },
+                    modifier = Modifier.safeDrawingPadding()
+                )
+            }
+
+            entry<PrivacyPolicyNavKey> {
+                PrivacyPolicyScreen(
+                    onBack = { backStack.removeLastOrNull() },
                     modifier = Modifier.safeDrawingPadding()
                 )
             }
