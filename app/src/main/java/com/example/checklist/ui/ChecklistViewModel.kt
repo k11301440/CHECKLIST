@@ -41,12 +41,20 @@ class ChecklistViewModel(application: Application) : AndroidViewModel(applicatio
         repository.undoItem(phaseId, itemId)
     }
 
-    fun addItem(phaseId: String, title: String, priority: Priority) {
-        repository.addItem(phaseId, title, priority)
+    fun addItem(phaseId: String, title: String, priority: Priority, scheduledDate: String? = null) {
+        repository.addItem(phaseId, title, priority, scheduledDate)
     }
 
     fun removeItem(phaseId: String, itemId: String) {
         repository.removeItem(phaseId, itemId)
+    }
+
+    fun restoreItem(phaseId: String, itemId: String) {
+        repository.restoreItem(phaseId, itemId)
+    }
+
+    fun reorderItems(phaseId: String, fromIndex: Int, toIndex: Int) {
+        repository.reorderItems(phaseId, fromIndex, toIndex)
     }
 
     fun addPhase(name: String): Boolean {
@@ -122,7 +130,19 @@ class ChecklistViewModel(application: Application) : AndroidViewModel(applicatio
         repository.setCarryoverUnfinishedReq(enabled)
     }
 
+    fun setCarryoverUnfinishedNorm(enabled: Boolean) {
+        repository.setCarryoverUnfinishedNorm(enabled)
+    }
+
+    fun setConfirmReviewOnAdvance(enabled: Boolean) {
+        repository.setConfirmReviewOnAdvance(enabled)
+    }
+
     fun updatePhaseSchedules(schedules: List<PhaseSchedule>) {
         repository.updatePhaseSchedules(schedules)
+    }
+
+    fun updatePhaseScheduleTime(phaseIndex: Int, startHour: Int, startMinute: Int) {
+        repository.updatePhaseScheduleTime(phaseIndex, startHour, startMinute)
     }
 }

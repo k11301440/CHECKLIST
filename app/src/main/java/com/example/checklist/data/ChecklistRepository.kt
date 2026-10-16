@@ -201,11 +201,15 @@ class ChecklistRepository(private val context: Context) {
         persist(current.copy(phases = updatedPhases))
     }
 
-    fun addItem(phaseId: String, title: String, priority: Priority) {
+    fun addItem(phaseId: String, title: String, priority: Priority, scheduledDate: String? = null) {
         val trimmed = title.trim()
         if (trimmed.isEmpty()) return
         val current = _appState.value
-        val newItem = ChecklistItem(title = trimmed, priority = priority)
+        val newItem = ChecklistItem(
+            title = trimmed,
+            priority = priority,
+            scheduledDate = scheduledDate
+        )
         val updatedPhases = current.phases.map { phase ->
             if (phase.id == phaseId) {
                 phase.copy(items = phase.items + newItem)
@@ -231,11 +235,49 @@ class ChecklistRepository(private val context: Context) {
         persist(current.copy(phases = updatedPhases))
     }
 
+    // 誤破棄防止のため即時削除ではなく保管（isDeleted = true）
     fun removeItem(phaseId: String, itemId: String) {
         val current = _appState.value
         val updatedPhases = current.phases.map { phase ->
             if (phase.id == phaseId) {
-                phase.copy(items = phase.items.filterNot { it.id == itemId })
+                val updatedItems = phase.items.map { item ->
+                    if (item.id == itemId) {
+                        item.copy(isDeleted = true)
+                    } else item
+                }
+                phase.copy(items = updatedItems)
+            } else phase
+        }
+        persist(current.copy(phases = updatedPhases))
+    }
+
+    // 削除されたアイテムを復元
+    fun restoreItem(phaseId: String, itemId: String) {
+        val current = _appState.value
+        val updatedPhases = current.phases.map { phase ->
+            if (phase.id == phaseId) {
+                val updatedItems = phase.items.map { item ->
+                    if (item.id == itemId) {
+                        item.copy(isDeleted = false)
+                    } else item
+                }
+                phase.copy(items = updatedItems)
+            } else phase
+        }
+        persist(current.copy(phases = updatedPhases))
+    }
+
+    // アイテムの並び替え
+    fun reorderItems(phaseId: String, fromIndex: Int, toIndex: Int) {
+        val current = _appState.value
+        val updatedPhases = current.phases.map { phase ->
+            if (phase.id == phaseId) {
+                val list = phase.items.toMutableList()
+                if (fromIndex in list.indices && toIndex in list.indices) {
+                    val item = list.removeAt(fromIndex)
+                    list.add(toIndex, item)
+                }
+                phase.copy(items = list)
             } else phase
         }
         persist(current.copy(phases = updatedPhases))
@@ -245,7 +287,7 @@ class ChecklistRepository(private val context: Context) {
         val current = _appState.value
         val updatedPhases = current.phases.map { phase ->
             if (phase.id == phaseId) {
-                phase.copy(items = phase.items.filterNot { it.isCompleted })
+                phase.copy(items = phase.items.filterNot { it.isCompleted || it.isDeleted })
             } else phase
         }
         persist(current.copy(phases = updatedPhases))
@@ -281,14 +323,14 @@ class ChecklistRepository(private val context: Context) {
     }
 
     // 振り返りとフェーズ完了
-    // 夜フェーズの場合は翌朝へ進み、未完了REQタスクは持ち越し
+    // 夜フェーズの場合は翌朝へ進み、未完了タスク（REQ / NORM設定連動）は持ち越し
     fun completePhase(phaseId: String, hadIssue: Boolean, note: String?) {
         val current = _appState.value
         val targetPhaseIndex = current.phases.indexOfFirst { it.id == phaseId }
         if (targetPhaseIndex < 0) return
         val targetPhase = current.phases[targetPhaseIndex]
 
-        val today = getTodayDateString()
+        val today = current.currentDate.ifEmpty { getTodayDateString() }
         val newLog = ReviewLog(
             timestamp = System.currentTimeMillis(),
             phaseName = targetPhase.name,
@@ -297,28 +339,40 @@ class ChecklistRepository(private val context: Context) {
             dateString = today
         )
 
-        // 対象フェーズを完了マーク
+        // 対象フェーズを完了マーク（削除済みアイテムは除外・整理）
         val updatedPhase = targetPhase.copy(
             isCompleted = true,
             completedAt = System.currentTimeMillis(),
-            reviewNote = newLog.note
+            reviewNote = newLog.note,
+            items = targetPhase.items.filterNot { it.isDeleted }
         )
 
         val phasesAfterTargetCompletion = current.phases.toMutableList().apply {
             set(targetPhaseIndex, updatedPhase)
         }
 
-        // 未完了のREQUIREDタスクを取得
-        val uncompletedReqItems = if (current.settings.carryoverUnfinishedReq) {
-            targetPhase.items.filter { it.priority == Priority.REQUIRED && !it.isCompleted }.map {
-                it.copy(
-                    isCarryover = true,
-                    sourcePhaseName = targetPhase.name
-                )
-            }
-        } else {
-            emptyList()
+        // 未完了タスクの引き継ぎリスト（REQ / NORM）
+        val uncompletedItems = mutableListOf<ChecklistItem>()
+        if (current.settings.carryoverUnfinishedReq) {
+            uncompletedItems.addAll(
+                targetPhase.items.filter { it.priority == Priority.REQUIRED && !it.isCompleted && !it.isDeleted }.map {
+                    it.copy(isCarryover = true, sourcePhaseName = targetPhase.name)
+                }
+            )
         }
+        if (current.settings.carryoverUnfinishedNorm) {
+            uncompletedItems.addAll(
+                targetPhase.items.filter { it.priority == Priority.NORMAL && !it.isCompleted && !it.isDeleted }.map {
+                    it.copy(isCarryover = true, sourcePhaseName = targetPhase.name)
+                }
+            )
+        }
+
+        // 同一日・同一フェーズの既存ログを重複排除して最新1件に更新
+        val cleanedLogs = current.reviewLogs.filterNot {
+            it.dateString == today && it.phaseName == targetPhase.name
+        }
+        val updatedReviewLogs = listOf(newLog) + cleanedLogs
 
         // 最後のフェーズ（夜）かどうか
         val isLastPhase = targetPhaseIndex >= current.phases.size - 1
@@ -329,15 +383,15 @@ class ChecklistRepository(private val context: Context) {
             val updatedDailyRecords = current.dailyRecords + (today to dailyRecord)
 
             // 翌日（今日+1日）へ日付更新
-            val tomorrow = LocalDate.now().plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE)
+            val baseDate = runCatching { LocalDate.parse(today) }.getOrElse { LocalDate.now() }
+            val tomorrow = baseDate.plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE)
 
-            // 各フェーズを初期化し、朝フェーズ（インデックス0）に未完了REQタスクを引き継ぐ
+            // 各フェーズを初期化し、朝フェーズ（インデックス0）に未完了タスクを引き継ぐ
             val resetPhases = phasesAfterTargetCompletion.mapIndexed { index, p ->
-                val baseItems = p.items.map { it.copy(isCompleted = false, completedAt = null) }
-                val newItems = if (index == 0 && uncompletedReqItems.isNotEmpty()) {
-                    // 朝フェーズに引き継ぎアイテムを追加（重複防止）
+                val baseItems = p.items.filterNot { it.isDeleted }.map { it.copy(isCompleted = false, completedAt = null) }
+                val newItems = if (index == 0 && uncompletedItems.isNotEmpty()) {
                     val existingTitles = baseItems.map { it.title }.toSet()
-                    val itemsToAdd = uncompletedReqItems.filter { it.title !in existingTitles }
+                    val itemsToAdd = uncompletedItems.filter { it.title !in existingTitles }
                     baseItems + itemsToAdd
                 } else {
                     baseItems
@@ -355,18 +409,18 @@ class ChecklistRepository(private val context: Context) {
                     currentDate = tomorrow,
                     phases = resetPhases,
                     selectedPhaseIndex = 0,
-                    reviewLogs = listOf(newLog) + current.reviewLogs,
+                    reviewLogs = updatedReviewLogs,
                     dailyRecords = updatedDailyRecords
                 )
             )
         } else {
-            // 通常のフェーズ完了 -> 次のフェーズへ進み、未完了REQを次のフェーズへキャリーオーバー
+            // 通常のフェーズ完了 -> 次のフェーズへ進み、未完了タスクを次のフェーズへキャリーオーバー
             val nextIndex = targetPhaseIndex + 1
             val nextPhase = phasesAfterTargetCompletion[nextIndex]
 
-            val nextPhaseItems = if (uncompletedReqItems.isNotEmpty()) {
+            val nextPhaseItems = if (uncompletedItems.isNotEmpty()) {
                 val existingTitles = nextPhase.items.map { it.title }.toSet()
-                val itemsToAdd = uncompletedReqItems.filter { it.title !in existingTitles }
+                val itemsToAdd = uncompletedItems.filter { it.title !in existingTitles }
                 nextPhase.items + itemsToAdd
             } else {
                 nextPhase.items
@@ -378,23 +432,24 @@ class ChecklistRepository(private val context: Context) {
                 current.copy(
                     phases = phasesAfterTargetCompletion,
                     selectedPhaseIndex = nextIndex,
-                    reviewLogs = listOf(newLog) + current.reviewLogs
+                    reviewLogs = updatedReviewLogs
                 )
             )
         }
     }
 
     private fun createDailyRecord(date: String, phases: List<Phase>): DailyRecord {
-        val totalItems = phases.sumOf { it.items.size }
-        val completedItems = phases.sumOf { p -> p.items.count { it.isCompleted } }
-        val reqPending = phases.sumOf { p -> p.items.count { it.priority == Priority.REQUIRED && !it.isCompleted } }
+        val totalItems = phases.sumOf { it.items.count { item -> !item.isDeleted } }
+        val completedItems = phases.sumOf { p -> p.items.count { it.isCompleted && !it.isDeleted } }
+        val reqPending = phases.sumOf { p -> p.items.count { it.priority == Priority.REQUIRED && !it.isCompleted && !it.isDeleted } }
 
         val summaries = phases.map { p ->
+            val validItems = p.items.filterNot { it.isDeleted }
             PhaseDailySummary(
                 phaseName = p.name,
                 isCompleted = p.isCompleted,
-                completedCount = p.items.count { it.isCompleted },
-                totalCount = p.items.size,
+                completedCount = validItems.count { it.isCompleted },
+                totalCount = validItems.size,
                 reviewNote = p.reviewNote,
                 hadIssue = p.reviewNote != null
             )
@@ -439,22 +494,35 @@ class ChecklistRepository(private val context: Context) {
         val dailyRecord = createDailyRecord(today, current.phases)
         val updatedDailyRecords = current.dailyRecords + (today to dailyRecord)
 
-        val tomorrow = LocalDate.now().plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE)
+        val baseDate = runCatching { LocalDate.parse(today) }.getOrElse { LocalDate.now() }
+        val tomorrow = baseDate.plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE)
 
-        // 未完了REQタスクを取得
-        val uncompletedReq = if (current.settings.carryoverUnfinishedReq) {
-            current.phases.flatMap { p ->
-                p.items.filter { it.priority == Priority.REQUIRED && !it.isCompleted }.map {
-                    it.copy(isCarryover = true, sourcePhaseName = p.name)
+        // 未完了タスクを取得（REQ / NORM）
+        val uncompletedItems = mutableListOf<ChecklistItem>()
+        if (current.settings.carryoverUnfinishedReq) {
+            uncompletedItems.addAll(
+                current.phases.flatMap { p ->
+                    p.items.filter { it.priority == Priority.REQUIRED && !it.isCompleted && !it.isDeleted }.map {
+                        it.copy(isCarryover = true, sourcePhaseName = p.name)
+                    }
                 }
-            }
-        } else emptyList()
+            )
+        }
+        if (current.settings.carryoverUnfinishedNorm) {
+            uncompletedItems.addAll(
+                current.phases.flatMap { p ->
+                    p.items.filter { it.priority == Priority.NORMAL && !it.isCompleted && !it.isDeleted }.map {
+                        it.copy(isCarryover = true, sourcePhaseName = p.name)
+                    }
+                }
+            )
+        }
 
         val resetPhases = current.phases.mapIndexed { index, p ->
-            val baseItems = p.items.map { it.copy(isCompleted = false, completedAt = null) }
-            val newItems = if (index == 0 && uncompletedReq.isNotEmpty()) {
+            val baseItems = p.items.filterNot { it.isDeleted }.map { it.copy(isCompleted = false, completedAt = null) }
+            val newItems = if (index == 0 && uncompletedItems.isNotEmpty()) {
                 val existingTitles = baseItems.map { it.title }.toSet()
-                val toAdd = uncompletedReq.filter { it.title !in existingTitles }
+                val toAdd = uncompletedItems.filter { it.title !in existingTitles }
                 baseItems + toAdd
             } else baseItems
             p.copy(
@@ -483,7 +551,7 @@ class ChecklistRepository(private val context: Context) {
                     isCompleted = false,
                     completedAt = null,
                     reviewNote = null,
-                    items = phase.items.map { it.copy(isCompleted = false, completedAt = null) }
+                    items = phase.items.filterNot { it.isDeleted }.map { it.copy(isCompleted = false, completedAt = null) }
                 )
             } else phase
         }
@@ -497,7 +565,7 @@ class ChecklistRepository(private val context: Context) {
                 isCompleted = false,
                 completedAt = null,
                 reviewNote = null,
-                items = phase.items.map { it.copy(isCompleted = false, completedAt = null) }
+                items = phase.items.filterNot { it.isDeleted }.map { it.copy(isCompleted = false, completedAt = null) }
             )
         }
         persist(current.copy(phases = updatedPhases, selectedPhaseIndex = 0))
@@ -529,7 +597,7 @@ class ChecklistRepository(private val context: Context) {
         val current = _appState.value
         val phase = current.phases.find { it.id == phaseId } ?: return
 
-        val templateItems = phase.items.map {
+        val templateItems = phase.items.filterNot { it.isDeleted }.map {
             TemplateItem(title = it.title, priority = it.priority)
         }
         val newTemplate = PhaseTemplate(name = trimmed, items = templateItems)
@@ -568,8 +636,26 @@ class ChecklistRepository(private val context: Context) {
         persist(current.copy(settings = current.settings.copy(carryoverUnfinishedReq = enabled)))
     }
 
+    fun setCarryoverUnfinishedNorm(enabled: Boolean) {
+        val current = _appState.value
+        persist(current.copy(settings = current.settings.copy(carryoverUnfinishedNorm = enabled)))
+    }
+
+    fun setConfirmReviewOnAdvance(enabled: Boolean) {
+        val current = _appState.value
+        persist(current.copy(settings = current.settings.copy(confirmReviewOnAdvance = enabled)))
+    }
+
     fun updatePhaseSchedules(schedules: List<PhaseSchedule>) {
         val current = _appState.value
         persist(current.copy(settings = current.settings.copy(phaseSchedules = schedules)))
+    }
+
+    fun updatePhaseScheduleTime(phaseIndex: Int, startHour: Int, startMinute: Int) {
+        val current = _appState.value
+        val updated = current.settings.phaseSchedules.map { s ->
+            if (s.phaseIndex == phaseIndex) s.copy(startHour = startHour, startMinute = startMinute) else s
+        }
+        persist(current.copy(settings = current.settings.copy(phaseSchedules = updated)))
     }
 }

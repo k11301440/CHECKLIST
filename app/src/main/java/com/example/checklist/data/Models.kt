@@ -24,7 +24,9 @@ data class ChecklistItem(
     val isCompleted: Boolean = false,
     val completedAt: Long? = null,
     val isCarryover: Boolean = false,
-    val sourcePhaseName: String? = null
+    val sourcePhaseName: String? = null,
+    val isDeleted: Boolean = false,
+    val scheduledDate: String? = null
 )
 
 @Serializable
@@ -94,6 +96,8 @@ data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.SPACE_BLACK,
     val autoAdvanceByTime: Boolean = true,
     val carryoverUnfinishedReq: Boolean = true,
+    val carryoverUnfinishedNorm: Boolean = false,
+    val confirmReviewOnAdvance: Boolean = true,
     val phaseSchedules: List<PhaseSchedule> = listOf(
         PhaseSchedule(0, "朝", 6, 0),
         PhaseSchedule(1, "午前", 9, 0),

@@ -28,7 +28,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -64,8 +66,14 @@ fun HomeScreen(
     onNavigateCalendar: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val todayFormatted = remember {
-        LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy.MM.dd EEEE", Locale.ENGLISH)).uppercase()
+    var showResetAllDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+
+    val todayFormatted = remember(state.currentDate) {
+        runCatching {
+            LocalDate.parse(state.currentDate).format(DateTimeFormatter.ofPattern("yyyy.MM.dd EEEE", Locale.ENGLISH)).uppercase()
+        }.getOrElse {
+            LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy.MM.dd EEEE", Locale.ENGLISH)).uppercase()
+        }
     }
 
     Column(
@@ -306,26 +314,39 @@ fun HomeScreen(
             }
 
             item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
+                Spacer(modifier = Modifier.height(12.dp))
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    SpaceXButton(
-                        text = "RESET ALL PHASES",
-                        onClick = { viewModel.resetAllPhases() },
-                        prominent = false,
-                        modifier = Modifier.weight(1f)
-                    )
                     SpaceXButton(
                         text = "ADVANCE TO NEXT DAY",
                         onClick = { viewModel.advanceToNextDay() },
                         prominent = false,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    SpaceXButton(
+                        text = "RESET ALL PHASES",
+                        onClick = { showResetAllDialog = true },
+                        prominent = false,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(20.dp))
             }
         }
+    }
+
+    if (showResetAllDialog) {
+        com.example.checklist.ui.components.SpaceXConfirmDialog(
+            title = "CONFIRM RESET // ALL PHASES",
+            message = "すべてのフェーズのタスク完了状況をリセットしますか？この日のログは保持されます。",
+            confirmText = "RESET ALL",
+            onConfirm = {
+                viewModel.resetAllPhases()
+                showResetAllDialog = false
+            },
+            onDismiss = { showResetAllDialog = false }
+        )
     }
 }

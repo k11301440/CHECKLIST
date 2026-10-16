@@ -87,7 +87,7 @@ fun CalendarScreen(
     ) {
         // Top Bar
         SpaceXTopBar(
-            title = "FLIGHT CALENDAR",
+            title = "CALENDAR",
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(
@@ -100,6 +100,7 @@ fun CalendarScreen(
             actions = {
                 Box(
                     modifier = Modifier
+                        .padding(end = 16.dp)
                         .border(1.dp, TextPrimary, RoundedCornerShape(2.dp))
                         .clickable {
                             selectedDate = today

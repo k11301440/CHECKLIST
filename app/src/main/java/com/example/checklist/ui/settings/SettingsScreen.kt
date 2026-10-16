@@ -26,6 +26,8 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -76,6 +78,8 @@ fun SettingsScreen(
 ) {
     var editingPhase by remember { mutableStateOf<Phase?>(null) }
     var showAddPhaseDialog by remember { mutableStateOf(false) }
+    var editingSchedule by remember { mutableStateOf<com.example.checklist.data.PhaseSchedule?>(null) }
+    var showResetDefaultConfirm by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -118,7 +122,7 @@ fun SettingsScreen(
         ) {
             // 1. THEME MODE (白黒テーマ切り替え)
             item {
-                SettingsSectionHeader("THEME // 白黒外観設定")
+                SettingsSectionHeader("THEME // テーマ")
                 Spacer(modifier = Modifier.height(8.dp))
 
                 val currentMode = state.settings.themeMode
@@ -128,14 +132,14 @@ fun SettingsScreen(
                 ) {
                     ThemeOptionButton(
                         text = "SPACE BLACK",
-                        subtext = "完全純黒",
+                        subtext = "ダーク",
                         isSelected = currentMode == ThemeMode.SPACE_BLACK,
                         onClick = { viewModel.setThemeMode(ThemeMode.SPACE_BLACK) },
                         modifier = Modifier.weight(1f)
                     )
                     ThemeOptionButton(
                         text = "SPACE WHITE",
-                        subtext = "完全純白",
+                        subtext = "ライト",
                         isSelected = currentMode == ThemeMode.SPACE_WHITE,
                         onClick = { viewModel.setThemeMode(ThemeMode.SPACE_WHITE) },
                         modifier = Modifier.weight(1f)
@@ -143,7 +147,7 @@ fun SettingsScreen(
                 }
             }
 
-            // 2. MISSION AUTOMATION (時間自動進行 & REQキャリーオーバー)
+            // 2. MISSION AUTOMATION (時間自動進行 & REQ/NORMキャリーオーバー & 完了確認)
             item {
                 SettingsSectionHeader("AUTOMATION // 運用自動化")
                 Spacer(modifier = Modifier.height(8.dp))
@@ -171,12 +175,32 @@ fun SettingsScreen(
                         enabled = state.settings.carryoverUnfinishedReq,
                         onToggle = { viewModel.setCarryoverUnfinishedReq(!state.settings.carryoverUnfinishedReq) }
                     )
+
+                    SpaceXDivider()
+
+                    // 未完了NORMタスク持ち越しトグル (フィードバック対応)
+                    SettingToggleRow(
+                        title = "未完了NORMの自動引き継ぎ",
+                        description = "前のセクションで終わらなかった普通タスクも次フェーズに持ち越し",
+                        enabled = state.settings.carryoverUnfinishedNorm,
+                        onToggle = { viewModel.setCarryoverUnfinishedNorm(!state.settings.carryoverUnfinishedNorm) }
+                    )
+
+                    SpaceXDivider()
+
+                    // フェーズ完了時の確認トグル (フィードバック対応)
+                    SettingToggleRow(
+                        title = "フェーズ進行時の確認 (Review Confirmation)",
+                        description = "次のフェーズへ進む際に完了確認ダイアログを表示する",
+                        enabled = state.settings.confirmReviewOnAdvance,
+                        onToggle = { viewModel.setConfirmReviewOnAdvance(!state.settings.confirmReviewOnAdvance) }
+                    )
                 }
             }
 
-            // 3. PHASE TIME WINDOWS (フェーズ時間割)
+            // 3. PHASE TIME WINDOWS (フェーズ時間割: タップで開始時刻を編集可能)
             item {
-                SettingsSectionHeader("SCHEDULE // フェーズ時間割")
+                SettingsSectionHeader("SCHEDULE // フェーズ時間割 (タップで編集)")
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Column(
@@ -184,13 +208,13 @@ fun SettingsScreen(
                         .fillMaxWidth()
                         .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
                         .background(SurfaceDark)
-                        .padding(12.dp)
                 ) {
-                    for (schedule in state.settings.phaseSchedules) {
+                    state.settings.phaseSchedules.forEachIndexed { sIdx, schedule ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 6.dp),
+                                .clickable { editingSchedule = schedule }
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -200,12 +224,24 @@ fun SettingsScreen(
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold
                             )
-                            Text(
-                                text = String.format("%02d:%02d START", schedule.startHour, schedule.startMinute),
-                                color = TextSecondary,
-                                fontSize = 12.sp,
-                                fontFamily = FontFamily.SansSerif
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = String.format("%02d:%02d START", schedule.startHour, schedule.startMinute),
+                                    color = TextSecondary,
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.SansSerif
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Edit Time",
+                                    tint = TextTertiary,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
+                        }
+                        if (sIdx < state.settings.phaseSchedules.size - 1) {
+                            SpaceXDivider()
                         }
                     }
                 }
@@ -218,7 +254,7 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    SettingsSectionHeader("FLIGHT PHASES (${state.phases.size})")
+                    SettingsSectionHeader("PHASES // フェーズ管理 (${state.phases.size})")
                     if (state.phases.size < 8) {
                         SpaceXTextButton(
                             text = "+ ADD PHASE",
@@ -291,7 +327,7 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(10.dp))
                 SpaceXButton(
                     text = "4フェーズ構成 (朝/午前/午後/夜) に初期化",
-                    onClick = { viewModel.restoreDefaultFourPhases() },
+                    onClick = { showResetDefaultConfirm = true },
                     prominent = false,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -397,19 +433,12 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Text(
-                                text = "プライバシーポリシー",
-                                color = TextPrimary,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "完全オフライン・外部通信ゼロ・端末内保存のみ",
-                                color = TextSecondary,
-                                fontSize = 11.sp
-                            )
-                        }
+                        Text(
+                            text = "プライバシーポリシー",
+                            color = TextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = "Open",
@@ -427,7 +456,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("APPLICATION VERSION", color = TextSecondary, fontSize = 11.sp, letterSpacing = 1.sp)
-                        Text("v1.1.0 // TARGET API 36", color = TextPrimary, fontSize = 12.sp, fontFamily = FontFamily.SansSerif)
+                        Text("v1.2.0 // TARGET API 36", color = TextPrimary, fontSize = 12.sp, fontFamily = FontFamily.SansSerif)
                     }
 
                     SpaceXDivider()
@@ -472,6 +501,142 @@ fun SettingsScreen(
                 showAddPhaseDialog = false
             }
         )
+    }
+
+    // Schedule Time Edit Dialog (フェーズ開始時刻の変更)
+    editingSchedule?.let { schedule ->
+        EditScheduleTimeDialog(
+            phaseName = schedule.phaseName,
+            initialHour = schedule.startHour,
+            initialMinute = schedule.startMinute,
+            onDismiss = { editingSchedule = null },
+            onConfirm = { newHour, newMinute ->
+                viewModel.updatePhaseScheduleTime(schedule.phaseIndex, newHour, newMinute)
+                editingSchedule = null
+            }
+        )
+    }
+
+    // Reset 4 Phases Confirmation (不可逆操作防止ダイアログ)
+    if (showResetDefaultConfirm) {
+        com.example.checklist.ui.components.SpaceXConfirmDialog(
+            title = "CONFIRM RESET // 4 PHASES",
+            message = "すべてのフェーズとタスクを初期の4フェーズ構成 (朝/午前/午後/夜) に初期化しますか？現在のカスタムフェーズは上書きされます。",
+            confirmText = "RESET",
+            onConfirm = {
+                viewModel.restoreDefaultFourPhases()
+                showResetDefaultConfirm = false
+            },
+            onDismiss = { showResetDefaultConfirm = false }
+        )
+    }
+}
+
+// SCHEDULE TIME EDIT DIALOG (SpaceX ミニマル時間設定)
+@Composable
+fun EditScheduleTimeDialog(
+    phaseName: String,
+    initialHour: Int,
+    initialMinute: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (hour: Int, minute: Int) -> Unit
+) {
+    var hour by remember { mutableStateOf(initialHour) }
+    var minute by remember { mutableStateOf(initialMinute) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(SpaceBlack)
+                .border(1.dp, BorderProminent, RoundedCornerShape(2.dp))
+                .padding(24.dp)
+        ) {
+            Column {
+                Text(
+                    text = "SCHEDULE TIME // $phaseName".uppercase(),
+                    color = TextSecondary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.5.sp
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "フェーズ開始時刻を設定",
+                    color = TextPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Hour picker / display
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        IconButton(onClick = { hour = (hour + 1) % 24 }) {
+                            Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Hour Up", tint = TextPrimary)
+                        }
+                        Text(
+                            text = String.format("%02d", hour),
+                            color = TextPrimary,
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.SansSerif
+                        )
+                        IconButton(onClick = { hour = (hour + 23) % 24 }) {
+                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Hour Down", tint = TextPrimary)
+                        }
+                    }
+
+                    Text(
+                        text = ":",
+                        color = TextPrimary,
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+
+                    // Minute picker / display
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        IconButton(onClick = { minute = (minute + 5) % 60 }) {
+                            Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Minute Up", tint = TextPrimary)
+                        }
+                        Text(
+                            text = String.format("%02d", minute),
+                            color = TextPrimary,
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.SansSerif
+                        )
+                        IconButton(onClick = { minute = (minute + 55) % 60 }) {
+                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Minute Down", tint = TextPrimary)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    SpaceXTextButton(text = "CANCEL", onClick = onDismiss)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    SpaceXButton(
+                        text = "SAVE",
+                        onClick = { onConfirm(hour, minute) },
+                        prominent = true
+                    )
+                }
+            }
+        }
     }
 }
 

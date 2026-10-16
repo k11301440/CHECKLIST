@@ -26,21 +26,27 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -75,6 +81,7 @@ import com.example.checklist.theme.formatTaskText
 import com.example.checklist.ui.ChecklistViewModel
 import com.example.checklist.ui.components.SpaceXButton
 import com.example.checklist.ui.components.SpaceXCheckbox
+import com.example.checklist.ui.components.SpaceXConfirmDialog
 import com.example.checklist.ui.components.SpaceXDivider
 import com.example.checklist.ui.components.SpaceXTextButton
 import java.time.LocalDate
@@ -116,13 +123,23 @@ fun PhaseScreen(
     val selectedIndex = state.selectedPhaseIndex.coerceIn(0, state.phases.size - 1)
     val currentPhase = state.phases[selectedIndex]
 
-    val requiredItems = currentPhase.items.filter { it.priority == Priority.REQUIRED }
-    val normalItems = currentPhase.items.filter { it.priority == Priority.NORMAL }
-    val remainingRequiredCount = requiredItems.count { !it.isCompleted }
-    val completedTotalCount = currentPhase.items.count { it.isCompleted }
+    val activeRequired = currentPhase.items.filter { it.priority == Priority.REQUIRED && !it.isCompleted && !it.isDeleted }
+    val activeNormal = currentPhase.items.filter { it.priority == Priority.NORMAL && !it.isCompleted && !it.isDeleted }
+    val completedItems = currentPhase.items.filter { it.isCompleted && !it.isDeleted }
+    val discardedItems = currentPhase.items.filter { it.isDeleted }
+    val totalRequired = currentPhase.items.filter { it.priority == Priority.REQUIRED && !it.isDeleted }
+
+    val remainingRequiredCount = activeRequired.size
+    val completedTotalCount = completedItems.size
+    val allRequiredCompleted = activeRequired.isEmpty() && totalRequired.isNotEmpty()
+    val allTasksCompleted = activeRequired.isEmpty() && activeNormal.isEmpty() && (completedItems.isNotEmpty())
 
     var isNormalExpanded by remember { mutableStateOf(true) }
+    var isCompletedExpanded by remember { mutableStateOf(true) }
     var showReviewDialog by remember { mutableStateOf(false) }
+    var showResetDefaultDialog by remember { mutableStateOf(false) }
+    var showResetPhaseDialog by remember { mutableStateOf(false) }
+    var showClearCompletedDialog by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var editingItem by remember { mutableStateOf<ChecklistItem?>(null) }
     var showTemplateSelectDialog by remember { mutableStateOf(false) }
@@ -130,6 +147,9 @@ fun PhaseScreen(
     // 常時入力用のステート（ダイアログなしでいつでも直接入力可能）
     var quickInputTitle by remember { mutableStateOf("") }
     var quickInputPriority by remember { mutableStateOf(Priority.NORMAL) }
+    var quickTargetPhaseIndex by remember { mutableStateOf(selectedIndex) }
+    var quickTargetDayOffset by remember { mutableStateOf(0) } // 0: 今日, 1: 明日, 2: 2日後
+    var showQuickOptions by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -145,7 +165,7 @@ fun PhaseScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Scrollable / flex phase selector tabs (01 朝 / 02 午前 / 03 午後 / 04 夜)
+            // Equal-width phase selector tabs (01 朝 / 02 午前 / 03 午後 / 04 夜)
             Row(
                 modifier = Modifier
                     .weight(1f)
@@ -159,6 +179,7 @@ fun PhaseScreen(
 
                     Box(
                         modifier = Modifier
+                            .width(66.dp)
                             .border(
                                 width = 1.dp,
                                 color = if (isSelected) TextPrimary else BorderSubtle,
@@ -168,7 +189,8 @@ fun PhaseScreen(
                             .combinedClickable(
                                 onClick = { viewModel.selectPhase(index) }
                             )
-                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                            .padding(vertical = 6.dp),
+                        contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = label,
@@ -234,7 +256,7 @@ fun PhaseScreen(
                                 text = { Text("完了したタスクを整理 (削除)", color = TextPrimary, fontSize = 13.sp) },
                                 onClick = {
                                     showMenu = false
-                                    viewModel.clearCompletedItems(currentPhase.id)
+                                    showClearCompletedDialog = true
                                 }
                             )
                         }
@@ -249,7 +271,7 @@ fun PhaseScreen(
                             text = { Text("4フェーズ構成 (朝/午前/午後/夜) に初期化", color = TextPrimary, fontSize = 13.sp) },
                             onClick = {
                                 showMenu = false
-                                viewModel.restoreDefaultFourPhases()
+                                showResetDefaultDialog = true
                             }
                         )
                         DropdownMenuItem(
@@ -270,7 +292,7 @@ fun PhaseScreen(
                             text = { Text("このフェーズをリセット", color = TextPrimary, fontSize = 13.sp) },
                             onClick = {
                                 showMenu = false
-                                viewModel.resetPhase(currentPhase.id)
+                                showResetPhaseDialog = true
                             }
                         )
                         DropdownMenuItem(
@@ -289,8 +311,16 @@ fun PhaseScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        val todayStr = remember {
-            LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy.MM.dd EEE", Locale.ENGLISH)).uppercase()
+        val todayStr = remember(state.currentDate) {
+            runCatching {
+                LocalDate.parse(state.currentDate)
+                    .format(DateTimeFormatter.ofPattern("yyyy.MM.dd EEE", Locale.ENGLISH))
+                    .uppercase()
+            }.getOrElse {
+                LocalDate.now()
+                    .format(DateTimeFormatter.ofPattern("yyyy.MM.dd EEE", Locale.ENGLISH))
+                    .uppercase()
+            }
         }
 
         // PHASE STATUS HEADER
@@ -319,7 +349,7 @@ fun PhaseScreen(
                 Spacer(modifier = Modifier.height(2.dp))
                 val statusText = if (remainingRequiredCount > 0) {
                     "$remainingRequiredCount REQUIRED PENDING"
-                } else if (requiredItems.isNotEmpty()) {
+                } else if (totalRequired.isNotEmpty()) {
                     "ALL REQUIRED CHECKED"
                 } else {
                     "NO REQUIRED ITEMS"
@@ -352,11 +382,11 @@ fun PhaseScreen(
                 .fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // REQUIRED ITEMS (Mandatory priority on top)
-            if (requiredItems.isNotEmpty()) {
+            // REQUIRED ITEMS (Mandatory priority on top, active only)
+            if (activeRequired.isNotEmpty()) {
                 item {
                     Text(
-                        text = "CRITICAL / REQUIRED",
+                        text = "CRITICAL / REQUIRED (${activeRequired.size})",
                         color = TextSecondary,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
@@ -365,32 +395,27 @@ fun PhaseScreen(
                     )
                 }
 
-                items(requiredItems, key = { it.id }) { item ->
+                items(activeRequired, key = { it.id }) { item ->
+                    val indexInPhase = currentPhase.items.indexOfFirst { it.id == item.id }
                     ChecklistItemRow(
                         item = item,
                         isCritical = true,
-                        onTap = {
-                            if (!item.isCompleted) {
-                                viewModel.completeItem(currentPhase.id, item.id)
-                            }
-                        },
-                        onLongPress = {
-                            if (item.isCompleted) {
-                                viewModel.undoItem(currentPhase.id, item.id)
-                            }
-                        },
-                        onEdit = {
-                            editingItem = item
-                        },
-                        onDelete = {
-                            viewModel.removeItem(currentPhase.id, item.id)
-                        }
+                        onTap = { viewModel.completeItem(currentPhase.id, item.id) },
+                        onLongPress = { viewModel.undoItem(currentPhase.id, item.id) },
+                        onEdit = { editingItem = item },
+                        onDelete = { viewModel.removeItem(currentPhase.id, item.id) },
+                        onMoveUp = if (indexInPhase > 0) {
+                            { viewModel.reorderItems(currentPhase.id, indexInPhase, indexInPhase - 1) }
+                        } else null,
+                        onMoveDown = if (indexInPhase < currentPhase.items.size - 1) {
+                            { viewModel.reorderItems(currentPhase.id, indexInPhase, indexInPhase + 1) }
+                        } else null
                     )
                 }
             }
 
-            // NORMAL ITEMS (Collapsible)
-            if (normalItems.isNotEmpty()) {
+            // NORMAL ITEMS (Active only, collapsible)
+            if (activeNormal.isNotEmpty()) {
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(
@@ -402,7 +427,7 @@ fun PhaseScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "NORMAL (${normalItems.count { !it.isCompleted }}/${normalItems.size})",
+                            text = "NORMAL (${activeNormal.size})",
                             color = TextSecondary,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Medium,
@@ -418,26 +443,72 @@ fun PhaseScreen(
                 }
 
                 if (isNormalExpanded) {
-                    items(normalItems, key = { it.id }) { item ->
+                    items(activeNormal, key = { it.id }) { item ->
+                        val indexInPhase = currentPhase.items.indexOfFirst { it.id == item.id }
                         ChecklistItemRow(
                             item = item,
                             isCritical = false,
-                            onTap = {
-                                if (!item.isCompleted) {
-                                    viewModel.completeItem(currentPhase.id, item.id)
-                                }
-                            },
-                            onLongPress = {
-                                if (item.isCompleted) {
-                                    viewModel.undoItem(currentPhase.id, item.id)
-                                }
-                            },
-                            onEdit = {
-                                editingItem = item
-                            },
-                            onDelete = {
-                                viewModel.removeItem(currentPhase.id, item.id)
-                            }
+                            onTap = { viewModel.completeItem(currentPhase.id, item.id) },
+                            onLongPress = { viewModel.undoItem(currentPhase.id, item.id) },
+                            onEdit = { editingItem = item },
+                            onDelete = { viewModel.removeItem(currentPhase.id, item.id) },
+                            onMoveUp = if (indexInPhase > 0) {
+                                { viewModel.reorderItems(currentPhase.id, indexInPhase, indexInPhase - 1) }
+                            } else null,
+                            onMoveDown = if (indexInPhase < currentPhase.items.size - 1) {
+                                { viewModel.reorderItems(currentPhase.id, indexInPhase, indexInPhase + 1) }
+                            } else null
+                        )
+                    }
+                }
+            }
+
+            // COMPLETED & ARCHIVED SECTION (完了したタスクと保管された削除タスクを下に移動)
+            if (completedItems.isNotEmpty() || discardedItems.isNotEmpty()) {
+                item {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .combinedClickable(onClick = { isCompletedExpanded = !isCompletedExpanded })
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "COMPLETED & ARCHIVED (${completedItems.size + discardedItems.size})",
+                            color = TextTertiary,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.2.sp
+                        )
+                        Icon(
+                            imageVector = if (isCompletedExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = if (isCompletedExpanded) "Collapse" else "Expand",
+                            tint = TextTertiary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+
+                if (isCompletedExpanded) {
+                    // 完了タスク
+                    items(completedItems, key = { it.id }) { item ->
+                        ChecklistItemRow(
+                            item = item,
+                            isCritical = item.priority == Priority.REQUIRED,
+                            onTap = { /* 完了済み */ },
+                            onLongPress = { viewModel.undoItem(currentPhase.id, item.id) },
+                            onEdit = { editingItem = item },
+                            onDelete = { viewModel.removeItem(currentPhase.id, item.id) }
+                        )
+                    }
+
+                    // 破棄タスク（誤破棄防止のため保管・ワンタップ復元可能）
+                    items(discardedItems, key = { it.id }) { item ->
+                        DiscardedItemRow(
+                            item = item,
+                            onRestore = { viewModel.restoreItem(currentPhase.id, item.id) }
                         )
                     }
                 }
@@ -462,9 +533,10 @@ fun PhaseScreen(
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Priority switch (REQ / NORM)
+                // Priority switch (REQ / NORM) - 四角の大きさを固定幅(54dp)で統一
                 Box(
                     modifier = Modifier
+                        .width(54.dp)
                         .border(
                             width = 1.dp,
                             color = if (quickInputPriority == Priority.REQUIRED) TextPrimary else BorderSubtle,
@@ -474,7 +546,8 @@ fun PhaseScreen(
                         .combinedClickable(onClick = {
                             quickInputPriority = if (quickInputPriority == Priority.REQUIRED) Priority.NORMAL else Priority.REQUIRED
                         })
-                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                        .padding(vertical = 6.dp),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = if (quickInputPriority == Priority.REQUIRED) "REQ" else "NORM",
@@ -494,7 +567,10 @@ fun PhaseScreen(
                 ) {
                     BasicTextField(
                         value = quickInputTitle,
-                        onValueChange = { quickInputTitle = it },
+                        onValueChange = {
+                            quickInputTitle = it
+                            if (it.isNotEmpty()) showQuickOptions = true
+                        },
                         textStyle = TextStyle(
                             color = TextPrimary,
                             fontSize = 13.sp,
@@ -505,8 +581,14 @@ fun PhaseScreen(
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = {
                             if (quickInputTitle.isNotBlank()) {
-                                viewModel.addItem(currentPhase.id, quickInputTitle, quickInputPriority)
+                                val targetPhase = state.phases.getOrNull(quickTargetPhaseIndex) ?: currentPhase
+                                val targetDate = if (quickTargetDayOffset > 0) {
+                                    val base = runCatching { LocalDate.parse(state.currentDate) }.getOrElse { LocalDate.now() }
+                                    base.plusDays(quickTargetDayOffset.toLong()).format(DateTimeFormatter.ISO_LOCAL_DATE)
+                                } else null
+                                viewModel.addItem(targetPhase.id, quickInputTitle, quickInputPriority, scheduledDate = targetDate)
                                 quickInputTitle = ""
+                                showQuickOptions = false
                             }
                         }),
                         modifier = Modifier.fillMaxWidth()
@@ -520,28 +602,121 @@ fun PhaseScreen(
                     }
                 }
 
-                // Add button
+                // Options toggle (いつのタスクか選択を展開)
+                IconButton(
+                    onClick = { showQuickOptions = !showQuickOptions },
+                    modifier = Modifier.size(30.dp)
+                ) {
+                    Icon(
+                        imageVector = if (showQuickOptions) Icons.Default.ExpandLess else Icons.Default.DateRange,
+                        contentDescription = "Schedule",
+                        tint = if (quickTargetDayOffset > 0 || quickTargetPhaseIndex != selectedIndex) TextPrimary else TextTertiary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+
+                // Add button: 紙飛行機アイコン (Send)
                 IconButton(
                     onClick = {
                         if (quickInputTitle.isNotBlank()) {
-                            viewModel.addItem(currentPhase.id, quickInputTitle, quickInputPriority)
+                            val targetPhase = state.phases.getOrNull(quickTargetPhaseIndex) ?: currentPhase
+                            val targetDate = if (quickTargetDayOffset > 0) {
+                                val base = runCatching { LocalDate.parse(state.currentDate) }.getOrElse { LocalDate.now() }
+                                base.plusDays(quickTargetDayOffset.toLong()).format(DateTimeFormatter.ISO_LOCAL_DATE)
+                            } else null
+                            viewModel.addItem(targetPhase.id, quickInputTitle, quickInputPriority, scheduledDate = targetDate)
                             quickInputTitle = ""
+                            showQuickOptions = false
                         }
                     },
                     modifier = Modifier.size(32.dp),
                     enabled = quickInputTitle.isNotBlank()
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Add,
+                        imageVector = Icons.AutoMirrored.Filled.Send,
                         contentDescription = "Add Task",
                         tint = if (quickInputTitle.isNotBlank()) TextPrimary else TextTertiary,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(16.dp)
                     )
+                }
+            }
+
+            // いつ・どのフェーズのタスクか選べるオプション行（明日以降に始まるタスクも設定可能）
+            if (showQuickOptions) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
+                        .background(SurfaceDark)
+                        .padding(8.dp)
+                ) {
+                    Text(
+                        text = "SCHEDULE // 開始日・フェーズ選択",
+                        color = TextTertiary,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    // 日付選択
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val dayLabels = listOf("今日 (TODAY)" to 0, "明日 (TOMORROW)" to 1, "+2日後" to 2)
+                        for ((label, offset) in dayLabels) {
+                            val isSelected = quickTargetDayOffset == offset
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .border(1.dp, if (isSelected) TextPrimary else BorderSubtle, RoundedCornerShape(2.dp))
+                                    .background(if (isSelected) SurfaceElevated else SpaceBlack)
+                                    .clickable { quickTargetDayOffset = offset }
+                                    .padding(vertical = 4.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label,
+                                    color = if (isSelected) TextPrimary else TextSecondary,
+                                    fontSize = 10.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+                    // フェーズ選択
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        state.phases.forEachIndexed { pIdx, p ->
+                            val isSelected = quickTargetPhaseIndex == pIdx
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .border(1.dp, if (isSelected) TextPrimary else BorderSubtle, RoundedCornerShape(2.dp))
+                                    .background(if (isSelected) SurfaceElevated else SpaceBlack)
+                                    .clickable { quickTargetPhaseIndex = pIdx }
+                                    .padding(vertical = 4.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = p.name,
+                                    color = if (isSelected) TextPrimary else TextSecondary,
+                                    fontSize = 10.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        // BOTTOM ACTION: Minimal Complete Button
+        // BOTTOM ACTION: Minimal Complete Button (タスク全クリア時は色を反転して強調)
         val isLastPhase = selectedIndex >= state.phases.size - 1
         val buttonLabel = when {
             isLastPhase -> "COMPLETE DAY // ADVANCE TO MORNING"
@@ -549,10 +724,19 @@ fun PhaseScreen(
             else -> "COMPLETE PHASE // ADVANCE"
         }
 
+        val shouldInvertHighlight = allRequiredCompleted || allTasksCompleted
+
         SpaceXButton(
             text = buttonLabel,
-            onClick = { showReviewDialog = true },
-            prominent = !currentPhase.isCompleted,
+            onClick = {
+                if (state.settings.confirmReviewOnAdvance) {
+                    showReviewDialog = true
+                } else {
+                    viewModel.completePhase(currentPhase.id, false, null)
+                }
+            },
+            prominent = !currentPhase.isCompleted || shouldInvertHighlight,
+            inverted = shouldInvertHighlight,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 4.dp)
@@ -599,9 +783,51 @@ fun PhaseScreen(
             }
         )
     }
+
+    // RESET DEFAULT CONFIRMATION (不可逆操作防止ダイアログ)
+    if (showResetDefaultDialog) {
+        SpaceXConfirmDialog(
+            title = "CONFIRM RESET // 4 PHASES",
+            message = "すべてのフェーズとタスクを初期の4フェーズ構成 (朝/午前/午後/夜) にリセットしますか？この操作は取り消せません。",
+            confirmText = "RESET",
+            onConfirm = {
+                viewModel.restoreDefaultFourPhases()
+                showResetDefaultDialog = false
+            },
+            onDismiss = { showResetDefaultDialog = false }
+        )
+    }
+
+    // RESET PHASE CONFIRMATION (不可逆操作防止ダイアログ)
+    if (showResetPhaseDialog) {
+        SpaceXConfirmDialog(
+            title = "CONFIRM RESET // ${currentPhase.name.uppercase()}",
+            message = "現在のフェーズ「${currentPhase.name}」のすべてのチェック状態を未完了にリセットしますか？",
+            confirmText = "RESET",
+            onConfirm = {
+                viewModel.resetPhase(currentPhase.id)
+                showResetPhaseDialog = false
+            },
+            onDismiss = { showResetPhaseDialog = false }
+        )
+    }
+
+    // CLEAR COMPLETED CONFIRMATION (不可逆操作防止ダイアログ)
+    if (showClearCompletedDialog) {
+        SpaceXConfirmDialog(
+            title = "CLEAR COMPLETED // ${currentPhase.name.uppercase()}",
+            message = "このフェーズ内の完了済みタスクを一括削除しますか？",
+            confirmText = "CLEAR",
+            onConfirm = {
+                viewModel.clearCompletedItems(currentPhase.id)
+                showClearCompletedDialog = false
+            },
+            onDismiss = { showClearCompletedDialog = false }
+        )
+    }
 }
 
-// CHECKLIST ITEM ROW (編集アイコン付きで常時設定可能)
+// CHECKLIST ITEM ROW (編集・並び替え可能)
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ChecklistItemRow(
@@ -610,7 +836,9 @@ fun ChecklistItemRow(
     onTap: () -> Unit,
     onLongPress: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onMoveUp: (() -> Unit)? = null,
+    onMoveDown: (() -> Unit)? = null
 ) {
     val isCompleted = item.isCompleted
 
@@ -627,18 +855,55 @@ fun ChecklistItemRow(
                 onClick = onTap,
                 onLongClick = onLongPress
             )
-            .padding(horizontal = 12.dp, vertical = 12.dp)
+            .padding(horizontal = 8.dp, vertical = 10.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Reorder controls (タスク並び替えエリア: 左端の幅を広げ、上下移動ボタンを配置)
+            if (onMoveUp != null || onMoveDown != null) {
+                Column(
+                    modifier = Modifier.width(26.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    IconButton(
+                        onClick = { onMoveUp?.invoke() },
+                        enabled = onMoveUp != null,
+                        modifier = Modifier.size(18.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowUp,
+                            contentDescription = "Move up",
+                            tint = if (onMoveUp != null) TextSecondary else BorderSubtle,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = { onMoveDown?.invoke() },
+                        enabled = onMoveDown != null,
+                        modifier = Modifier.size(18.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = "Move down",
+                            tint = if (onMoveDown != null) TextSecondary else BorderSubtle,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(4.dp))
+            } else {
+                Spacer(modifier = Modifier.width(4.dp))
+            }
+
             // Visual distinction for critical items: Solid left vertical line
             if (isCritical) {
                 Box(
                     modifier = Modifier
                         .width(3.dp)
-                        .height(18.dp)
+                        .height(20.dp)
                         .background(if (isCompleted) TextTertiary else TextPrimary)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -650,13 +915,13 @@ fun ChecklistItemRow(
                 size = 18.dp
             )
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(10.dp))
 
             // Title
             Column(modifier = Modifier.weight(1f)) {
                 if (item.isCarryover) {
                     Text(
-                        text = "CARRYOVER // FROM ${item.sourcePhaseName ?: "REQ"}",
+                        text = "CARRYOVER // FROM ${item.sourcePhaseName ?: "PREVIOUS"}",
                         color = TextSecondary,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
@@ -700,7 +965,7 @@ fun ChecklistItemRow(
                 )
             }
 
-            // Delete action
+            // Delete action (完了セクションに保管されるため誤破棄防止)
             IconButton(
                 onClick = onDelete,
                 modifier = Modifier.size(28.dp)
@@ -712,6 +977,50 @@ fun ChecklistItemRow(
                     modifier = Modifier.size(14.dp)
                 )
             }
+        }
+    }
+}
+
+// DISCARDED ITEM ROW (破棄されたタスクの保管と復元)
+@Composable
+fun DiscardedItemRow(
+    item: ChecklistItem,
+    onRestore: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
+            .background(SurfaceDark)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "TRASH",
+                color = TextDisabled,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp
+            )
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            Text(
+                text = formatTaskText(item.title),
+                color = TextDisabled,
+                fontSize = 12.sp,
+                textDecoration = TextDecoration.LineThrough,
+                modifier = Modifier.weight(1f),
+                style = TextStyle(lineBreak = SpaceXLineBreak)
+            )
+
+            SpaceXTextButton(
+                text = "RESTORE",
+                onClick = onRestore
+            )
         }
     }
 }
@@ -842,7 +1151,7 @@ fun EditItemDialog(
     }
 }
 
-// REVIEW DIALOG
+// REVIEW DIALOG ("ALL SYSTEMS NOMINAL?")
 @Composable
 fun ReviewDialog(
     phaseName: String,
@@ -862,7 +1171,7 @@ fun ReviewDialog(
         ) {
             Column {
                 Text(
-                    text = "PHASE REVIEW // $phaseName".uppercase(),
+                    text = "PHASE REVIEW // ${phaseName.uppercase()}",
                     color = TextSecondary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
@@ -872,7 +1181,7 @@ fun ReviewDialog(
                 Spacer(modifier = Modifier.height(14.dp))
 
                 Text(
-                    text = "問題なかった？",
+                    text = "ALL SYSTEMS NOMINAL?",
                     color = TextPrimary,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
@@ -903,7 +1212,7 @@ fun ReviewDialog(
                     }
                     ReviewStep.NoteInput -> {
                         Text(
-                            text = "振り返りメモ (任意):",
+                            text = "MISSION NOTE (OPTIONAL):",
                             color = TextSecondary,
                             fontSize = 12.sp,
                             letterSpacing = 0.8.sp
@@ -931,7 +1240,7 @@ fun ReviewDialog(
                             )
                             if (noteText.isEmpty()) {
                                 Text(
-                                    text = "短いメモを入力...",
+                                    text = "Enter brief mission note...",
                                     color = TextTertiary,
                                     fontSize = 13.sp
                                 )
@@ -945,12 +1254,12 @@ fun ReviewDialog(
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             SpaceXTextButton(
-                                text = "キャンセル",
+                                text = "CANCEL",
                                 onClick = onDismiss,
                                 modifier = Modifier.weight(1f)
                             )
                             SpaceXButton(
-                                text = "記録して完了",
+                                text = "RECORD & COMPLETE",
                                 onClick = { onConfirm(true, noteText) },
                                 prominent = true,
                                 modifier = Modifier.weight(1.5f)

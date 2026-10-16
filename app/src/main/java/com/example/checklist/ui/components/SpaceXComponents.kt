@@ -48,14 +48,16 @@ fun SpaceXButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     prominent: Boolean = true,
+    inverted: Boolean = false,
     leadingIcon: ImageVector? = null
 ) {
     val borderColor = if (enabled) {
-        if (prominent) TextPrimary else BorderProminent
+        if (inverted) TextPrimary else if (prominent) TextPrimary else BorderProminent
     } else BorderSubtle
     val textColor = if (enabled) {
-        if (prominent) TextPrimary else TextSecondary
+        if (inverted) SpaceBlack else if (prominent) TextPrimary else TextSecondary
     } else TextTertiary
+    val containerBg = if (enabled && inverted) TextPrimary else SpaceBlack
 
     OutlinedButton(
         onClick = onClick,
@@ -64,7 +66,7 @@ fun SpaceXButton(
         shape = RoundedCornerShape(2.dp),
         border = BorderStroke(1.dp, borderColor),
         colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = SpaceBlack,
+            containerColor = containerBg,
             contentColor = textColor,
             disabledContentColor = TextTertiary
         ),
@@ -198,3 +200,60 @@ fun SpaceXTopBar(
         SpaceXDivider()
     }
 }
+
+// Minimal Confirmation Dialog for irreversible operations
+@Composable
+fun SpaceXConfirmDialog(
+    title: String,
+    message: String,
+    confirmText: String = "PROCEED",
+    cancelText: String = "CANCEL",
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(SpaceBlack)
+                .border(1.dp, BorderProminent, RoundedCornerShape(2.dp))
+                .padding(24.dp)
+        ) {
+            Column {
+                Text(
+                    text = title.uppercase(),
+                    color = TextSecondary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.5.sp
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                Text(
+                    text = message,
+                    color = TextPrimary,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    letterSpacing = 0.5.sp
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    SpaceXTextButton(
+                        text = cancelText,
+                        onClick = onDismiss
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    SpaceXButton(
+                        text = confirmText,
+                        onClick = onConfirm,
+                        prominent = true
+                    )
+                }
+            }
+        }
+    }
+}
+
