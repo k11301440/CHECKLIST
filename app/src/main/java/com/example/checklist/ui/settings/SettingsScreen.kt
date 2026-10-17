@@ -67,7 +67,11 @@ import com.example.checklist.theme.TextSecondary
 import com.example.checklist.theme.TextTertiary
 import com.example.checklist.ui.ChecklistViewModel
 import com.example.checklist.ui.components.SpaceXButton
+import com.example.checklist.ui.components.SpaceXConfirmDialog
+import com.example.checklist.ui.components.SpaceXDangerButton
 import com.example.checklist.ui.components.SpaceXDivider
+import com.example.checklist.ui.components.SpaceXShape
+import com.example.checklist.ui.components.SpaceXSmallShape
 import com.example.checklist.ui.components.SpaceXTextButton
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -99,6 +103,7 @@ fun SettingsScreen(
     var showAddPhaseDialog by remember { mutableStateOf(false) }
     var editingSchedule by remember { mutableStateOf<com.example.checklist.data.PhaseSchedule?>(null) }
     var showResetDefaultConfirm by remember { mutableStateOf(false) }
+    var showResetAllDataConfirm by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -174,8 +179,8 @@ fun SettingsScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
-                        .background(SurfaceDark)
+                        .border(1.dp, BorderSubtle, SpaceXShape)
+                        .background(SurfaceDark, shape = SpaceXShape)
                 ) {
                     // 自動進行トグル
                     SettingToggleRow(
@@ -246,63 +251,14 @@ fun SettingsScreen(
                 }
             }
 
-            // 3. PHASE TIME WINDOWS (フェーズ時間割: タップで開始時刻を編集可能)
-            item {
-                SettingsSectionHeader("SCHEDULE // フェーズ時間割 (タップで編集)")
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
-                        .background(SurfaceDark)
-                ) {
-                    state.settings.phaseSchedules.forEachIndexed { sIdx, schedule ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { editingSchedule = schedule }
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "PHASE 0${schedule.phaseIndex + 1} ${schedule.phaseName}",
-                                color = TextPrimary,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = String.format("%02d:%02d START", schedule.startHour, schedule.startMinute),
-                                    color = TextSecondary,
-                                    fontSize = 12.sp,
-                                    fontFamily = FontFamily.SansSerif
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = "Edit Time",
-                                    tint = TextTertiary,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                            }
-                        }
-                        if (sIdx < state.settings.phaseSchedules.size - 1) {
-                            SpaceXDivider()
-                        }
-                    }
-                }
-            }
-
-            // 4. PHASES CONFIGURATION (フェーズ管理)
+            // 3. PHASES & SCHEDULE (フェーズ管理とフェーズ時間割を統合)
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    SettingsSectionHeader("PHASES // フェーズ管理 (${state.phases.size})")
+                    SettingsSectionHeader("PHASES & SCHEDULE // フェーズ・時間割 (${state.phases.size})")
                     if (state.phases.size < 8) {
                         SpaceXTextButton(
                             text = "+ ADD PHASE",
@@ -315,10 +271,11 @@ fun SettingsScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
-                        .background(SurfaceDark)
+                        .border(1.dp, BorderSubtle, SpaceXShape)
+                        .background(SurfaceDark, shape = SpaceXShape)
                 ) {
                     state.phases.forEachIndexed { index, phase ->
+                        val schedule = state.settings.phaseSchedules.find { it.phaseIndex == index }
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -326,35 +283,70 @@ fun SettingsScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
-                                Text(
-                                    text = "0${index + 1} ${phase.name}",
-                                    color = TextPrimary,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = "${phase.items.size} ITEMS",
-                                    color = TextTertiary,
-                                    fontSize = 10.sp
-                                )
-                            }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(
-                                    onClick = { editingPhase = phase },
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = "Edit name",
-                                        tint = TextSecondary,
-                                        modifier = Modifier.size(14.dp)
+                            // 左側: フェーズ名（タップで編集）
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { editingPhase = phase },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "0${index + 1} ${phase.name}",
+                                            color = TextPrimary,
+                                            fontSize = 13.5.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Edit name",
+                                            tint = TextTertiary,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                    }
+                                    Text(
+                                        text = "${phase.items.size} ITEMS",
+                                        color = TextTertiary,
+                                        fontSize = 10.sp
                                     )
                                 }
+                            }
+
+                            // 右側: 開始時刻（タップで編集）+ 削除ボタン
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (schedule != null) {
+                                    Box(
+                                        modifier = Modifier
+                                            .border(1.dp, BorderSubtle, SpaceXSmallShape)
+                                            .background(SpaceBlack, shape = SpaceXSmallShape)
+                                            .clickable { editingSchedule = schedule }
+                                            .padding(horizontal = 8.dp, vertical = 5.dp)
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                text = String.format("%02d:%02d START", schedule.startHour, schedule.startMinute),
+                                                color = TextSecondary,
+                                                fontSize = 11.sp,
+                                                fontFamily = FontFamily.SansSerif
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Icon(
+                                                imageVector = Icons.Default.Edit,
+                                                contentDescription = "Edit time",
+                                                tint = TextTertiary,
+                                                modifier = Modifier.size(11.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
                                 if (state.phases.size > 1) {
+                                    Spacer(modifier = Modifier.width(6.dp))
                                     IconButton(
                                         onClick = { viewModel.removePhase(phase.id) },
-                                        modifier = Modifier.size(32.dp)
+                                        modifier = Modifier.size(30.dp)
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.Close,
@@ -381,7 +373,7 @@ fun SettingsScreen(
                 )
             }
 
-            // 5. TEMPLATES MANAGEMENT (テンプレート管理: フェーズ数上限)
+            // 4. TEMPLATES MANAGEMENT (テンプレート管理: フェーズ数上限)
             item {
                 val canAddTemplate = state.templates.size < state.phases.size
                 Row(
@@ -411,7 +403,8 @@ fun SettingsScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
+                            .border(1.dp, BorderSubtle, SpaceXShape)
+                            .background(SurfaceDark, shape = SpaceXShape)
                             .padding(16.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -426,8 +419,8 @@ fun SettingsScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
-                            .background(SurfaceDark)
+                            .border(1.dp, BorderSubtle, SpaceXShape)
+                            .background(SurfaceDark, shape = SpaceXShape)
                     ) {
                         state.templates.forEachIndexed { index, template ->
                             Row(
@@ -473,7 +466,7 @@ fun SettingsScreen(
                 }
             }
 
-            // 6. STORE & PRIVACY COMPLIANCE (ストア要件・チュートリアル・ポリシー)
+            // 5. STORE & PRIVACY COMPLIANCE (ストア要件・チュートリアル・ポリシー)
             item {
                 SettingsSectionHeader("HELP & LEGAL // ガイドと規約")
                 Spacer(modifier = Modifier.height(8.dp))
@@ -481,8 +474,8 @@ fun SettingsScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
-                        .background(SurfaceDark)
+                        .border(1.dp, BorderSubtle, SpaceXShape)
+                        .background(SurfaceDark, shape = SpaceXShape)
                 ) {
                     // チュートリアル・機能説明
                     Row(
@@ -493,19 +486,12 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Text(
-                                text = "使い方ガイド // チュートリアル",
-                                color = TextPrimary,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "4フェーズ運用、タスク並び替え、振り返り機能の解説",
-                                color = TextSecondary,
-                                fontSize = 11.sp
-                            )
-                        }
+                        Text(
+                            text = "使い方ガイド // チュートリアル",
+                            color = TextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = "Open",
@@ -547,7 +533,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("APPLICATION VERSION", color = TextSecondary, fontSize = 11.sp, letterSpacing = 1.sp)
-                        Text("v0.3.0 (Closed Beta)", color = TextPrimary, fontSize = 12.sp, fontFamily = FontFamily.SansSerif)
+                        Text("v0.4.0 (Closed Beta)", color = TextPrimary, fontSize = 12.sp, fontFamily = FontFamily.SansSerif)
                     }
 
                     SpaceXDivider()
@@ -563,6 +549,18 @@ fun SettingsScreen(
                         Text("LOCAL JSON (OFFLINE ONLY)", color = TextPrimary, fontSize = 12.sp)
                     }
                 }
+            }
+
+            // 6. DANGER ZONE // データ管理 (全データ初期化ボタン)
+            item {
+                SettingsSectionHeader("DANGER ZONE // データ管理")
+                Spacer(modifier = Modifier.height(8.dp))
+
+                SpaceXDangerButton(
+                    text = "RESET ALL DATA // 全データ初期化",
+                    onClick = { showResetAllDataConfirm = true },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
             item {
@@ -610,7 +608,7 @@ fun SettingsScreen(
 
     // Reset 4 Phases Confirmation (不可逆操作防止ダイアログ)
     if (showResetDefaultConfirm) {
-        com.example.checklist.ui.components.SpaceXConfirmDialog(
+        SpaceXConfirmDialog(
             title = "CONFIRM RESET // 4 PHASES",
             message = "すべてのフェーズとタスクを初期の4フェーズ構成 (朝/午前/午後/夜) に初期化しますか？現在のカスタムフェーズは上書きされます。",
             confirmText = "RESET",
@@ -619,6 +617,21 @@ fun SettingsScreen(
                 showResetDefaultConfirm = false
             },
             onDismiss = { showResetDefaultConfirm = false }
+        )
+    }
+
+    // Reset All Data Confirmation (全データ初期化ダイアログ・赤色ハイライト)
+    if (showResetAllDataConfirm) {
+        SpaceXConfirmDialog(
+            title = "RESET ALL DATA // 全データ初期化",
+            message = "すべてのタスク、テンプレート、履歴、設定がリセットされ、初期状態に戻ります。この操作は取り消せません。よろしいですか？",
+            confirmText = "RESET ALL",
+            isDanger = true,
+            onConfirm = {
+                viewModel.resetAllData()
+                showResetAllDataConfirm = false
+            },
+            onDismiss = { showResetAllDataConfirm = false }
         )
     }
 }
@@ -639,8 +652,8 @@ fun EditScheduleTimeDialog(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(SpaceBlack)
-                .border(1.dp, BorderProminent, RoundedCornerShape(2.dp))
+                .background(SpaceBlack, shape = SpaceXShape)
+                .border(1.dp, BorderProminent, SpaceXShape)
                 .padding(24.dp)
         ) {
             Column {
@@ -744,9 +757,9 @@ private fun ThemeOptionButton(
             .border(
                 width = if (isSelected) 2.dp else 1.dp,
                 color = if (isSelected) TextPrimary else BorderSubtle,
-                shape = RoundedCornerShape(2.dp)
+                shape = SpaceXShape
             )
-            .background(if (isSelected) SurfaceElevated else SurfaceDark)
+            .background(if (isSelected) SurfaceElevated else SurfaceDark, shape = SpaceXShape)
             .clickable(onClick = onClick)
             .padding(vertical = 12.dp, horizontal = 10.dp),
         contentAlignment = Alignment.Center
@@ -800,8 +813,8 @@ private fun SettingToggleRow(
         }
         Box(
             modifier = Modifier
-                .border(1.dp, if (enabled) TextPrimary else BorderSubtle, RoundedCornerShape(2.dp))
-                .background(if (enabled) SurfaceElevated else SpaceBlack)
+                .border(1.dp, if (enabled) TextPrimary else BorderSubtle, SpaceXSmallShape)
+                .background(if (enabled) SurfaceElevated else SpaceBlack, shape = SpaceXSmallShape)
                 .padding(horizontal = 10.dp, vertical = 4.dp)
         ) {
             Text(
@@ -837,8 +850,8 @@ private fun EditPhaseNameDialog(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(SpaceBlack)
-                .border(1.dp, BorderProminent, RoundedCornerShape(2.dp))
+                .background(SpaceBlack, shape = SpaceXShape)
+                .border(1.dp, BorderProminent, SpaceXShape)
                 .padding(20.dp)
         ) {
             Column {
@@ -854,8 +867,8 @@ private fun EditPhaseNameDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(44.dp)
-                        .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
-                        .background(SurfaceDark)
+                        .border(1.dp, BorderSubtle, SpaceXShape)
+                        .background(SurfaceDark, shape = SpaceXShape)
                         .padding(horizontal = 12.dp, vertical = 10.dp)
                 ) {
                     BasicTextField(
@@ -900,8 +913,8 @@ private fun AddPhaseDialog(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(SpaceBlack)
-                .border(1.dp, BorderProminent, RoundedCornerShape(2.dp))
+                .background(SpaceBlack, shape = SpaceXShape)
+                .border(1.dp, BorderProminent, SpaceXShape)
                 .padding(20.dp)
         ) {
             Column {
@@ -917,8 +930,8 @@ private fun AddPhaseDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(44.dp)
-                        .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
-                        .background(SurfaceDark)
+                        .border(1.dp, BorderSubtle, SpaceXShape)
+                        .background(SurfaceDark, shape = SpaceXShape)
                         .padding(horizontal = 12.dp, vertical = 10.dp)
                 ) {
                     BasicTextField(

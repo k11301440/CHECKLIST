@@ -59,6 +59,8 @@ import com.example.checklist.theme.TextTertiary
 import com.example.checklist.ui.ChecklistViewModel
 import com.example.checklist.ui.components.SpaceXButton
 import com.example.checklist.ui.components.SpaceXDivider
+import com.example.checklist.ui.components.SpaceXShape
+import com.example.checklist.ui.components.SpaceXSmallShape
 import com.example.checklist.ui.components.SpaceXTextButton
 import java.util.UUID
 
@@ -160,8 +162,8 @@ fun TemplateManageScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(44.dp)
-                .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
-                .background(SurfaceDark)
+                .border(1.dp, BorderSubtle, SpaceXShape)
+                .background(SurfaceDark, shape = SpaceXShape)
                 .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
             BasicTextField(
@@ -223,8 +225,8 @@ fun TemplateManageScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, if (isReq) BorderProminent else BorderSubtle, RoundedCornerShape(2.dp))
-                        .background(if (isReq) SurfaceElevated else SurfaceDark)
+                        .border(1.dp, if (isReq) BorderProminent else BorderSubtle, SpaceXShape)
+                        .background(if (isReq) SurfaceElevated else SurfaceDark, shape = SpaceXShape)
                         .padding(horizontal = 14.dp, vertical = 12.dp)
                 ) {
                     Row(
@@ -324,8 +326,8 @@ fun TemplateManageScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(SpaceBlack)
-                    .border(1.dp, BorderProminent, RoundedCornerShape(2.dp))
+                    .background(SpaceBlack, shape = SpaceXShape)
+                    .border(1.dp, BorderProminent, SpaceXShape)
                     .padding(20.dp)
             ) {
                 Column {
@@ -342,8 +344,8 @@ fun TemplateManageScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(44.dp)
-                            .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
-                            .background(SurfaceDark)
+                            .border(1.dp, BorderSubtle, SpaceXShape)
+                            .background(SurfaceDark, shape = SpaceXShape)
                             .padding(horizontal = 12.dp, vertical = 10.dp)
                     ) {
                         BasicTextField(
@@ -369,8 +371,8 @@ fun TemplateManageScreen(
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .border(1.dp, if (isReq) TextPrimary else BorderSubtle, RoundedCornerShape(2.dp))
-                                .background(if (isReq) SurfaceElevated else SpaceBlack)
+                                .border(1.dp, if (isReq) TextPrimary else BorderSubtle, SpaceXSmallShape)
+                                .background(if (isReq) SurfaceElevated else SpaceBlack, shape = SpaceXSmallShape)
                                 .combinedClickable(onClick = { priority = Priority.REQUIRED })
                                 .padding(vertical = 10.dp),
                             contentAlignment = Alignment.Center
@@ -387,8 +389,8 @@ fun TemplateManageScreen(
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .border(1.dp, if (isNorm) TextPrimary else BorderSubtle, RoundedCornerShape(2.dp))
-                                .background(if (isNorm) SurfaceElevated else SpaceBlack)
+                                .border(1.dp, if (isNorm) TextPrimary else BorderSubtle, SpaceXSmallShape)
+                                .background(if (isNorm) SurfaceElevated else SpaceBlack, shape = SpaceXSmallShape)
                                 .combinedClickable(onClick = { priority = Priority.NORMAL })
                                 .padding(vertical = 10.dp),
                             contentAlignment = Alignment.Center
@@ -431,8 +433,8 @@ fun TemplateManageScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.dp, BorderProminent, RoundedCornerShape(2.dp))
-                    .background(SurfaceDark)
+                    .border(1.dp, BorderProminent, SpaceXShape)
+                    .background(SurfaceDark, shape = SpaceXShape)
                     .padding(20.dp)
             ) {
                 Column {
@@ -462,9 +464,9 @@ fun TemplateManageScreen(
                                 .border(
                                     width = if (isSelected) 1.5.dp else 1.dp,
                                     color = if (isSelected) TextPrimary else BorderSubtle,
-                                    shape = RoundedCornerShape(2.dp)
+                                    shape = SpaceXSmallShape
                                 )
-                                .background(if (isSelected) SurfaceElevated else SpaceBlack)
+                                .background(if (isSelected) SurfaceElevated else SpaceBlack, shape = SpaceXSmallShape)
                                 .clickable { selectedPresetIndex = pIdx }
                                 .padding(horizontal = 12.dp, vertical = 8.dp)
                         ) {

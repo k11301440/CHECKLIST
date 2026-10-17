@@ -51,6 +51,8 @@ import com.example.checklist.theme.TextTertiary
 import com.example.checklist.ui.ChecklistViewModel
 import com.example.checklist.ui.components.SpaceXButton
 import com.example.checklist.ui.components.SpaceXDivider
+import com.example.checklist.ui.components.SpaceXShape
+import com.example.checklist.ui.components.SpaceXSmallShape
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -142,7 +144,7 @@ fun HomeScreen(
 
         SpaceXDivider()
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Date Display & Title
         Row(
@@ -172,7 +174,7 @@ fun HomeScreen(
         Text(
             text = "DAILY TIMELINE",
             color = TextPrimary,
-            fontSize = 28.sp,
+            fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 1.5.sp
         )
@@ -180,18 +182,18 @@ fun HomeScreen(
         Text(
             text = "SELECT PHASE TO MONITOR & EXECUTE",
             color = TextSecondary,
-            fontSize = 11.sp,
-            letterSpacing = 1.2.sp
+            fontSize = 10.5.sp,
+            letterSpacing = 1.sp
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-        // PHASE CARDS
+        // PHASE CARDS (4フェーズが1画面に収まるようコンパクトに配置)
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             itemsIndexed(state.phases) { index, phase ->
                 val phaseNumber = String.format("%02d", index + 1)
@@ -207,18 +209,18 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .border(
-                            width = if (isSelected) 2.dp else 1.dp,
+                            width = if (isSelected) 1.5.dp else 1.dp,
                             color = if (isSelected) TextPrimary else BorderProminent,
-                            shape = RoundedCornerShape(2.dp)
+                            shape = SpaceXShape
                         )
-                        .background(if (isSelected) SurfaceElevated else SurfaceDark)
+                        .background(if (isSelected) SurfaceElevated else SurfaceDark, shape = SpaceXShape)
                         .combinedClickable(
                             onClick = {
                                 viewModel.selectPhase(index)
                                 onSelectPhase(index)
                             }
                         )
-                        .padding(18.dp)
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
                 ) {
                     Column {
                         Row(
@@ -229,7 +231,7 @@ fun HomeScreen(
                             Text(
                                 text = "PHASE $phaseNumber",
                                 color = TextSecondary,
-                                fontSize = 11.sp,
+                                fontSize = 10.5.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.5.sp
                             )
@@ -239,13 +241,13 @@ fun HomeScreen(
                                         imageVector = Icons.Default.Check,
                                         contentDescription = "Completed",
                                         tint = TextPrimary,
-                                        modifier = Modifier.size(14.dp)
+                                        modifier = Modifier.size(13.dp)
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
                                         text = "DONE",
                                         color = TextPrimary,
-                                        fontSize = 11.sp,
+                                        fontSize = 10.5.sp,
                                         fontWeight = FontWeight.Bold,
                                         letterSpacing = 1.sp
                                     )
@@ -254,29 +256,29 @@ fun HomeScreen(
                                 Text(
                                     text = "ACTIVE",
                                     color = TextPrimary,
-                                    fontSize = 10.sp,
+                                    fontSize = 9.5.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 1.sp,
                                     modifier = Modifier
-                                        .border(1.dp, TextPrimary, RoundedCornerShape(2.dp))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        .border(1.dp, TextPrimary, SpaceXSmallShape)
+                                        .padding(horizontal = 5.dp, vertical = 1.dp)
                                 )
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
 
                         Text(
                             text = phase.name,
                             color = TextPrimary,
-                            fontSize = 24.sp,
+                            fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.5.sp
                         )
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         SpaceXDivider()
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
 
                         // Counts breakdown
                         Row(

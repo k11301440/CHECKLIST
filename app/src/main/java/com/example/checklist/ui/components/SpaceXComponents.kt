@@ -40,6 +40,11 @@ import com.example.checklist.theme.TextPrimary
 import com.example.checklist.theme.TextSecondary
 import com.example.checklist.theme.TextTertiary
 
+val SpaceXCornerRadius = 8.dp
+val SpaceXShape = RoundedCornerShape(SpaceXCornerRadius)
+val SpaceXDialogShape = RoundedCornerShape(10.dp)
+val SpaceXSmallShape = RoundedCornerShape(4.dp)
+
 // SpaceX Minimal Outline Button
 @Composable
 fun SpaceXButton(
@@ -49,7 +54,8 @@ fun SpaceXButton(
     enabled: Boolean = true,
     prominent: Boolean = true,
     inverted: Boolean = false,
-    leadingIcon: ImageVector? = null
+    leadingIcon: ImageVector? = null,
+    shape: Shape = SpaceXShape
 ) {
     val borderColor = if (enabled) {
         if (inverted) TextPrimary else if (prominent) TextPrimary else BorderProminent
@@ -63,7 +69,7 @@ fun SpaceXButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.height(48.dp),
-        shape = RoundedCornerShape(2.dp),
+        shape = shape,
         border = BorderStroke(1.dp, borderColor),
         colors = ButtonDefaults.outlinedButtonColors(
             containerColor = containerBg,
@@ -99,12 +105,13 @@ fun SpaceXTextButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    prominent: Boolean = false
+    prominent: Boolean = false,
+    shape: Shape = SpaceXShape
 ) {
     TextButton(
         onClick = onClick,
         modifier = modifier,
-        shape = RoundedCornerShape(2.dp),
+        shape = shape,
         colors = ButtonDefaults.textButtonColors(
             contentColor = if (prominent) TextPrimary else TextSecondary
         )
@@ -131,7 +138,7 @@ fun SpaceXCheckbox(
             .border(
                 width = 1.dp,
                 color = if (checked) TextSecondary else TextPrimary,
-                shape = RoundedCornerShape(2.dp)
+                shape = SpaceXSmallShape
             )
             .background(SpaceBlack),
         contentAlignment = Alignment.Center
@@ -208,6 +215,7 @@ fun SpaceXConfirmDialog(
     message: String,
     confirmText: String = "PROCEED",
     cancelText: String = "CANCEL",
+    isDanger: Boolean = false,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -215,14 +223,14 @@ fun SpaceXConfirmDialog(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(SpaceBlack)
-                .border(1.dp, BorderProminent, RoundedCornerShape(2.dp))
+                .background(SpaceBlack, shape = SpaceXDialogShape)
+                .border(1.dp, if (isDanger) Color(0xFFFF453A) else BorderProminent, SpaceXDialogShape)
                 .padding(24.dp)
         ) {
             Column {
                 Text(
                     text = title.uppercase(),
-                    color = TextSecondary,
+                    color = if (isDanger) Color(0xFFFF453A) else TextSecondary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.5.sp
@@ -246,14 +254,51 @@ fun SpaceXConfirmDialog(
                         onClick = onDismiss
                     )
                     Spacer(modifier = Modifier.width(12.dp))
-                    SpaceXButton(
-                        text = confirmText,
-                        onClick = onConfirm,
-                        prominent = true
-                    )
+                    if (isDanger) {
+                        SpaceXDangerButton(
+                            text = confirmText,
+                            onClick = onConfirm
+                        )
+                    } else {
+                        SpaceXButton(
+                            text = confirmText,
+                            onClick = onConfirm,
+                            prominent = true
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+// SpaceX Minimal Danger Button (初期化や破壊的操作用の赤色アクセント)
+@Composable
+fun SpaceXDangerButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    shape: Shape = SpaceXShape
+) {
+    val dangerColor = Color(0xFFFF453A)
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier.height(48.dp),
+        shape = shape,
+        border = BorderStroke(1.dp, dangerColor),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = SpaceBlack,
+            contentColor = dangerColor
+        ),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+    ) {
+        Text(
+            text = text,
+            color = dangerColor,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.2.sp
+        )
     }
 }
 

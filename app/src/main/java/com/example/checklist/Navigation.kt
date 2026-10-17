@@ -1,11 +1,18 @@
 package com.example.checklist
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.entryProvider
@@ -20,6 +27,23 @@ import com.example.checklist.ui.phase.PhaseScreen
 import com.example.checklist.ui.policy.PrivacyPolicyScreen
 import com.example.checklist.ui.settings.SettingsScreen
 import com.example.checklist.ui.template.TemplateManageScreen
+
+@Composable
+fun Modifier.adaptiveSystemBarsPadding(): Modifier {
+    val density = LocalDensity.current
+    val imeBottom = WindowInsets.ime.getBottom(density)
+    val navBottom = WindowInsets.navigationBars.getBottom(density)
+    val bottomDp = with(density) {
+        if (imeBottom > 0) {
+            imeBottom.toDp()
+        } else {
+            navBottom.toDp()
+        }
+    }
+    return this
+        .statusBarsPadding()
+        .padding(bottom = bottomDp)
+}
 
 @Composable
 fun MainNavigation(
@@ -46,7 +70,7 @@ fun MainNavigation(
                     onNavigateHome = { backStack.add(HomeNavKey) },
                     onNavigateSettings = { backStack.add(SettingsNavKey) },
                     onNavigateCalendar = { backStack.add(CalendarNavKey) },
-                    modifier = Modifier.safeDrawingPadding()
+                    modifier = Modifier.adaptiveSystemBarsPadding()
                 )
             }
 
@@ -60,7 +84,7 @@ fun MainNavigation(
                     onNavigateSettings = { backStack.add(SettingsNavKey) },
                     onNavigateCalendar = { backStack.add(CalendarNavKey) },
                     onBack = { backStack.removeLastOrNull() },
-                    modifier = Modifier.safeDrawingPadding()
+                    modifier = Modifier.adaptiveSystemBarsPadding()
                 )
             }
 
@@ -69,7 +93,7 @@ fun MainNavigation(
                     state = state,
                     viewModel = viewModel,
                     onBack = { backStack.removeLastOrNull() },
-                    modifier = Modifier.safeDrawingPadding()
+                    modifier = Modifier.adaptiveSystemBarsPadding()
                 )
             }
 
@@ -83,21 +107,21 @@ fun MainNavigation(
                     },
                     onNavigatePrivacyPolicy = { backStack.add(PrivacyPolicyNavKey) },
                     onNavigateUserGuide = { backStack.add(UserGuideNavKey) },
-                    modifier = Modifier.safeDrawingPadding()
+                    modifier = Modifier.adaptiveSystemBarsPadding()
                 )
             }
 
             entry<UserGuideNavKey> {
                 UserGuideScreen(
                     onBack = { backStack.removeLastOrNull() },
-                    modifier = Modifier.safeDrawingPadding()
+                    modifier = Modifier.adaptiveSystemBarsPadding()
                 )
             }
 
             entry<PrivacyPolicyNavKey> {
                 PrivacyPolicyScreen(
                     onBack = { backStack.removeLastOrNull() },
-                    modifier = Modifier.safeDrawingPadding()
+                    modifier = Modifier.adaptiveSystemBarsPadding()
                 )
             }
 
@@ -107,7 +131,7 @@ fun MainNavigation(
                     state = state,
                     viewModel = viewModel,
                     onBack = { backStack.removeLastOrNull() },
-                    modifier = Modifier.safeDrawingPadding()
+                    modifier = Modifier.adaptiveSystemBarsPadding()
                 )
             }
         }

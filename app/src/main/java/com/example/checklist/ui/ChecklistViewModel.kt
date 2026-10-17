@@ -157,4 +157,8 @@ class ChecklistViewModel(application: Application) : AndroidViewModel(applicatio
     fun applyPresetTemplates() {
         repository.applyPresetTemplates()
     }
+
+    fun resetAllData() {
+        repository.resetAllData()
+    }
 }

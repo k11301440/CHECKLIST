@@ -49,6 +49,8 @@ import com.example.checklist.theme.TextPrimary
 import com.example.checklist.theme.TextSecondary
 import com.example.checklist.theme.TextTertiary
 import com.example.checklist.ui.ChecklistViewModel
+import com.example.checklist.ui.components.SpaceXShape
+import com.example.checklist.ui.components.SpaceXSmallShape
 import com.example.checklist.ui.components.SpaceXTopBar
 import java.time.LocalDate
 import java.time.YearMonth
@@ -101,7 +103,7 @@ fun CalendarScreen(
                 Box(
                     modifier = Modifier
                         .padding(end = 16.dp)
-                        .border(1.dp, TextPrimary, RoundedCornerShape(2.dp))
+                        .border(1.dp, TextPrimary, SpaceXSmallShape)
                         .clickable {
                             selectedDate = today
                             currentYearMonth = YearMonth.from(today)
@@ -208,7 +210,7 @@ fun CalendarScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
+                        .border(1.dp, BorderSubtle, SpaceXShape)
                         .padding(4.dp)
                 ) {
                     for (weekIndex in 0 until weeks) {
@@ -241,7 +243,7 @@ fun CalendarScreen(
                                                     isToday -> TextSecondary
                                                     else -> SpaceBlack
                                                 },
-                                                shape = RoundedCornerShape(2.dp)
+                                                shape = SpaceXSmallShape
                                             )
                                             .background(
                                                 when {
@@ -321,7 +323,7 @@ fun CalendarScreen(
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier
-                                .border(1.dp, BorderProminent, RoundedCornerShape(2.dp))
+                                .border(1.dp, BorderProminent, SpaceXSmallShape)
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
@@ -336,8 +338,8 @@ fun CalendarScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, BorderProminent, RoundedCornerShape(2.dp))
-                            .background(SurfaceDark)
+                            .border(1.dp, BorderProminent, SpaceXShape)
+                            .background(SurfaceDark, shape = SpaceXShape)
                             .padding(16.dp)
                     ) {
                         Column {
@@ -418,8 +420,8 @@ fun CalendarScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
-                            .background(SurfaceDark)
+                            .border(1.dp, BorderSubtle, SpaceXShape)
+                            .background(SurfaceDark, shape = SpaceXShape)
                             .padding(16.dp)
                     ) {
                         Column {
@@ -480,7 +482,8 @@ fun CalendarScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
+                            .border(1.dp, BorderSubtle, SpaceXShape)
+                            .background(SurfaceDark, shape = SpaceXShape)
                             .padding(24.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -512,8 +515,8 @@ fun CalendarScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
-                            .background(SurfaceDark)
+                            .border(1.dp, BorderSubtle, SpaceXShape)
+                            .background(SurfaceDark, shape = SpaceXShape)
                             .padding(12.dp)
                     ) {
                         Column {

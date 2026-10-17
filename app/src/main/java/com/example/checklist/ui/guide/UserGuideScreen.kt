@@ -142,8 +142,8 @@ private fun GuideSection(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
-            .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
-            .background(SurfaceDark)
+            .border(1.dp, BorderSubtle, com.example.checklist.ui.components.SpaceXShape)
+            .background(SurfaceDark, shape = com.example.checklist.ui.components.SpaceXShape)
             .padding(16.dp)
     ) {
         Column {
@@ -155,8 +155,8 @@ private fun GuideSection(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp,
                     modifier = Modifier
-                        .border(1.dp, BorderProminent, RoundedCornerShape(2.dp))
-                        .background(SurfaceElevated)
+                        .border(1.dp, BorderProminent, com.example.checklist.ui.components.SpaceXSmallShape)
+                        .background(SurfaceElevated, shape = com.example.checklist.ui.components.SpaceXSmallShape)
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 )
                 Spacer(modifier = Modifier.width(10.dp))

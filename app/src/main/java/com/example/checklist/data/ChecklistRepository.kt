@@ -710,4 +710,9 @@ class ChecklistRepository(private val context: Context) {
         val current = _appState.value
         persist(current.copy(templates = presets))
     }
+
+    fun resetAllData() {
+        val defaultState = createDefaultState()
+        persist(defaultState)
+    }
 }

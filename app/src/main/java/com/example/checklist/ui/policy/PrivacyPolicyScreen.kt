@@ -29,6 +29,8 @@ import com.example.checklist.theme.TextSecondary
 import com.example.checklist.theme.TextTertiary
 import com.example.checklist.ui.components.SpaceXTopBar
 
+import com.example.checklist.ui.components.SpaceXShape
+
 @Composable
 fun PrivacyPolicyScreen(
     onBack: () -> Unit,
@@ -127,17 +129,18 @@ private fun PolicySection(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
-            .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
-            .background(SurfaceDark)
+            .border(1.dp, BorderSubtle, SpaceXShape)
+            .background(SurfaceDark, shape = SpaceXShape)
             .padding(16.dp)
     ) {
-        Column {
+        Column(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = title,
                 color = TextPrimary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 0.5.sp
+                letterSpacing = 0.5.sp,
+                modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
@@ -145,7 +148,8 @@ private fun PolicySection(
                 color = TextSecondary,
                 fontSize = 12.sp,
                 lineHeight = 18.sp,
-                letterSpacing = 0.3.sp
+                letterSpacing = 0.3.sp,
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }

@@ -101,8 +101,11 @@ import com.example.checklist.ui.components.SpaceXButton
 import com.example.checklist.ui.components.SpaceXCheckbox
 import com.example.checklist.ui.components.SpaceXConfirmDialog
 import com.example.checklist.ui.components.SpaceXDivider
+import com.example.checklist.ui.components.SpaceXShape
+import com.example.checklist.ui.components.SpaceXSmallShape
 import com.example.checklist.ui.components.SpaceXTextButton
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -172,10 +175,36 @@ fun PhaseScreen(
     val itemHeightPx = with(LocalDensity.current) { 60.dp.toPx() }
     val currentAppState by rememberUpdatedState(state)
 
+    // 現在時刻に基づくフェーズの判定（タスク作成時のデフォルトフェーズ用）
+    val currentPhaseIndexByTime = remember(state.phases, state.settings.phaseSchedules) {
+        val now = LocalTime.now()
+        val currentMinutes = now.hour * 60 + now.minute
+        val schedules = state.settings.phaseSchedules
+        if (schedules.isNotEmpty() && schedules.size == state.phases.size) {
+            val sorted = schedules.sortedBy { it.startHour * 60 + it.startMinute }
+            var targetIdx = sorted.last().phaseIndex
+            for (i in sorted.indices.reversed()) {
+                val sMinutes = sorted[i].startHour * 60 + sorted[i].startMinute
+                if (currentMinutes >= sMinutes) {
+                    targetIdx = sorted[i].phaseIndex
+                    break
+                }
+            }
+            targetIdx.coerceIn(0, state.phases.size - 1)
+        } else {
+            when {
+                currentMinutes < 9 * 60 -> 0
+                currentMinutes < 13 * 60 -> 1
+                currentMinutes < 18 * 60 -> 2
+                else -> 3
+            }.coerceIn(0, state.phases.size - 1)
+        }
+    }
+
     // 常時入力用のステート（ダイアログなしでいつでも直接入力可能）
     var quickInputTitle by remember { mutableStateOf("") }
     var quickInputPriority by remember { mutableStateOf(Priority.NORMAL) }
-    var quickTargetPhaseIndex by remember { mutableStateOf(selectedIndex) }
+    var quickTargetPhaseIndex by remember { mutableStateOf(currentPhaseIndexByTime) }
     var quickTargetDayOffset by remember { mutableStateOf(0) } // 0: 今日, 1: 明日, 2: 明後日
     var showQuickOptions by remember { mutableStateOf(false) }
 
@@ -261,8 +290,8 @@ fun PhaseScreen(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false },
                         modifier = Modifier
-                            .background(SurfaceDark)
-                            .border(1.dp, BorderProminent, RoundedCornerShape(2.dp))
+                            .background(SurfaceDark, shape = SpaceXShape)
+                            .border(1.dp, BorderProminent, SpaceXShape)
                     ) {
                         if (completedTotalCount > 0) {
                             DropdownMenuItem(
@@ -317,9 +346,9 @@ fun PhaseScreen(
                         .border(
                             width = if (isSelected) 1.5.dp else 1.dp,
                             color = if (isSelected) TextPrimary else BorderSubtle,
-                            shape = RoundedCornerShape(2.dp)
+                            shape = SpaceXShape
                         )
-                        .background(if (isSelected) SurfaceElevated else SpaceBlack)
+                        .background(if (isSelected) SurfaceElevated else SpaceBlack, shape = SpaceXShape)
                         .clickable { viewModel.selectPhase(index) }
                         .padding(vertical = 7.dp),
                     contentAlignment = Alignment.Center
@@ -335,7 +364,29 @@ fun PhaseScreen(
             }
         }
 
-        SpaceXDivider()
+        // SEEKBAR-STYLE PROGRESS LINE (現在フェーズまで太く、左から右へシークバーのように表示)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            // 背景のベースライン (細線 1.dp)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(BorderSubtle)
+            )
+            // 現在選択・進行フェーズまでのプログレス太線 (太線 3.dp)
+            val progressFraction = ((selectedIndex + 1).toFloat() / state.phases.size.coerceAtLeast(1)).coerceIn(0f, 1f)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(fraction = progressFraction)
+                    .height(3.dp)
+                    .background(TextPrimary, shape = RoundedCornerShape(1.5.dp))
+            )
+        }
 
         Spacer(modifier = Modifier.height(14.dp))
 
@@ -417,8 +468,8 @@ fun PhaseScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
-                            .background(SurfaceDark.copy(alpha = 0.5f))
+                            .border(1.dp, BorderSubtle, SpaceXShape)
+                            .background(SurfaceDark.copy(alpha = 0.5f), shape = SpaceXShape)
                             .padding(24.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -466,12 +517,6 @@ fun PhaseScreen(
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.5.sp
-                        )
-                        Text(
-                            text = "左端を長押しして上下に並び替え",
-                            color = TextTertiary,
-                            fontSize = 9.5.sp,
-                            letterSpacing = 0.5.sp
                         )
                     }
                 }
@@ -606,33 +651,33 @@ fun PhaseScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
-                    .background(SurfaceDark)
+                    .border(1.dp, BorderSubtle, SpaceXShape)
+                    .background(SurfaceDark, shape = SpaceXShape)
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Priority switch (REQ / NORM) - 四角の大きさを固定幅(54dp)で統一
+                // Priority switch (REQ / NORM) - コンパクト化 (46dp幅)
                 Box(
                     modifier = Modifier
-                        .width(54.dp)
+                        .width(46.dp)
                         .border(
                             width = 1.dp,
                             color = if (quickInputPriority == Priority.REQUIRED) TextPrimary else BorderSubtle,
-                            shape = RoundedCornerShape(2.dp)
+                            shape = SpaceXSmallShape
                         )
-                        .background(if (quickInputPriority == Priority.REQUIRED) SurfaceElevated else SpaceBlack)
+                        .background(if (quickInputPriority == Priority.REQUIRED) SurfaceElevated else SpaceBlack, shape = SpaceXSmallShape)
                         .combinedClickable(onClick = {
                             quickInputPriority = if (quickInputPriority == Priority.REQUIRED) Priority.NORMAL else Priority.REQUIRED
                         })
-                        .padding(vertical = 6.dp),
+                        .padding(vertical = 4.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = if (quickInputPriority == Priority.REQUIRED) "REQ" else "NORM",
                         color = if (quickInputPriority == Priority.REQUIRED) TextPrimary else TextSecondary,
-                        fontSize = 10.sp,
+                        fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
+                        letterSpacing = 0.8.sp
                     )
                 }
 
@@ -703,8 +748,8 @@ fun PhaseScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
-                        .background(SurfaceDark)
+                        .border(1.dp, BorderSubtle, SpaceXShape)
+                        .background(SurfaceDark, shape = SpaceXShape)
                         .padding(8.dp)
                 ) {
                     Text(
@@ -726,8 +771,8 @@ fun PhaseScreen(
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .border(1.dp, if (isSelected) TextPrimary else BorderSubtle, RoundedCornerShape(2.dp))
-                                    .background(if (isSelected) SurfaceElevated else SpaceBlack)
+                                    .border(1.dp, if (isSelected) TextPrimary else BorderSubtle, SpaceXSmallShape)
+                                    .background(if (isSelected) SurfaceElevated else SpaceBlack, shape = SpaceXSmallShape)
                                     .clickable { quickTargetDayOffset = offset }
                                     .padding(vertical = 4.dp),
                                 contentAlignment = Alignment.Center
@@ -753,8 +798,8 @@ fun PhaseScreen(
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .border(1.dp, if (isSelected) TextPrimary else BorderSubtle, RoundedCornerShape(2.dp))
-                                    .background(if (isSelected) SurfaceElevated else SpaceBlack)
+                                    .border(1.dp, if (isSelected) TextPrimary else BorderSubtle, SpaceXSmallShape)
+                                    .background(if (isSelected) SurfaceElevated else SpaceBlack, shape = SpaceXSmallShape)
                                     .clickable { quickTargetPhaseIndex = pIdx }
                                     .padding(vertical = 4.dp),
                                 contentAlignment = Alignment.Center
@@ -953,28 +998,42 @@ fun ChecklistItemRow(
     val currentOnDragDelta by rememberUpdatedState(onDragDelta)
     val currentOnDragEnd by rememberUpdatedState(onDragEnd)
 
-    Box(
-        modifier = modifier
+    val boxModifier = if (isDragging) {
+        modifier
             .fillMaxWidth()
-            .zIndex(if (isDragging) 15f else 1f)
+            .zIndex(15f)
             .graphicsLayer {
-                translationY = if (isDragging) dragOffsetY else 0f
-                scaleX = if (isDragging) 1.035f else 1f
-                scaleY = if (isDragging) 1.035f else 1f
-                shadowElevation = if (isDragging) 20f else 0f
+                translationY = dragOffsetY
+                scaleX = 1.035f
+                scaleY = 1.035f
+                shadowElevation = 20f
             }
+            .border(2.dp, TextPrimary, SpaceXShape)
+            .background(SurfaceElevated, shape = SpaceXShape)
+            .padding(horizontal = 6.dp, vertical = 6.dp)
+    } else if (isCompleted) {
+        // 完了済みカード: 枠を消して行だけの軽い表示にし、未完了タスクを際立たせる
+        modifier
+            .fillMaxWidth()
+            .background(androidx.compose.ui.graphics.Color.Transparent)
+            .padding(horizontal = 6.dp, vertical = 4.dp)
+    } else {
+        // 未完了カード: 枠線と背景を適用
+        modifier
+            .fillMaxWidth()
             .border(
-                width = if (isDragging) 2.dp else 1.dp,
-                color = if (isDragging) TextPrimary else if (isCritical && !isCompleted) BorderProminent else BorderSubtle,
-                shape = RoundedCornerShape(2.dp)
+                width = 1.dp,
+                color = if (isCritical) BorderProminent else BorderSubtle,
+                shape = SpaceXShape
             )
             .background(
-                if (isDragging) SurfaceElevated
-                else if (isCritical && !isCompleted) SurfaceElevated
-                else SpaceBlack
+                if (isCritical) SurfaceElevated else SpaceBlack,
+                shape = SpaceXShape
             )
             .padding(horizontal = 6.dp, vertical = 6.dp)
-    ) {
+    }
+
+    Box(modifier = boxModifier) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -1041,12 +1100,12 @@ fun ChecklistItemRow(
                         Text(
                             text = if (isCritical) "REQ" else "NORM",
                             color = if (isCritical) TextPrimary else TextTertiary,
-                            fontSize = 9.sp,
+                            fontSize = 8.sp,
                             fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.8.sp,
+                            letterSpacing = 0.5.sp,
                             modifier = Modifier
-                                .border(1.dp, if (isCritical) TextPrimary else BorderSubtle, RoundedCornerShape(2.dp))
-                                .padding(horizontal = 4.dp, vertical = 1.dp)
+                                .border(1.dp, if (isCritical) TextPrimary else BorderSubtle, SpaceXSmallShape)
+                                .padding(horizontal = 3.dp, vertical = 0.5.dp)
                         )
                         if (item.isCarryover) {
                             Spacer(modifier = Modifier.width(6.dp))
@@ -1073,14 +1132,6 @@ fun ChecklistItemRow(
                         letterSpacing = 0.3.sp,
                         style = TextStyle(lineBreak = SpaceXLineBreak)
                     )
-                    if (isCompleted) {
-                        Text(
-                            text = "長押しで解除",
-                            color = TextDisabled,
-                            fontSize = 10.sp,
-                            letterSpacing = 0.5.sp
-                        )
-                    }
                 }
             }
 
@@ -1122,8 +1173,8 @@ fun DiscardedItemRow(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
-            .background(SurfaceDark)
+            .border(1.dp, BorderSubtle, SpaceXShape)
+            .background(SurfaceDark, shape = SpaceXShape)
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
         Row(
@@ -1173,8 +1224,8 @@ fun EditItemDialog(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(SpaceBlack)
-                .border(1.dp, BorderProminent, RoundedCornerShape(2.dp))
+                .background(SpaceBlack, shape = SpaceXShape)
+                .border(1.dp, BorderProminent, SpaceXShape)
                 .padding(20.dp)
         ) {
             Column {
@@ -1192,8 +1243,8 @@ fun EditItemDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(44.dp)
-                        .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
-                        .background(SurfaceDark)
+                        .border(1.dp, BorderSubtle, SpaceXShape)
+                        .background(SurfaceDark, shape = SpaceXShape)
                         .padding(horizontal = 12.dp, vertical = 10.dp)
                 ) {
                     BasicTextField(
@@ -1221,8 +1272,8 @@ fun EditItemDialog(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .border(1.dp, if (isReq) TextPrimary else BorderSubtle, RoundedCornerShape(2.dp))
-                            .background(if (isReq) SurfaceElevated else SpaceBlack)
+                            .border(1.dp, if (isReq) TextPrimary else BorderSubtle, SpaceXSmallShape)
+                            .background(if (isReq) SurfaceElevated else SpaceBlack, shape = SpaceXSmallShape)
                             .combinedClickable(onClick = { priority = Priority.REQUIRED })
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
@@ -1239,8 +1290,8 @@ fun EditItemDialog(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .border(1.dp, if (isNorm) TextPrimary else BorderSubtle, RoundedCornerShape(2.dp))
-                            .background(if (isNorm) SurfaceElevated else SpaceBlack)
+                            .border(1.dp, if (isNorm) TextPrimary else BorderSubtle, SpaceXSmallShape)
+                            .background(if (isNorm) SurfaceElevated else SpaceBlack, shape = SpaceXSmallShape)
                             .combinedClickable(onClick = { priority = Priority.NORMAL })
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
@@ -1297,8 +1348,8 @@ fun ReviewDialog(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(SpaceBlack)
-                .border(1.dp, BorderProminent, RoundedCornerShape(2.dp))
+                .background(SpaceBlack, shape = SpaceXShape)
+                .border(1.dp, BorderProminent, SpaceXShape)
                 .padding(24.dp)
         ) {
             Column {
@@ -1356,8 +1407,8 @@ fun ReviewDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(80.dp)
-                                .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
-                                .background(SurfaceDark)
+                                .border(1.dp, BorderSubtle, SpaceXShape)
+                                .background(SurfaceDark, shape = SpaceXShape)
                                 .padding(10.dp)
                         ) {
                             BasicTextField(
@@ -1422,8 +1473,8 @@ fun TemplateSelectDialog(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(SpaceBlack)
-                .border(1.dp, BorderProminent, RoundedCornerShape(2.dp))
+                .background(SpaceBlack, shape = SpaceXShape)
+                .border(1.dp, BorderProminent, SpaceXShape)
                 .padding(20.dp)
         ) {
             Column {
@@ -1455,8 +1506,8 @@ fun TemplateSelectDialog(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
-                                    .background(SurfaceDark)
+                                    .border(1.dp, BorderSubtle, SpaceXShape)
+                                    .background(SurfaceDark, shape = SpaceXShape)
                                     .combinedClickable(onClick = { onSelect(t.id) })
                                     .padding(horizontal = 14.dp, vertical = 12.dp)
                             ) {
