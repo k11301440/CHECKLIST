@@ -151,6 +151,7 @@ class ChecklistRepository(private val context: Context) {
             try {
                 ReqNotificationHelper.updateNotification(context, newState)
                 ReqNotificationHelper.schedulePhaseReminder(context, newState)
+                com.example.checklist.widget.WidgetUpdateHelper.updateAllWidgets(context)
             } catch (e: Exception) {
                 e.printStackTrace()
             }

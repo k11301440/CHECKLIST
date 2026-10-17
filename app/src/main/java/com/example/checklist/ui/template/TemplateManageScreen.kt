@@ -233,16 +233,6 @@ fun TemplateManageScreen(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (isReq) {
-                            Box(
-                                modifier = Modifier
-                                    .width(3.dp)
-                                    .height(18.dp)
-                                    .background(TextPrimary)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                        }
-
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = item.title,
@@ -251,7 +241,7 @@ fun TemplateManageScreen(
                                 fontWeight = if (isReq) FontWeight.Bold else FontWeight.Normal
                             )
                             Text(
-                                text = if (isReq) "CRITICAL / REQUIRED" else "NORMAL",
+                                text = if (isReq) "重要 (CRIT)" else "標準 (STD)",
                                 color = TextSecondary,
                                 fontSize = 10.sp,
                                 letterSpacing = 0.5.sp
@@ -378,7 +368,7 @@ fun TemplateManageScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "必須",
+                                text = "重要",
                                 color = if (isReq) TextPrimary else TextSecondary,
                                 fontSize = 12.sp,
                                 fontWeight = if (isReq) FontWeight.Bold else FontWeight.Normal
@@ -396,7 +386,7 @@ fun TemplateManageScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "普通",
+                                text = "標準",
                                 color = if (isNorm) TextPrimary else TextSecondary,
                                 fontSize = 12.sp,
                                 fontWeight = if (isNorm) FontWeight.Bold else FontWeight.Normal

@@ -181,14 +181,19 @@ fun CalendarScreen(
                 // Weekday Headers (月曜始まり: 最左列が月曜、最右列が日曜)
                 val dayOfWeeks = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    for (dayName in dayOfWeeks) {
+                    for ((dIdx, dayName) in dayOfWeeks.withIndex()) {
+                        val headerColor = when (dIdx) {
+                            5 -> androidx.compose.ui.graphics.Color(0xFF6B9CE8) // SAT: 控えめな落ち着いた青
+                            6 -> androidx.compose.ui.graphics.Color(0xFFE57373) // SUN: 控えめな落ち着いた赤
+                            else -> TextTertiary
+                        }
                         Box(
                             modifier = Modifier.weight(1f),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = dayName,
-                                color = TextTertiary,
+                                color = headerColor,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.sp
@@ -239,7 +244,7 @@ fun CalendarScreen(
                                                     else -> 0.dp
                                                 },
                                                 color = when {
-                                                    isSelected -> TextPrimary
+                                                    isSelected -> com.example.checklist.theme.SpaceXAccent
                                                     isToday -> TextSecondary
                                                     else -> SpaceBlack
                                                 },
@@ -264,8 +269,9 @@ fun CalendarScreen(
                                                 color = when {
                                                     isSelected -> TextPrimary
                                                     isToday -> TextPrimary
-                                                    dayCol == 0 || dayCol == 6 -> TextSecondary
-                                                    else -> TextPrimary
+                                                    dayCol == 5 -> androidx.compose.ui.graphics.Color(0xFF7FAEFF) // SAT
+                                                    dayCol == 6 -> androidx.compose.ui.graphics.Color(0xFFFF8585) // SUN
+                                                    else -> TextPrimary // 月曜含む平日はクリアに表示
                                                 },
                                                 fontSize = 12.sp,
                                                 fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal

@@ -164,7 +164,7 @@ fun HomeScreen(
 
             if (!isActualToday) {
                 com.example.checklist.ui.components.SpaceXTextButton(
-                    text = "TODAYに戻る",
+                    text = com.example.checklist.ui.common.AppStrings.backToToday(state.settings.appLanguage),
                     onClick = { viewModel.resetToToday() },
                     prominent = true
                 )
@@ -212,7 +212,7 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .border(
                             width = if (isSelected) 1.5.dp else 1.dp,
-                            color = if (isSelected) TextPrimary else BorderProminent,
+                            color = if (isSelected) com.example.checklist.theme.SpaceXAccent else BorderProminent,
                             shape = SpaceXShape
                         )
                         .background(if (isSelected) SurfaceElevated else SurfaceDark, shape = SpaceXShape)
@@ -290,7 +290,7 @@ fun HomeScreen(
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = "REQ: ",
+                                    text = if (isEnglish) "CRIT: " else "重要: ",
                                     color = TextSecondary,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
@@ -307,7 +307,7 @@ fun HomeScreen(
 
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = "NORM: ",
+                                    text = if (isEnglish) "STD: " else "標準: ",
                                     color = TextTertiary,
                                     fontSize = 11.sp,
                                     letterSpacing = 1.sp

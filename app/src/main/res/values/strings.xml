@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">Checklist</string>
+    <string name="widget_critical_desc">重要タスク (CRITICAL) の一覧または残数をホーム画面に表示</string>
+    <string name="widget_all_desc">すべてのタスクの一覧または残数をホーム画面に表示</string>
+    <string name="widget_phase_desc">現在フェーズの残り時間と最重要タスク (FOCUS) を表示</string>
 </resources>

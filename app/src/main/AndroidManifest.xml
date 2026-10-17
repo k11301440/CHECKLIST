@@ -23,6 +23,40 @@
         <receiver
             android:name=".notification.PhaseReminderReceiver"
             android:exported="false" />
+
+        <!-- App Widgets -->
+        <receiver
+            android:name=".widget.CriticalTasksWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_critical_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.AllTasksWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_all_tasks_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.PhaseFocusWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_phase_focus_info" />
+        </receiver>
     </application>
 
 </manifest>

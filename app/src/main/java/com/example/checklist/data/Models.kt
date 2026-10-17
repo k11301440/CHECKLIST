@@ -101,7 +101,7 @@ data class PhaseSchedule(
 
 @Serializable
 data class AppSettings(
-    val appLanguage: AppLanguage = AppLanguage.EN,
+    val appLanguage: AppLanguage = AppLanguage.JA,
     val themeMode: ThemeMode = ThemeMode.SPACE_BLACK,
     val autoAdvanceByTime: Boolean = true,
     val carryoverUnfinishedReq: Boolean = true,

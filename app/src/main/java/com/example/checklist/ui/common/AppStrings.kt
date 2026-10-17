@@ -11,13 +11,21 @@ object AppStrings {
     fun tutorial(lang: AppLanguage) = if (lang == AppLanguage.EN) "TUTORIAL" else "チュートリアル"
     fun privacyPolicy(lang: AppLanguage) = if (lang == AppLanguage.EN) "PRIVACY POLICY" else "プライバシーポリシー"
     fun templates(lang: AppLanguage) = if (lang == AppLanguage.EN) "TEMPLATES" else "テンプレート"
-    fun aviationPhilosophy(lang: AppLanguage) = if (lang == AppLanguage.EN) "AVIATION CHECKLIST PHILOSOPHY" else "航空チェックリストの思想 (TIPS)"
+    fun aviationPhilosophy(lang: AppLanguage) = if (lang == AppLanguage.EN) "AVIATION CHECKLIST PHILOSOPHY" else "航空チェックリストの思想"
     fun releaseNotes(lang: AppLanguage) = if (lang == AppLanguage.EN) "RELEASE NOTES" else "リリースノート"
+    fun backToToday(lang: AppLanguage) = if (lang == AppLanguage.EN) "BACK TO TODAY" else "今日に戻る"
+
+    // Priority Terms (REQ/NORM -> 重要/標準, CRIT/STD)
+    fun priorityStandard(lang: AppLanguage) = if (lang == AppLanguage.EN) "STD" else "標準"
+    fun priorityCritical(lang: AppLanguage) = if (lang == AppLanguage.EN) "CRIT" else "重要"
+    fun priorityStandardFull(lang: AppLanguage) = if (lang == AppLanguage.EN) "STANDARD" else "標準タスク"
+    fun priorityCriticalFull(lang: AppLanguage) = if (lang == AppLanguage.EN) "CRITICAL" else "重要タスク"
 
     // Task Screen
-    fun activeTasks(lang: AppLanguage, count: Int) = if (lang == AppLanguage.EN) "ACTIVE TASKS ($count)" else "進行中タスク ($count)"
-    fun completed(lang: AppLanguage, count: Int) = if (lang == AppLanguage.EN) "COMPLETED ($count)" else "完了済み ($count)"
-    fun discarded(lang: AppLanguage, count: Int) = if (lang == AppLanguage.EN) "ARCHIVED / DISCARDED ($count)" else "破棄されたタスク ($count)"
+    fun activeTasks(lang: AppLanguage, count: Int) = if (lang == AppLanguage.EN) "ACTIVE TASKS" else "進行中タスク"
+    fun completed(lang: AppLanguage, count: Int) = if (lang == AppLanguage.EN) "COMPLETED" else "完了済み"
+    fun discarded(lang: AppLanguage, count: Int) = if (lang == AppLanguage.EN) "ARCHIVED / DISCARDED" else "破棄されたタスク"
+    fun completedAndDiscarded(lang: AppLanguage) = if (lang == AppLanguage.EN) "COMPLETED & ARCHIVED" else "完了・破棄されたタスク"
     fun inputHint(lang: AppLanguage) = if (lang == AppLanguage.EN) "Enter new task..." else "新しいタスクを入力..."
     fun scheduleSelect(lang: AppLanguage) = if (lang == AppLanguage.EN) "SCHEDULE / PHASE SELECTION" else "開始日・フェーズ選択"
     fun today(lang: AppLanguage) = if (lang == AppLanguage.EN) "TODAY" else "今日"
@@ -52,23 +60,23 @@ object AppStrings {
     else 
         "指定時刻になると該当フェーズへ自動で切り替えます"
 
-    fun carryoverReq(lang: AppLanguage) = if (lang == AppLanguage.EN) "Carryover unfinished REQ tasks" else "未完了の必須(REQ)タスクを自動持越"
+    fun carryoverReq(lang: AppLanguage) = if (lang == AppLanguage.EN) "Carryover unfinished CRITICAL tasks" else "未完了の重要タスクを自動持越"
     fun carryoverReqDesc(lang: AppLanguage) = if (lang == AppLanguage.EN) 
-        "Carry forward pending required tasks to the next phase" 
+        "Carry forward pending critical tasks to the next phase" 
     else 
-        "フェーズ完了時、未完了のREQタスクを次のフェーズへ引き継ぎます"
+        "フェーズ完了時、未完了の重要タスクを次のフェーズへ引き継ぎます"
 
-    fun carryoverNorm(lang: AppLanguage) = if (lang == AppLanguage.EN) "Carryover unfinished NORM tasks" else "未完了の通常(NORM)タスクを自動持越"
+    fun carryoverNorm(lang: AppLanguage) = if (lang == AppLanguage.EN) "Carryover unfinished STANDARD tasks" else "未完了の標準タスクを自動持越"
     fun carryoverNormDesc(lang: AppLanguage) = if (lang == AppLanguage.EN) 
-        "Carry forward pending normal tasks to the next phase" 
+        "Carry forward pending standard tasks to the next phase" 
     else 
-        "フェーズ完了時、未完了のNORMタスクも次のフェーズへ引き継ぎます"
+        "フェーズ完了時、未完了の標準タスクも次のフェーズへ引き継ぎます"
 
-    fun reqNotification(lang: AppLanguage) = if (lang == AppLanguage.EN) "Display unfinished REQ in status bar" else "未完了REQタスクを常駐通知"
+    fun reqNotification(lang: AppLanguage) = if (lang == AppLanguage.EN) "Display unfinished CRITICAL in status bar" else "未完了の重要タスクを常駐通知"
     fun reqNotificationDesc(lang: AppLanguage) = if (lang == AppLanguage.EN) 
-        "Show remaining required tasks in Android notification bar" 
+        "Show remaining critical tasks in Android notification bar" 
     else 
-        "未完了の必須タスクがある場合、通知バーに常駐表示します"
+        "未完了の重要タスクがある場合、通知バーに常駐表示します"
 
     fun phaseEndReminder(lang: AppLanguage) = if (lang == AppLanguage.EN) "Phase end reminder" else "フェーズ終了前リマインダー"
     fun phaseEndReminderDesc(lang: AppLanguage) = if (lang == AppLanguage.EN) 

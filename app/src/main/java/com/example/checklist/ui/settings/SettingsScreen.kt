@@ -163,14 +163,14 @@ fun SettingsScreen(
                 ) {
                     ThemeOptionButton(
                         text = "ENGLISH",
-                        subtext = "EN (DEFAULT)",
+                        subtext = "EN",
                         isSelected = lang == AppLanguage.EN,
                         onClick = { viewModel.setAppLanguage(AppLanguage.EN) },
                         modifier = Modifier.weight(1f)
                     )
                     ThemeOptionButton(
                         text = "日本語",
-                        subtext = "JA",
+                        subtext = if (lang == AppLanguage.EN) "JA (DEFAULT)" else "JA (デフォルト)",
                         isSelected = lang == AppLanguage.JA,
                         onClick = { viewModel.setAppLanguage(AppLanguage.JA) },
                         modifier = Modifier.weight(1f)
@@ -197,10 +197,10 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f)
                         )
                         ThemeOptionButton(
-                            text = "TRON RED",
-                            subtext = if (isEnglish) "CYBER RED" else "トロン (赤基調)",
-                            isSelected = currentMode == ThemeMode.TRON_RED,
-                            onClick = { viewModel.setThemeMode(ThemeMode.TRON_RED) },
+                            text = "SPACE WHITE",
+                            subtext = if (isEnglish) "LIGHT MODE" else "ライトモード",
+                            isSelected = currentMode == ThemeMode.SPACE_WHITE,
+                            onClick = { viewModel.setThemeMode(ThemeMode.SPACE_WHITE) },
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -209,17 +209,17 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         ThemeOptionButton(
-                            text = "MONSTER",
-                            subtext = if (isEnglish) "ENERGY GREEN" else "モンスター (緑)",
-                            isSelected = currentMode == ThemeMode.MONSTER_GREEN,
-                            onClick = { viewModel.setThemeMode(ThemeMode.MONSTER_GREEN) },
+                            text = "TRON RED",
+                            subtext = if (isEnglish) "CYBER RED" else "トロン (赤外縁)",
+                            isSelected = currentMode == ThemeMode.TRON_RED,
+                            onClick = { viewModel.setThemeMode(ThemeMode.TRON_RED) },
                             modifier = Modifier.weight(1f)
                         )
                         ThemeOptionButton(
-                            text = "SPACE WHITE",
-                            subtext = if (isEnglish) "LIGHT MODE" else "ライトモード",
-                            isSelected = currentMode == ThemeMode.SPACE_WHITE,
-                            onClick = { viewModel.setThemeMode(ThemeMode.SPACE_WHITE) },
+                            text = "MONSTER",
+                            subtext = if (isEnglish) "ENERGY GREEN" else "モンスター (緑外縁)",
+                            isSelected = currentMode == ThemeMode.MONSTER_GREEN,
+                            onClick = { viewModel.setThemeMode(ThemeMode.MONSTER_GREEN) },
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -674,7 +674,7 @@ fun SettingsScreen(
 
                     SpaceXDivider()
 
-                    // バージョン名 (白地 + 矢印でリリースノート展開)
+                    // バージョン名 & リリースノート (横並びで配置し、各ボタンの高さを統一)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -683,27 +683,27 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Text(
-                                text = "v0.5.0 (Closed Beta)",
-                                color = TextPrimary,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.SansSerif
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "v0.6.0 (Closed Beta)",
+                            color = TextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.SansSerif
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = AppStrings.releaseNotes(lang),
-                                color = TextTertiary,
-                                fontSize = 10.sp,
-                                letterSpacing = 1.sp
+                                color = TextSecondary,
+                                fontSize = 11.sp,
+                                letterSpacing = 0.5.sp
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = "Release Notes",
+                                tint = TextSecondary
                             )
                         }
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = "Release Notes",
-                            tint = TextSecondary
-                        )
                     }
 
                     SpaceXDivider()
@@ -945,7 +945,7 @@ private fun ThemeOptionButton(
         modifier = modifier
             .border(
                 width = if (isSelected) 2.dp else 1.dp,
-                color = if (isSelected) TextPrimary else BorderSubtle,
+                color = if (isSelected) com.example.checklist.theme.SpaceXAccent else BorderSubtle,
                 shape = SpaceXShape
             )
             .background(if (isSelected) SurfaceElevated else SurfaceDark, shape = SpaceXShape)
@@ -956,7 +956,7 @@ private fun ThemeOptionButton(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = text,
-                color = if (isSelected) TextPrimary else TextSecondary,
+                color = if (isSelected) com.example.checklist.theme.SpaceXAccent else TextSecondary,
                 fontSize = 12.sp,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                 letterSpacing = 1.sp
@@ -986,23 +986,25 @@ private fun SettingToggleRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+        Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
             Text(
                 text = title,
                 color = TextPrimary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold
             )
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = description,
                 color = TextSecondary,
                 fontSize = 11.sp,
-                lineHeight = 16.sp
+                lineHeight = 15.sp,
+                modifier = Modifier.fillMaxWidth()
             )
         }
         Box(
             modifier = Modifier
-                .border(1.dp, if (enabled) TextPrimary else BorderSubtle, SpaceXSmallShape)
+                .border(1.dp, if (enabled) com.example.checklist.theme.SpaceXAccent else BorderSubtle, SpaceXSmallShape)
                 .background(if (enabled) SurfaceElevated else SpaceBlack, shape = SpaceXSmallShape)
                 .padding(horizontal = 10.dp, vertical = 4.dp)
         ) {
@@ -1182,39 +1184,43 @@ fun ReleaseNotesDialog(
                 )
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // v0.5.0
+                // v0.6.0
                 Text(
-                    text = "v0.5.0 (Closed Beta)",
+                    text = "v0.6.0 (Closed Beta)",
                     color = TextPrimary,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(6.dp))
-                val notesV050 = if (isEnglish) {
+                val notesV060 = if (isEnglish) {
                     """
-                    • REQ Visual Distinction: Required task cards now have a prominent border; task badges and left vertical lines are removed to streamline checkbox alignment.
-                    • New Color Themes: Added TRON RED (cyber red accent) and MONSTER GREEN (energy green accent) alongside SPACE BLACK and WHITE.
-                    • Bilingual Language Setting: Dropped '//' mixed labels. Choose between pure English and Japanese from Settings.
-                    • Phase End Reminders: Get notified 10, 15, 30, or 60 minutes before the current phase ends.
-                    • Notification Tap Action: Tapping task notifications now opens the app directly.
-                    • Input Bar Optimization: Balanced padding for the priority toggle and refined calendar highlight behavior.
-                    • Auto Chronological Sorting: New REQ tasks automatically sort above NORM tasks in chronological order.
-                    • Aviation Checklist Philosophy: Added insights explaining how flight checklist discipline inspired this app.
+                    • Default Language: Set default language to Japanese.
+                    • Priority Terms Refined: Replaced REQ/NORM with Standard/Critical (重要/標準).
+                    • Accidental Tap Prevention: Tasks no longer complete by tapping card body; only dedicated checkbox or dismiss icon triggers action.
+                    • Visual Glow Accents: Tron and Monster themes now highlight outer borders in vivid Cyber Red and Energy Green on pure black background.
+                    • Smart Action Button: Advance Phase button remains tucked in overflow menu until all critical items are cleared.
+                    • De-cluttered List: Removed 'Active Tasks' label and count badges for finished sections.
+                    • Smooth Transitions: Added light 180ms crossfade between phases and stabilized drag-and-drop animation.
+                    • Calendar Visibility: Added subtle blue to Saturday and red to Sunday, fixing Monday column display.
+                    • Layout Balancing: Aligned clear button with pending text and grouped theme buttons cleanly.
+                    • SpaceX Cockpit Philosophy: Added insights on Crew Dragon HUD minimalism to guide philosophy.
                     """.trimIndent()
                 } else {
                     """
-                    ・REQタスクの視覚的強調: 必須タスクカードを白枠（またはアクセント枠）に変更。カード内のバッジと左端縦線を廃止しチェックボックスの横軸を統一。
-                    ・新カラーテーマ: 赤を基調とする「トロン (TRON RED)」および緑のワンポイントを基調とする「モンスター (MONSTER GREEN)」を追加。
-                    ・日英表記切替: 「英語 // 日本語」の併記を廃止し、設定から英語・日本語を完全切り替え可能に。
-                    ・フェーズ終了前リマインダー: フェーズ終了の10分/15分/30分/60分前に通知でリマインドする機能を追加。
-                    ・通知タップ遷移: 通知タップ時にアプリへ直接遷移できるように改善。
-                    ・タスク設定バー改善: NORM/REQトグルボタンの余白統一、カレンダーアイコンの日付指定時ハイライト。
-                    ・タスク並び順の自動整合: 新規REQタスクがNORMタスクの上に古い順で並ぶよう自動配置。
-                    ・航空チェックリストの思想: 航空業界の知見・設計思想を紹介する小記事を追加。
+                    ・デフォルト言語を日本語に変更: 初期起動時の言語を日本語に設定。
+                    ・タスク優先度の表記刷新: NORM/REQを「標準」「重要」（英語はSTD/CRIT）に変更。
+                    ・誤タッチ防止機構: カード全体タップでの「済」を廃止。チェックボックスか✕ボタンのみで操作。
+                    ・外縁アクセント発光: トロン（赤）とモンスター（緑）で外縁枠線のみを鮮やかに発光させ、他は純黒・白文字に統一。
+                    ・フェーズ完了ボタンのスマート制御: 重要タスク未完了時は下部ボタンを隠し、右上の詳細メニューに格納。全重要タスク完了時に下部に出現。
+                    ・視覚ノイズ削減: 「進行中タスク」ヘッダーの削除および完了セクションの件数表記を削除。
+                    ・上品なフェーズ遷移と並び替え改善: フェーズ切り替え時の軽量クロスフェード、ドラッグ並び替え時の追従アニメーション競合を解消。
+                    ・カレンダー視認性向上: 土曜に青、日曜に赤を控えめに追加し、月曜列の表示薄れを修正。
+                    ・レイアウト均等化: 完了消去ボタンと保留件数の縦位置統一、テーマ選択ボタンの配置整理。
+                    ・SpaceX設計思想の追記: クルードラゴンのタッチHUD思想と極限の自動化についての小記事を増補。
                     """.trimIndent()
                 }
                 Text(
-                    text = notesV050,
+                    text = notesV060,
                     color = TextSecondary,
                     fontSize = 11.5.sp,
                     lineHeight = 18.sp
@@ -1224,21 +1230,21 @@ fun ReleaseNotesDialog(
                 SpaceXDivider()
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // v0.4.1
+                // v0.5.0
                 Text(
-                    text = "v0.4.1 (Closed Beta)",
+                    text = "v0.5.0 (Closed Beta)",
                     color = TextSecondary,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                val notesV041 = if (isEnglish) {
-                    "• Refined adaptive app icon and pure black launch splash screen."
+                val notesV050 = if (isEnglish) {
+                    "• REQ visual borders, Tron/Monster themes, bilingual language switch, phase end reminders, notification tap resume."
                 } else {
-                    "・アプリアイコンの刷新および純黒スプラッシュ起動画面の統一。"
+                    "・REQ枠線の視覚的強調、トロン/モンスターテーマ、日英切り替え、フェーズ終了前リマインダー、通知タップ復帰。"
                 }
                 Text(
-                    text = notesV041,
+                    text = notesV050,
                     color = TextTertiary,
                     fontSize = 11.sp,
                     lineHeight = 16.sp
@@ -1260,7 +1266,7 @@ fun ReleaseNotesDialog(
     }
 }
 
-// AVIATION TIPS PHILOSOPHY DIALOG (航空業界の知見・設計思想小記事)
+// AVIATION & SPACEX PHILOSOPHY DIALOG (航空業界・スペースXの知見小記事)
 @Composable
 fun AviationTipsDialog(
     isEnglish: Boolean,
@@ -1280,7 +1286,7 @@ fun AviationTipsDialog(
                     .verticalScroll(rememberScrollState())
             ) {
                 Text(
-                    text = if (isEnglish) "AVIATION CHECKLIST PHILOSOPHY" else "航空チェックリストの思想",
+                    text = if (isEnglish) "AVIATION & SPACEX PHILOSOPHY" else "航空チェックリストとSpaceXの設計思想",
                     color = TextPrimary,
                     fontSize = 14.5.sp,
                     fontWeight = FontWeight.Bold,
@@ -1293,28 +1299,34 @@ fun AviationTipsDialog(
                     1. Operational Phases (フェーズ運用)
                     Aircraft operations strictly separate checklists into distinct flight phases: Pre-flight, Takeoff, Cruise, Descent, and Landing. This app segments daily human routines into phases (Morning, Noon, Afternoon, Night) so your cognitive capacity is 100% focused on immediate objectives without distraction.
 
-                    2. Discipline of REQ vs NORM (必須と通常の厳格な峻別)
-                    Aviation distinguishes between 'Critical / Emergency' procedures and 'Normal' procedures. REQ tasks represent vital non-negotiable checklist items. They stand out with prominent borders and are automatically carried over until executed.
+                    2. Discipline of Critical vs Standard (重要と標準の厳格な規律)
+                    Aviation distinguishes between 'Critical / Emergency' procedures and 'Normal' procedures. Critical tasks represent vital non-negotiable checklist items. They stand out with prominent borders and are automatically carried forward until executed.
 
-                    3. Visual De-cluttering (視覚的負荷の極小化)
+                    3. Visual De-cluttering (視覚ノイズの除去)
                     Completed tasks fade out into borderless rows, leaving only pending critical tasks prominent. Just like modern glass cockpit HUDs, unnecessary visual noise is eliminated to maintain situational awareness.
 
-                    4. Challenge & Response (確実な実行と復唱)
-                    Each item requires a deliberate single tap to verify completion, and long-press to undo, minimizing inadvertent clicks and cultivating disciplined daily momentum.
+                    4. Guarded Actions & Challenge-Response (確実な実行と誤操作防止)
+                    Each item requires a deliberate checkbox tap to verify completion, rather than tapping anywhere on the card. Important destructive actions are tucked into menus until prerequisites are met, preventing inadvertent mistakes.
+
+                    5. SpaceX Crew Dragon UI Philosophy (スペースXの極限ミニマリズム)
+                    SpaceX's Crew Dragon spacecraft replaced thousands of physical cockpit switches with streamlined touch screens, showing astronauts only the information critical to the current phase of flight. By automating routines and surfacing only high-priority tasks, situational awareness reaches its highest efficiency.
                     """.trimIndent()
                 } else {
                     """
                     1. フェーズ運用（Operational Phases）
                     航空機は「離陸前」「離陸」「巡航」「降下」「着陸」と飛行段階ごとにチェックリストを厳格に切り替えます。着陸態勢に入ったパイロットが離陸のタスクに気を取られることはありません。本アプリも1日をフェーズ（朝・午前・午後・夜）に区切ることで、認知負荷を最小化し、今この瞬間のミッションに100%集中させる設計です。
 
-                    2. REQ（必須）と NORM（通常）の規律
-                    航空運航における「クリティカルチェックリスト」と「ノーマルチェックリスト」の厳密な峻別です。生命線となるREQタスクは白枠で力強く存在感を示し、完了するまで次フェーズ・翌日に引き継がれます（自動キャリーオーバー）。
+                    2. 重要（CRIT）と標準（STD）の規律
+                    航空運航における「クリティカルチェックリスト」と「ノーマルチェックリスト」の厳密な峻別です。生命線となる重要タスクはアクセント枠で力強く存在感を示し、完了するまで次フェーズ・翌日に引き継がれます（自動キャリーオーバー）。
 
                     3. デクラッター（Visual De-cluttering: 視覚ノイズの除去）
                     完了したタスクの枠線を消し、未完了のタスクのみを高コントラストで際立たせます。最新鋭のグラスコクピットHUDと同様に、終わった不要な情報を削ぎ落とすことで状況認識（Situational Awareness）を最高度に維持します。
 
-                    4. Challenge & Response（確実な実行）
-                    指差呼称のように1タップで確実にトグルし、誤操作は長押しで解除。無駄なアニメーションや装飾を排した極限のミニマリズムです。
+                    4. Guarded Action（誤操作防止と確実な実行）
+                    カード全体のどこを触っても完了してしまう仕様を排除し、指差呼称のように目的のチェックボックスを確実にタップした時のみ完了状態へ移行します。また重要タスクが終わるまでフェーズ完了ボタンを前面に出さない構造により、誤操作の芽を摘み取ります。
+
+                    5. SpaceX クルードラゴンのコクピットUI哲学
+                    SpaceXの有人宇宙船クルードラゴン（Crew Dragon）は、従来の宇宙船にあった数千個の物理スイッチを撤廃し、大画面タッチHUD主体の極限のミニマリズムへ刷新されました。飛行フェーズに応じた必要最小限のUIのみを提示し、定常業務を自動化することで宇宙飛行士の認知的負担を劇的に削減しています。本アプリもこの哲学を受け継ぎ、不要な装飾を排した高コントラストな設計を徹底しています。
                     """.trimIndent()
                 }
 
@@ -1322,7 +1334,8 @@ fun AviationTipsDialog(
                     text = content,
                     color = TextSecondary,
                     fontSize = 11.5.sp,
-                    lineHeight = 18.sp
+                    lineHeight = 18.sp,
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 Spacer(modifier = Modifier.height(18.dp))

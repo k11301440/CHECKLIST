@@ -89,44 +89,65 @@ fun UserGuideScreen(
 
                 GuideSection(
                     stepNumber = "01",
-                    title = "タスク種別: REQ と NORM",
-                    description = "・[REQ] 必須タスク: そのフェーズで絶対に完遂すべき最優先事項です。未完了のままフェーズが進むと、設定に応じて次フェーズや翌日へ自動引き継ぎ（キャリーオーバー）されます。\n・[NORM] 通常タスク: 日常的なルーチンや補足タスクです。"
+                    title = if (isEnglish) "Task Types: Critical & Standard" else "タスク種別: 重要 と 標準",
+                    description = if (isEnglish) 
+                        "• [CRITICAL] Vital tasks that must be executed in this phase. Uncompleted critical tasks automatically carry forward to next phases.\n• [STANDARD] Routine or supplementary tasks."
+                    else 
+                        "・[重要] そのフェーズで絶対に完遂すべき最優先事項です。未完了のままフェーズが進むと、設定に応じて次フェーズや翌日へ自動引き継ぎ（キャリーオーバー）されます。\n・[標準] 日常的なルーチンや補足タスクです。"
                 )
 
                 GuideSection(
                     stepNumber = "02",
-                    title = "自由なドラッグ＆ドロップ並び替え",
-                    description = "タスクカード左端を長押しするとカードが浮き上がり、上下にドラッグすることで並び順を瞬時に入れ替えられます。優先度の変化に合わせて、REQとNORMの境界を越えて自由に並び替えが可能です。"
+                    title = if (isEnglish) "Drag & Drop Reordering" else "自由なドラッグ＆ドロップ並び替え",
+                    description = if (isEnglish)
+                        "Long-press the handle on the left of any task card to float it, then drag up or down to reorder effortlessly across priority sections."
+                    else
+                        "タスクカード左端を長押しするとカードが浮き上がり、上下にドラッグすることで並び順を瞬時に入れ替えられます。重要と標準の枠を越えて自由に並び替えが可能です。"
                 )
 
                 GuideSection(
                     stepNumber = "03",
-                    title = "クイック追加 & 未来タスク予約",
-                    description = "タスク画面下部の入力バーから、いつでも単発タスクを即時追加できます。日付アイコン横のオプションを開くと、タスクを開始する日付（今日・明日・明後日）やフェーズを指定して事前登録できます。"
+                    title = if (isEnglish) "Quick Add & Future Scheduling" else "クイック追加 & 未来タスク予約",
+                    description = if (isEnglish)
+                        "Add ad-hoc tasks anytime from the bottom input bar. Expand options to select starting date (today, tomorrow, in 2 days) and phase."
+                    else
+                        "タスク画面下部の入力バーから、いつでも単発タスクを即時追加できます。日付アイコン横のオプションを開くと、タスクを開始する日付（今日・明日・明後日）やフェーズを指定して事前登録できます。"
                 )
 
                 GuideSection(
                     stepNumber = "04",
-                    title = "振り返りログ (ALL SYSTEMS NOMINAL?)",
-                    description = "フェーズ進行時、問題がなかったか（NOMINAL）の振り返りが行えます。「NO」を選択すると課題やブロッカーをメモとして記録でき、カレンダー画面でいつでも過去のミッション記録を振り返ることができます。"
+                    title = if (isEnglish) "Review Log (Nominal Check)" else "振り返りログ (ALL SYSTEMS NOMINAL?)",
+                    description = if (isEnglish)
+                        "When advancing phases, verify whether execution was nominal. Selecting NO allows recording blockers into the mission calendar log."
+                    else
+                        "フェーズ進行時、問題がなかったか（NOMINAL）の振り返りが行えます。「NO」を選択すると課題やブロッカーをメモとして記録でき、カレンダー画面でいつでも過去のミッション記録を振り返ることができます。"
                 )
 
                 GuideSection(
                     stepNumber = "05",
-                    title = "テンプレート編集と未来への即時同期",
-                    description = "設定画面の「TEMPLATES」から各フェーズの基本タスク構成を自由に編集できます。テンプレートを変更すると、現在いるフェーズ以降および翌日以降のタスク構成へ直ちに反映されます。"
+                    title = if (isEnglish) "Templates & Future Sync" else "テンプレート編集と未来への即時同期",
+                    description = if (isEnglish)
+                        "Customize recurring phase tasks from Settings > Templates. Changes immediately synchronize with future phases and upcoming days."
+                    else
+                        "設定画面の「TEMPLATES」から各フェーズの基本タスク構成を自由に編集できます。テンプレートを変更すると、現在いるフェーズ以降および翌日以降のタスク構成へ直ちに反映されます。"
                 )
 
                 GuideSection(
                     stepNumber = "06",
-                    title = "未完了REQタスクの通知バー常駐",
-                    description = "設定画面で「未完了REQタスクの通知」をオン（オプトイン）にすると、現在フェーズの未処理必須タスクがAndroid通知バーに常時表示され、重要な仕事の見落としを防止します。"
+                    title = if (isEnglish) "Status Bar Notifications" else "未完了タスクの通知バー常駐",
+                    description = if (isEnglish)
+                        "Enable 'Critical task notifications' to keep remaining priority tasks visible in Android's notification tray."
+                    else
+                        "設定画面で「未完了の重要タスクを常駐通知」をオンにすると、現在フェーズの未処理重要タスクがAndroid通知バーに常時表示され、重要な仕事の見落としを防止します。"
                 )
 
                 GuideSection(
                     stepNumber = "07",
-                    title = "完全ローカル・通信ゼロの安全性",
-                    description = "すべてのデータはお使いの端末内ローカルストレージにのみ保存され、外部サーバーへの通信は一切発生しません。飛行機内やオフライン環境でも100%確実に動作します。"
+                    title = if (isEnglish) "Offline-First Local Storage" else "完全ローカル・通信ゼロの安全性",
+                    description = if (isEnglish)
+                        "All data stays safely stored in local device JSON with zero network transmissions. Fully operational offline or aboard aircraft."
+                    else
+                        "すべてのデータはお使いの端末内ローカルストレージにのみ保存され、外部サーバーへの通信は一切発生しません。飛行機内やオフライン環境でも100%確実に動作します。"
                 )
 
                 Spacer(modifier = Modifier.height(30.dp))
@@ -149,16 +170,19 @@ private fun GuideSection(
             .background(SurfaceDark, shape = com.example.checklist.ui.components.SpaceXShape)
             .padding(16.dp)
     ) {
-        Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
                     text = stepNumber,
-                    color = TextPrimary,
+                    color = com.example.checklist.theme.SpaceXAccent,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp,
                     modifier = Modifier
-                        .border(1.dp, BorderProminent, com.example.checklist.ui.components.SpaceXSmallShape)
+                        .border(1.dp, com.example.checklist.theme.SpaceXAccent, com.example.checklist.ui.components.SpaceXSmallShape)
                         .background(SurfaceElevated, shape = com.example.checklist.ui.components.SpaceXSmallShape)
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 )
@@ -168,7 +192,8 @@ private fun GuideSection(
                     color = TextPrimary,
                     fontSize = 13.5.sp,
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.5.sp
+                    letterSpacing = 0.5.sp,
+                    modifier = Modifier.weight(1f)
                 )
             }
 
@@ -179,7 +204,8 @@ private fun GuideSection(
                 color = TextSecondary,
                 fontSize = 12.sp,
                 lineHeight = 18.sp,
-                letterSpacing = 0.3.sp
+                letterSpacing = 0.3.sp,
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }
