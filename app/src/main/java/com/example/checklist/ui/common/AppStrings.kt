@@ -50,8 +50,19 @@ object AppStrings {
     fun sectionPhases(lang: AppLanguage) = if (lang == AppLanguage.EN) "PHASES & SCHEDULE" else "フェーズ・時間割管理"
     fun sectionTemplates(lang: AppLanguage) = if (lang == AppLanguage.EN) "TEMPLATES" else "テンプレート管理"
     fun sectionGuide(lang: AppLanguage) = if (lang == AppLanguage.EN) "GUIDE & PHILOSOPHY" else "ガイドと設計思想"
+    fun sectionWidgets(lang: AppLanguage) = if (lang == AppLanguage.EN) "WIDGETS" else "ウィジェット"
     fun sectionInfo(lang: AppLanguage) = if (lang == AppLanguage.EN) "APPLICATION INFO" else "アプリ情報"
     fun sectionDanger(lang: AppLanguage) = if (lang == AppLanguage.EN) "DANGER ZONE" else "データ管理"
+
+    // Widget Strings
+    fun widgetAddDesc(lang: AppLanguage) = if (lang == AppLanguage.EN) "Tap to pin widgets to your home screen" else "ホーム画面にウィジェットを追加します"
+    fun widgetCriticalTitle(lang: AppLanguage) = if (lang == AppLanguage.EN) "Critical Tasks" else "重要タスク"
+    fun widgetCriticalSub(lang: AppLanguage) = if (lang == AppLanguage.EN) "Pending critical tasks or count" else "重要タスクの一覧・件数を表示"
+    fun widgetAllTitle(lang: AppLanguage) = if (lang == AppLanguage.EN) "All Tasks" else "全タスク"
+    fun widgetAllSub(lang: AppLanguage) = if (lang == AppLanguage.EN) "All pending tasks or count" else "全タスクの一覧・件数を表示"
+    fun widgetFocusTitle(lang: AppLanguage) = if (lang == AppLanguage.EN) "Phase & Focus" else "フェーズ＆フォーカス"
+    fun widgetFocusSub(lang: AppLanguage) = if (lang == AppLanguage.EN) "Remaining time and top priority target" else "フェーズ残り時間と最優先タスクを表示"
+    fun widgetPinButton(lang: AppLanguage) = if (lang == AppLanguage.EN) "ADD TO HOME" else "ホーム画面に追加"
 
     // Settings items
     fun autoAdvance(lang: AppLanguage) = if (lang == AppLanguage.EN) "Auto-advance phase by time" else "時間割によるフェーズ自動進行"

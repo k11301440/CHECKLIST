@@ -34,7 +34,7 @@
             android:textSize="11sp" />
     </LinearLayout>
 
-    <View
+    <ImageView
         android:id="@+id/widget_focus_divider"
         android:layout_width="match_parent"
         android:layout_height="1dp"

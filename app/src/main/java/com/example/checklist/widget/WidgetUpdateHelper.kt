@@ -23,40 +23,64 @@ import java.time.LocalTime
 
 object WidgetUpdateHelper {
 
-    fun updateAllWidgets(context: Context) {
+    fun updateAllWidgets(context: Context, customState: com.example.checklist.data.AppState? = null) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val repository = ChecklistRepository(context.applicationContext)
-                val state = repository.appState.value
-                val appWidgetManager = AppWidgetManager.getInstance(context)
-
-                // 1. Critical Tasks Widget
-                val criticalComponent = ComponentName(context, CriticalTasksWidgetProvider::class.java)
-                val criticalIds = appWidgetManager.getAppWidgetIds(criticalComponent)
-                for (appWidgetId in criticalIds) {
-                    val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
-                    val views = buildTaskListWidget(context, state, isCriticalOnly = true, options = options)
-                    appWidgetManager.updateAppWidget(appWidgetId, views)
-                }
-
-                // 2. All Tasks Widget
-                val allComponent = ComponentName(context, AllTasksWidgetProvider::class.java)
-                val allIds = appWidgetManager.getAppWidgetIds(allComponent)
-                for (appWidgetId in allIds) {
-                    val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
-                    val views = buildTaskListWidget(context, state, isCriticalOnly = false, options = options)
-                    appWidgetManager.updateAppWidget(appWidgetId, views)
-                }
-
-                // 3. Phase & Focus Widget
-                val focusComponent = ComponentName(context, PhaseFocusWidgetProvider::class.java)
-                val focusIds = appWidgetManager.getAppWidgetIds(focusComponent)
-                for (appWidgetId in focusIds) {
-                    val views = buildPhaseFocusWidget(context, state)
-                    appWidgetManager.updateAppWidget(appWidgetId, views)
-                }
+                updateAllWidgetsSync(context, customState)
             } catch (e: Exception) {
                 e.printStackTrace()
+            }
+        }
+    }
+
+    fun updateAllWidgetsSync(context: Context, customState: com.example.checklist.data.AppState? = null) {
+        try {
+            val state = customState ?: ChecklistRepository(context.applicationContext).appState.value
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+
+            // 1. Critical Tasks Widget
+            val criticalComponent = ComponentName(context, CriticalTasksWidgetProvider::class.java)
+            val criticalIds = appWidgetManager.getAppWidgetIds(criticalComponent)
+            for (appWidgetId in criticalIds) {
+                val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
+                val views = buildTaskListWidget(context, state, isCriticalOnly = true, options = options)
+                appWidgetManager.updateAppWidget(appWidgetId, views)
+            }
+
+            // 2. All Tasks Widget
+            val allComponent = ComponentName(context, AllTasksWidgetProvider::class.java)
+            val allIds = appWidgetManager.getAppWidgetIds(allComponent)
+            for (appWidgetId in allIds) {
+                val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
+                val views = buildTaskListWidget(context, state, isCriticalOnly = false, options = options)
+                appWidgetManager.updateAppWidget(appWidgetId, views)
+            }
+
+            // 3. Phase & Focus Widget
+            val focusComponent = ComponentName(context, PhaseFocusWidgetProvider::class.java)
+            val focusIds = appWidgetManager.getAppWidgetIds(focusComponent)
+            for (appWidgetId in focusIds) {
+                val views = buildPhaseFocusWidget(context, state)
+                appWidgetManager.updateAppWidget(appWidgetId, views)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun isPinSupported(context: Context): Boolean {
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val appWidgetManager = context.getSystemService(AppWidgetManager::class.java)
+            appWidgetManager?.isRequestPinAppWidgetSupported == true
+        } else false
+    }
+
+    fun requestPinWidget(context: Context, providerClass: Class<*>) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val appWidgetManager = context.getSystemService(AppWidgetManager::class.java)
+            val myProvider = ComponentName(context, providerClass)
+            if (appWidgetManager?.isRequestPinAppWidgetSupported == true) {
+                appWidgetManager.requestPinAppWidget(myProvider, null, null)
             }
         }
     }

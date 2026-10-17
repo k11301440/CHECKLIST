@@ -8,5 +8,6 @@
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
     android:initialLayout="@layout/widget_task_list"
+    android:previewLayout="@layout/widget_task_list"
     android:description="@string/widget_all_desc">
 </appwidget-provider>

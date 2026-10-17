@@ -47,6 +47,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -591,6 +592,59 @@ fun SettingsScreen(
                 }
             }
 
+            // 4.5. WIDGETS (ホーム画面ウィジェット)
+            if (com.example.checklist.widget.WidgetUpdateHelper.isPinSupported(context)) {
+                item {
+                    SettingsSectionHeader(AppStrings.sectionWidgets(lang))
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, BorderSubtle, SpaceXShape)
+                            .background(SurfaceDark, shape = SpaceXShape)
+                    ) {
+                        WidgetPinRow(
+                            title = AppStrings.widgetCriticalTitle(lang),
+                            description = AppStrings.widgetCriticalSub(lang),
+                            buttonText = AppStrings.widgetPinButton(lang),
+                            onClick = {
+                                com.example.checklist.widget.WidgetUpdateHelper.requestPinWidget(
+                                    context,
+                                    com.example.checklist.widget.CriticalTasksWidgetProvider::class.java
+                                )
+                            }
+                        )
+                        SpaceXDivider()
+
+                        WidgetPinRow(
+                            title = AppStrings.widgetAllTitle(lang),
+                            description = AppStrings.widgetAllSub(lang),
+                            buttonText = AppStrings.widgetPinButton(lang),
+                            onClick = {
+                                com.example.checklist.widget.WidgetUpdateHelper.requestPinWidget(
+                                    context,
+                                    com.example.checklist.widget.AllTasksWidgetProvider::class.java
+                                )
+                            }
+                        )
+                        SpaceXDivider()
+
+                        WidgetPinRow(
+                            title = AppStrings.widgetFocusTitle(lang),
+                            description = AppStrings.widgetFocusSub(lang),
+                            buttonText = AppStrings.widgetPinButton(lang),
+                            onClick = {
+                                com.example.checklist.widget.WidgetUpdateHelper.requestPinWidget(
+                                    context,
+                                    com.example.checklist.widget.PhaseFocusWidgetProvider::class.java
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+
             // 5. HELP, LEGAL & VERSION (チュートリアル・航空思想・規約・バージョン)
             item {
                 SettingsSectionHeader(AppStrings.sectionGuide(lang))
@@ -684,7 +738,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "v0.6.0 (Closed Beta)",
+                            text = "v0.7.0 (Closed Beta)",
                             color = TextPrimary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
@@ -1199,11 +1253,47 @@ fun ReleaseNotesDialog(
                 )
                 Spacer(modifier = Modifier.height(14.dp))
 
+                // v0.7.0
+                Text(
+                    text = "v0.7.0 (Closed Beta)",
+                    color = TextPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                val notesV070 = if (isEnglish) {
+                    """
+                    • Home Screen Widgets Architecture: Fixed RemoteViews XML compatibility, achieving robust zero-crash rendering.
+                    • 3 Dedicated Widget Styles: Critical Tasks (count/list), All Tasks (count/list), and Phase & Focus Target.
+                    • Live Millisecond Synchronization: Widget updates immediately upon adding, completing, or modifying checklist tasks.
+                    • Theme Synchronization: Seamlessly reflects Tron Red, Monster Green, Space Black, and Space White on home screen widgets.
+                    • One-Tap Widget Pinning: Direct shortcut in Settings to pin widgets without searching launcher lists.
+                    """.trimIndent()
+                } else {
+                    """
+                    ・ホーム画面ウィジェットの完全改修: RemoteViews互換性問題（Viewタグ）の解消と描画クラッシュの撲滅。
+                    ・3種のウィジェット対応: 重要タスク一覧/件数、全タスク一覧/件数、現在フェーズ＆最優先ターゲット。
+                    ・リアルタイム即時同期: タスクの追加・チェック・削除・並び替えがミリ秒単位でホーム画面に連動反映。
+                    ・テーマ連動: トロン（赤）・モンスター（緑）・白黒のカラー設定がウィジェット外縁枠線・アクセントに反映。
+                    ・設定画面からのワンタップピン留め: アプリ内から直接ホーム画面へウィジェットを追加できる導線を新設。
+                    """.trimIndent()
+                }
+                Text(
+                    text = notesV070,
+                    color = TextSecondary,
+                    fontSize = 11.5.sp,
+                    lineHeight = 18.sp
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+                SpaceXDivider()
+                Spacer(modifier = Modifier.height(14.dp))
+
                 // v0.6.0
                 Text(
                     text = "v0.6.0 (Closed Beta)",
-                    color = TextPrimary,
-                    fontSize = 13.sp,
+                    color = TextSecondary,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(6.dp))
@@ -1365,6 +1455,53 @@ fun AviationTipsDialog(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun WidgetPinRow(
+    title: String,
+    description: String,
+    buttonText: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                color = TextPrimary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = description,
+                color = TextSecondary,
+                fontSize = 11.sp,
+                lineHeight = 15.sp
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Box(
+            modifier = Modifier
+                .border(1.dp, Color.White, SpaceXShape)
+                .clickable { onClick() }
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = buttonText,
+                color = Color.White,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
