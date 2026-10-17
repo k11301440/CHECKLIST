@@ -7,7 +7,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerInputScope
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,8 +46,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Settings
@@ -54,20 +59,28 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.zIndex
 import com.example.checklist.data.AppState
 import com.example.checklist.data.ChecklistItem
 import com.example.checklist.data.Phase
@@ -150,17 +163,32 @@ fun PhaseScreen(
     var editingItem by remember { mutableStateOf<ChecklistItem?>(null) }
     var showTemplateSelectDialog by remember { mutableStateOf(false) }
 
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    // ドラッグ＆ドロップ並び替え用ステート
+    var draggingItemId by remember { mutableStateOf<String?>(null) }
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+    val itemHeightPx = with(LocalDensity.current) { 60.dp.toPx() }
+    val currentAppState by rememberUpdatedState(state)
+
     // 常時入力用のステート（ダイアログなしでいつでも直接入力可能）
     var quickInputTitle by remember { mutableStateOf("") }
     var quickInputPriority by remember { mutableStateOf(Priority.NORMAL) }
     var quickTargetPhaseIndex by remember { mutableStateOf(selectedIndex) }
-    var quickTargetDayOffset by remember { mutableStateOf(0) } // 0: 今日, 1: 明日, 2: 2日後
+    var quickTargetDayOffset by remember { mutableStateOf(0) } // 0: 今日, 1: 明日, 2: 明後日
     var showQuickOptions by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(SpaceBlack)
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                })
+            }
             .padding(horizontal = 20.dp, vertical = 12.dp)
     ) {
         // ROW 1: TOP NAVIGATION (Calendar / Home / Settings / Menu)
@@ -172,7 +200,7 @@ fun PhaseScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "FLIGHT CHECKLIST",
+                text = "CHECKLIST",
                 color = TextPrimary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
@@ -382,6 +410,46 @@ fun PhaseScreen(
                 .fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            // 初回起動時などタスクが空の時の控えめな案内（簡単なチュートリアル兼設定促進）
+            if (activeItems.isEmpty() && completedItems.isEmpty() && discardedItems.isEmpty()) {
+                item {
+                    Spacer(modifier = Modifier.height(28.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, BorderSubtle, RoundedCornerShape(2.dp))
+                            .background(SurfaceDark.copy(alpha = 0.5f))
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "NO TASKS REGISTERED",
+                                color = TextTertiary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.5.sp
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "このフェーズにはタスクがありません",
+                                color = TextSecondary,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "下部の入力バーから新しいタスクを追加するか、\n右上の設定 > テンプレートからプリセットを読み込んでください。",
+                                color = TextTertiary,
+                                fontSize = 11.sp,
+                                lineHeight = 16.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            }
+
             // ACTIVE TASKS (REQ / NORM を単一リストとして描画し、自由に相互並び替え可能)
             if (activeItems.isNotEmpty()) {
                 item {
@@ -400,7 +468,7 @@ fun PhaseScreen(
                             letterSpacing = 1.5.sp
                         )
                         Text(
-                            text = "左端をドラッグして上下に並び替え",
+                            text = "左端を長押しして上下に並び替え",
                             color = TextTertiary,
                             fontSize = 9.5.sp,
                             letterSpacing = 0.5.sp
@@ -409,36 +477,50 @@ fun PhaseScreen(
                 }
 
                 itemsIndexed(activeItems, key = { _, item -> item.id }) { activeIndex, item ->
-                    val indexInPhase = currentPhase.items.indexOfFirst { it.id == item.id }
+                    val isDragging = item.id == draggingItemId
                     ChecklistItemRow(
                         item = item,
                         isCritical = item.priority == Priority.REQUIRED,
+                        isDragging = isDragging,
+                        dragOffsetY = dragOffsetY,
+                        modifier = Modifier.animateItem(),
                         onTap = { viewModel.completeItem(currentPhase.id, item.id) },
                         onLongPress = { viewModel.undoItem(currentPhase.id, item.id) },
                         onEdit = { editingItem = item },
                         onDelete = { viewModel.removeItem(currentPhase.id, item.id) },
-                        onMoveUp = if (activeIndex > 0) {
-                            val prevItem = activeItems[activeIndex - 1]
-                            val prevPhaseIndex = currentPhase.items.indexOfFirst { it.id == prevItem.id }
-                            val action: () -> Unit = { viewModel.reorderItems(currentPhase.id, indexInPhase, prevPhaseIndex) }
-                            action
-                        } else null,
-                        onMoveDown = if (activeIndex < activeItems.size - 1) {
-                            val nextItem = activeItems[activeIndex + 1]
-                            val nextPhaseIndex = currentPhase.items.indexOfFirst { it.id == nextItem.id }
-                            val action: () -> Unit = { viewModel.reorderItems(currentPhase.id, indexInPhase, nextPhaseIndex) }
-                            action
-                        } else null,
-                        onDragSwap = { direction ->
-                            if (direction < 0 && activeIndex > 0) {
-                                val prevItem = activeItems[activeIndex - 1]
-                                val prevPhaseIndex = currentPhase.items.indexOfFirst { it.id == prevItem.id }
-                                viewModel.reorderItems(currentPhase.id, indexInPhase, prevPhaseIndex)
-                            } else if (direction > 0 && activeIndex < activeItems.size - 1) {
-                                val nextItem = activeItems[activeIndex + 1]
-                                val nextPhaseIndex = currentPhase.items.indexOfFirst { it.id == nextItem.id }
-                                viewModel.reorderItems(currentPhase.id, indexInPhase, nextPhaseIndex)
+                        onDragStart = {
+                            draggingItemId = item.id
+                            dragOffsetY = 0f
+                        },
+                        onDragDelta = { deltaY ->
+                            dragOffsetY += deltaY
+                            val latestPhase = currentAppState.phases.getOrNull(selectedIndex) ?: currentPhase
+                            val latestActive = latestPhase.items.filter { !it.isCompleted && !it.isDeleted }
+                            val currentIndex = latestActive.indexOfFirst { it.id == item.id }
+                            val threshold = itemHeightPx * 0.6f
+                            if (currentIndex != -1) {
+                                if (dragOffsetY > threshold && currentIndex < latestActive.size - 1) {
+                                    val nextItem = latestActive[currentIndex + 1]
+                                    val fromIdx = latestPhase.items.indexOfFirst { it.id == item.id }
+                                    val toIdx = latestPhase.items.indexOfFirst { it.id == nextItem.id }
+                                    if (fromIdx != -1 && toIdx != -1) {
+                                        viewModel.reorderItems(latestPhase.id, fromIdx, toIdx)
+                                        dragOffsetY -= itemHeightPx
+                                    }
+                                } else if (dragOffsetY < -threshold && currentIndex > 0) {
+                                    val prevItem = latestActive[currentIndex - 1]
+                                    val fromIdx = latestPhase.items.indexOfFirst { it.id == item.id }
+                                    val toIdx = latestPhase.items.indexOfFirst { it.id == prevItem.id }
+                                    if (fromIdx != -1 && toIdx != -1) {
+                                        viewModel.reorderItems(latestPhase.id, fromIdx, toIdx)
+                                        dragOffsetY += itemHeightPx
+                                    }
+                                }
                             }
+                        },
+                        onDragEnd = {
+                            draggingItemId = null
+                            dragOffsetY = 0f
                         }
                     )
                 }
@@ -506,6 +588,21 @@ fun PhaseScreen(
                 .fillMaxWidth()
                 .padding(top = 4.dp, bottom = 8.dp)
         ) {
+            val submitQuickTask = {
+                if (quickInputTitle.isNotBlank()) {
+                    val targetPhase = state.phases.getOrNull(quickTargetPhaseIndex) ?: currentPhase
+                    val targetDate = if (quickTargetDayOffset > 0) {
+                        val base = runCatching { LocalDate.parse(state.currentDate) }.getOrElse { LocalDate.now() }
+                        base.plusDays(quickTargetDayOffset.toLong()).format(DateTimeFormatter.ISO_LOCAL_DATE)
+                    } else null
+                    viewModel.addItem(targetPhase.id, quickInputTitle, quickInputPriority, scheduledDate = targetDate)
+                    quickInputTitle = ""
+                    showQuickOptions = false
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                }
+            }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -560,18 +657,7 @@ fun PhaseScreen(
                         cursorBrush = SolidColor(TextPrimary),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = {
-                            if (quickInputTitle.isNotBlank()) {
-                                val targetPhase = state.phases.getOrNull(quickTargetPhaseIndex) ?: currentPhase
-                                val targetDate = if (quickTargetDayOffset > 0) {
-                                    val base = runCatching { LocalDate.parse(state.currentDate) }.getOrElse { LocalDate.now() }
-                                    base.plusDays(quickTargetDayOffset.toLong()).format(DateTimeFormatter.ISO_LOCAL_DATE)
-                                } else null
-                                viewModel.addItem(targetPhase.id, quickInputTitle, quickInputPriority, scheduledDate = targetDate)
-                                quickInputTitle = ""
-                                showQuickOptions = false
-                            }
-                        }),
+                        keyboardActions = KeyboardActions(onDone = { submitQuickTask() }),
                         modifier = Modifier.fillMaxWidth()
                     )
                     if (quickInputTitle.isEmpty()) {
@@ -598,18 +684,7 @@ fun PhaseScreen(
 
                 // Add button: 紙飛行機アイコン (Send)
                 IconButton(
-                    onClick = {
-                        if (quickInputTitle.isNotBlank()) {
-                            val targetPhase = state.phases.getOrNull(quickTargetPhaseIndex) ?: currentPhase
-                            val targetDate = if (quickTargetDayOffset > 0) {
-                                val base = runCatching { LocalDate.parse(state.currentDate) }.getOrElse { LocalDate.now() }
-                                base.plusDays(quickTargetDayOffset.toLong()).format(DateTimeFormatter.ISO_LOCAL_DATE)
-                            } else null
-                            viewModel.addItem(targetPhase.id, quickInputTitle, quickInputPriority, scheduledDate = targetDate)
-                            quickInputTitle = ""
-                            showQuickOptions = false
-                        }
-                    },
+                    onClick = { submitQuickTask() },
                     modifier = Modifier.size(32.dp),
                     enabled = quickInputTitle.isNotBlank()
                 ) {
@@ -640,12 +715,12 @@ fun PhaseScreen(
                         letterSpacing = 1.sp
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    // 日付選択
+                    // 日付選択 (日本語のみ表記)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        val dayLabels = listOf("今日 (TODAY)" to 0, "明日 (TOMORROW)" to 1, "+2日後" to 2)
+                        val dayLabels = listOf("今日" to 0, "明日" to 1, "明後日" to 2)
                         for ((label, offset) in dayLabels) {
                             val isSelected = quickTargetDayOffset == offset
                             Box(
@@ -808,180 +883,204 @@ fun PhaseScreen(
     }
 }
 
-// CHECKLIST ITEM ROW (編集・並び替え可能)
+// CHECKLIST ITEM ROW (編集・長押しドラッグ並び替え対応)
+/**
+ * タスク並び替え用の長押しドラッグジェスチャー検出
+ * 250msの長押しでカードをハイライトし、親のスクロールに奪われず確実にドラッグ可能にする
+ */
+private suspend fun PointerInputScope.detectTaskDragAfterLongPress(
+    onDragStart: () -> Unit,
+    onDragDelta: (Float) -> Unit,
+    onDragEnd: () -> Unit
+) {
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false)
+        val longPressTimeout = 220L
+        val longPressCancelled = withTimeoutOrNull(longPressTimeout) {
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Main)
+                val change = event.changes.firstOrNull { it.id == down.id }
+                if (change == null || !change.pressed) {
+                    return@withTimeoutOrNull true
+                }
+                val distance = (change.position - down.position).getDistance()
+                if (distance > 40f) {
+                    return@withTimeoutOrNull true
+                }
+            }
+            @Suppress("UNREACHABLE_CODE")
+            false
+        }
+
+        // タイムアウトした（= 220ms間、微小なブレ内で指が置かれた）場合、長押し成立！
+        if (longPressCancelled == null) {
+            down.consume()
+            onDragStart()
+
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Main)
+                val change = event.changes.firstOrNull { it.id == down.id }
+                if (change == null || !change.pressed) {
+                    onDragEnd()
+                    break
+                }
+                val deltaY = change.position.y - change.previousPosition.y
+                change.consume()
+                onDragDelta(deltaY)
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ChecklistItemRow(
     item: ChecklistItem,
     isCritical: Boolean,
+    modifier: Modifier = Modifier,
+    isDragging: Boolean = false,
+    dragOffsetY: Float = 0f,
     onTap: () -> Unit,
     onLongPress: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onMoveUp: (() -> Unit)? = null,
-    onMoveDown: (() -> Unit)? = null,
-    onDragSwap: ((Int) -> Unit)? = null
+    onDragStart: (() -> Unit)? = null,
+    onDragDelta: ((Float) -> Unit)? = null,
+    onDragEnd: (() -> Unit)? = null
 ) {
     val isCompleted = item.isCompleted
+    val currentOnDragStart by rememberUpdatedState(onDragStart)
+    val currentOnDragDelta by rememberUpdatedState(onDragDelta)
+    val currentOnDragEnd by rememberUpdatedState(onDragEnd)
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
+            .zIndex(if (isDragging) 15f else 1f)
+            .graphicsLayer {
+                translationY = if (isDragging) dragOffsetY else 0f
+                scaleX = if (isDragging) 1.035f else 1f
+                scaleY = if (isDragging) 1.035f else 1f
+                shadowElevation = if (isDragging) 20f else 0f
+            }
             .border(
-                width = 1.dp,
-                color = if (isCritical && !isCompleted) BorderProminent else BorderSubtle,
+                width = if (isDragging) 2.dp else 1.dp,
+                color = if (isDragging) TextPrimary else if (isCritical && !isCompleted) BorderProminent else BorderSubtle,
                 shape = RoundedCornerShape(2.dp)
             )
-            .background(if (isCritical && !isCompleted) SurfaceElevated else SpaceBlack)
-            .combinedClickable(
-                onClick = onTap,
-                onLongClick = onLongPress
+            .background(
+                if (isDragging) SurfaceElevated
+                else if (isCritical && !isCompleted) SurfaceElevated
+                else SpaceBlack
             )
-            .padding(horizontal = 8.dp, vertical = 10.dp)
+            .padding(horizontal = 6.dp, vertical = 6.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Reorder controls (ドラッグハンドル & 上下微調整ボタン)
-            if (onDragSwap != null || onMoveUp != null || onMoveDown != null) {
-                var dragAccumulated by remember { mutableFloatStateOf(0f) }
-                val thresholdPx = with(LocalDensity.current) { 40.dp.toPx() }
-
-                Row(
-                    modifier = Modifier.padding(end = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .pointerInput(item.id) {
-                                detectDragGestures(
-                                    onDragStart = { dragAccumulated = 0f },
-                                    onDragEnd = { dragAccumulated = 0f },
-                                    onDragCancel = { dragAccumulated = 0f },
-                                    onDrag = { change, dragAmount ->
-                                        change.consume()
-                                        dragAccumulated += dragAmount.y
-                                        if (dragAccumulated > thresholdPx) {
-                                            onDragSwap?.invoke(1)
-                                            dragAccumulated = 0f
-                                        } else if (dragAccumulated < -thresholdPx) {
-                                            onDragSwap?.invoke(-1)
-                                            dragAccumulated = 0f
-                                        }
-                                    }
-                                )
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.DragHandle,
-                            contentDescription = "Drag to reorder",
-                            tint = TextSecondary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    Column(
-                        modifier = Modifier.width(18.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        IconButton(
-                            onClick = { onMoveUp?.invoke() },
-                            enabled = onMoveUp != null,
-                            modifier = Modifier.size(16.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.KeyboardArrowUp,
-                                contentDescription = "Move up",
-                                tint = if (onMoveUp != null) TextSecondary else BorderSubtle,
-                                modifier = Modifier.size(14.dp)
-                            )
-                        }
-                        IconButton(
-                            onClick = { onMoveDown?.invoke() },
-                            enabled = onMoveDown != null,
-                            modifier = Modifier.size(16.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.KeyboardArrowDown,
-                                contentDescription = "Move down",
-                                tint = if (onMoveDown != null) TextSecondary else BorderSubtle,
-                                modifier = Modifier.size(14.dp)
-                            )
-                        }
-                    }
-                }
-            } else {
-                Spacer(modifier = Modifier.width(4.dp))
-            }
-
-            // Visual distinction for critical items: Solid left vertical line
-            if (isCritical) {
+            // Reorder controls: 左端の長押しドラッグハンドル（クリックイベントと完全分離）
+            if (onDragStart != null) {
                 Box(
                     modifier = Modifier
-                        .width(3.dp)
-                        .height(22.dp)
-                        .background(if (isCompleted) TextTertiary else TextPrimary)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
+                        .size(36.dp)
+                        .pointerInput(item.id) {
+                            detectTaskDragAfterLongPress(
+                                onDragStart = { currentOnDragStart?.invoke() },
+                                onDragDelta = { deltaY -> currentOnDragDelta?.invoke(deltaY) },
+                                onDragEnd = { currentOnDragEnd?.invoke() }
+                            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DragHandle,
+                        contentDescription = "長押しして並び替え",
+                        tint = if (isDragging) TextPrimary else TextSecondary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(4.dp))
+            } else {
+                Spacer(modifier = Modifier.width(6.dp))
             }
 
-            // SpaceX Wireframe Checkbox (大きめ 24.dp)
-            SpaceXCheckbox(
-                checked = isCompleted,
-                size = 24.dp
-            )
-
-            Spacer(modifier = Modifier.width(10.dp))
-
-            // Title and Priority Badges
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = if (isCritical) "REQ" else "NORM",
-                        color = if (isCritical) TextPrimary else TextTertiary,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.8.sp,
-                        modifier = Modifier
-                            .border(1.dp, if (isCritical) TextPrimary else BorderSubtle, RoundedCornerShape(2.dp))
-                            .padding(horizontal = 4.dp, vertical = 1.dp)
+            // タスクコンテンツ領域（タップで完了/未完了、長押しで解除）
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .combinedClickable(
+                        onClick = onTap,
+                        onLongClick = onLongPress
                     )
-                    if (item.isCarryover) {
-                        Spacer(modifier = Modifier.width(6.dp))
+                    .padding(vertical = 4.dp, horizontal = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Visual distinction for critical items: Solid left vertical line
+                if (isCritical) {
+                    Box(
+                        modifier = Modifier
+                            .width(3.dp)
+                            .height(24.dp)
+                            .background(if (isCompleted) TextTertiary else TextPrimary)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+
+                // SpaceX Wireframe Checkbox (大きめ 24.dp)
+                SpaceXCheckbox(
+                    checked = isCompleted,
+                    size = 24.dp
+                )
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                // Title and Priority Badges
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "CARRYOVER // ${item.sourcePhaseName ?: "PREVIOUS"}",
-                            color = TextSecondary,
-                            fontSize = 8.5.sp,
+                            text = if (isCritical) "REQ" else "NORM",
+                            color = if (isCritical) TextPrimary else TextTertiary,
+                            fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.8.sp
+                            letterSpacing = 0.8.sp,
+                            modifier = Modifier
+                                .border(1.dp, if (isCritical) TextPrimary else BorderSubtle, RoundedCornerShape(2.dp))
+                                .padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                        if (item.isCarryover) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "CARRYOVER // ${item.sourcePhaseName ?: "PREVIOUS"}",
+                                color = TextSecondary,
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.8.sp
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = formatTaskText(item.title),
+                        color = when {
+                            isCompleted -> TextTertiary
+                            isCritical -> TextPrimary
+                            else -> TextPrimary
+                        },
+                        fontSize = if (isCritical) 14.sp else 13.5.sp,
+                        fontWeight = if (isCritical) FontWeight.Bold else FontWeight.Normal,
+                        textDecoration = if (isCompleted) TextDecoration.LineThrough else null,
+                        letterSpacing = 0.3.sp,
+                        style = TextStyle(lineBreak = SpaceXLineBreak)
+                    )
+                    if (isCompleted) {
+                        Text(
+                            text = "長押しで解除",
+                            color = TextDisabled,
+                            fontSize = 10.sp,
+                            letterSpacing = 0.5.sp
                         )
                     }
-                }
-                Spacer(modifier = Modifier.height(3.dp))
-                Text(
-                    text = formatTaskText(item.title),
-                    color = when {
-                        isCompleted -> TextTertiary
-                        isCritical -> TextPrimary
-                        else -> TextPrimary
-                    },
-                    fontSize = if (isCritical) 14.sp else 13.5.sp,
-                    fontWeight = if (isCritical) FontWeight.Bold else FontWeight.Normal,
-                    textDecoration = if (isCompleted) TextDecoration.LineThrough else null,
-                    letterSpacing = 0.3.sp,
-                    style = TextStyle(lineBreak = SpaceXLineBreak)
-                )
-                if (isCompleted) {
-                    Text(
-                        text = "長押しで解除",
-                        color = TextDisabled,
-                        fontSize = 10.sp,
-                        letterSpacing = 0.5.sp
-                    )
                 }
             }
 

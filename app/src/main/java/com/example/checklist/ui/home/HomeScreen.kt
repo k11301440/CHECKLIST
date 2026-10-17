@@ -113,14 +113,6 @@ fun HomeScreen(
                 )
             }
 
-            Text(
-                text = "FLIGHT PHASES",
-                color = TextSecondary,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp
-            )
-
             Row {
                 IconButton(
                     onClick = onNavigateCalendar,

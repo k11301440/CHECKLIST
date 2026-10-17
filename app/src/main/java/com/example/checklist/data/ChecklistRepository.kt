@@ -78,84 +78,60 @@ class ChecklistRepository(private val context: Context) {
         }
     }
 
+    companion object {
+        fun getDefaultPresetTemplates(): List<PhaseTemplate> {
+            return listOf(
+                PhaseTemplate(
+                    name = "朝のセットアップ",
+                    items = listOf(
+                        TemplateItem(title = "本日の最優先フォーカスタスク選定", priority = Priority.REQUIRED),
+                        TemplateItem(title = "スケジュール & 会議予定の確認", priority = Priority.REQUIRED),
+                        TemplateItem(title = "重要メール・未読チャット一次確認", priority = Priority.NORMAL),
+                        TemplateItem(title = "作業環境・デスクの整備", priority = Priority.NORMAL)
+                    )
+                ),
+                PhaseTemplate(
+                    name = "午前集中ブロック",
+                    items = listOf(
+                        TemplateItem(title = "最重要タスク (Deep Work) の着手・完遂", priority = Priority.REQUIRED),
+                        TemplateItem(title = "午前中のチーム連携・報連相", priority = Priority.NORMAL),
+                        TemplateItem(title = "午前に向けた進捗メモ更新", priority = Priority.NORMAL)
+                    )
+                ),
+                PhaseTemplate(
+                    name = "午後実行ブロック",
+                    items = listOf(
+                        TemplateItem(title = "午後コア業務の推進・完了", priority = Priority.REQUIRED),
+                        TemplateItem(title = "外部連絡・打ち合わせの実施", priority = Priority.NORMAL),
+                        TemplateItem(title = "残タスクとブロッカーの特定", priority = Priority.NORMAL)
+                    )
+                ),
+                PhaseTemplate(
+                    name = "夜のクローズ & 翌日準備",
+                    items = listOf(
+                        TemplateItem(title = "翌日スケジュールの策定 & タスク整理", priority = Priority.REQUIRED),
+                        TemplateItem(title = "本日の実績記録と日報・メモ作成", priority = Priority.NORMAL),
+                        TemplateItem(title = "作業端末・環境のクローズ", priority = Priority.NORMAL)
+                    )
+                )
+            )
+        }
+    }
+
     private fun createDefaultState(): AppState {
         val today = getTodayDateString()
-        val defaultTemplates = listOf(
-            PhaseTemplate(
-                name = "朝のセットアップ",
-                items = listOf(
-                    TemplateItem(title = "本日の最優先フォーカスタスク選定", priority = Priority.REQUIRED),
-                    TemplateItem(title = "スケジュール & 会議予定の確認", priority = Priority.REQUIRED),
-                    TemplateItem(title = "重要メール・未読チャット一次確認", priority = Priority.NORMAL),
-                    TemplateItem(title = "作業環境・デスクの整備", priority = Priority.NORMAL)
-                )
-            ),
-            PhaseTemplate(
-                name = "午前集中ブロック",
-                items = listOf(
-                    TemplateItem(title = "最重要タスク (Deep Work) の着手・完遂", priority = Priority.REQUIRED),
-                    TemplateItem(title = "午前中のチーム連携・報連相", priority = Priority.NORMAL),
-                    TemplateItem(title = "午前に向けた進捗メモ更新", priority = Priority.NORMAL)
-                )
-            ),
-            PhaseTemplate(
-                name = "午後実行ブロック",
-                items = listOf(
-                    TemplateItem(title = "午後コア業務の推進・完了", priority = Priority.REQUIRED),
-                    TemplateItem(title = "外部連絡・打ち合わせの実施", priority = Priority.NORMAL),
-                    TemplateItem(title = "残タスクとブロッカーの特定", priority = Priority.NORMAL)
-                )
-            ),
-            PhaseTemplate(
-                name = "夜のクローズ & 翌日準備",
-                items = listOf(
-                    TemplateItem(title = "翌日スケジュールの策定 & タスク整理", priority = Priority.REQUIRED),
-                    TemplateItem(title = "本日の実績記録と日報・メモ作成", priority = Priority.NORMAL),
-                    TemplateItem(title = "作業端末・環境のクローズ", priority = Priority.NORMAL)
-                )
-            )
-        )
-
         val defaultPhases = listOf(
-            Phase(
-                name = "朝",
-                items = listOf(
-                    ChecklistItem(title = "本日の最優先フォーカスタスク選定", priority = Priority.REQUIRED),
-                    ChecklistItem(title = "スケジュール & 会議予定の確認", priority = Priority.REQUIRED),
-                    ChecklistItem(title = "重要メール・未読チャット一次確認", priority = Priority.NORMAL),
-                    ChecklistItem(title = "作業環境・デスクの整備", priority = Priority.NORMAL)
-                )
-            ),
-            Phase(
-                name = "午前",
-                items = listOf(
-                    ChecklistItem(title = "最重要タスク (Deep Work) の着手・完遂", priority = Priority.REQUIRED),
-                    ChecklistItem(title = "午前中のチーム連携・報連相", priority = Priority.NORMAL)
-                )
-            ),
-            Phase(
-                name = "午後",
-                items = listOf(
-                    ChecklistItem(title = "午後コア業務の推進・完了", priority = Priority.REQUIRED),
-                    ChecklistItem(title = "外部連絡・打ち合わせの実施", priority = Priority.NORMAL),
-                    ChecklistItem(title = "残タスクとブロッカーの特定", priority = Priority.NORMAL)
-                )
-            ),
-            Phase(
-                name = "夜",
-                items = listOf(
-                    ChecklistItem(title = "翌日スケジュールの策定 & タスク整理", priority = Priority.REQUIRED),
-                    ChecklistItem(title = "本日の実績記録と日報・メモ作成", priority = Priority.NORMAL),
-                    ChecklistItem(title = "作業端末・環境のクローズ", priority = Priority.NORMAL)
-                )
-            )
+            Phase(name = "朝", items = emptyList()),
+            Phase(name = "午前", items = emptyList()),
+            Phase(name = "午後", items = emptyList()),
+            Phase(name = "夜", items = emptyList())
         )
 
         return AppState(
             currentDate = today,
             phases = defaultPhases,
             selectedPhaseIndex = 0,
-            templates = defaultTemplates,
+            templates = emptyList(),
             reviewLogs = emptyList(),
             dailyRecords = emptyMap(),
             settings = AppSettings()
@@ -282,15 +258,14 @@ class ChecklistRepository(private val context: Context) {
         persist(current.copy(phases = updatedPhases))
     }
 
-    // アイテムの並び替え
+    // アイテムの並び替え (隣接要素の安全な位置スワップ)
     fun reorderItems(phaseId: String, fromIndex: Int, toIndex: Int) {
         val current = _appState.value
         val updatedPhases = current.phases.map { phase ->
             if (phase.id == phaseId) {
                 val list = phase.items.toMutableList()
                 if (fromIndex in list.indices && toIndex in list.indices) {
-                    val item = list.removeAt(fromIndex)
-                    list.add(toIndex, item)
+                    java.util.Collections.swap(list, fromIndex, toIndex)
                 }
                 phase.copy(items = list)
             } else phase
@@ -412,7 +387,7 @@ class ChecklistRepository(private val context: Context) {
                 val newItems = if (index == 0 && uncompletedItems.isNotEmpty()) {
                     val existingTitles = baseItems.map { it.title }.toSet()
                     val itemsToAdd = uncompletedItems.filter { it.title !in existingTitles }
-                    baseItems + itemsToAdd
+                    itemsToAdd + baseItems
                 } else {
                     baseItems
                 }
@@ -434,14 +409,14 @@ class ChecklistRepository(private val context: Context) {
                 )
             )
         } else {
-            // 通常のフェーズ完了 -> 次のフェーズへ進み、未完了タスクを次のフェーズへキャリーオーバー
+            // 通常のフェーズ完了 -> 次のフェーズへ進み、未完了タスクを次のフェーズへキャリーオーバー（優先度高いため上部に表示）
             val nextIndex = targetPhaseIndex + 1
             val nextPhase = phasesAfterTargetCompletion[nextIndex]
 
             val nextPhaseItems = if (uncompletedItems.isNotEmpty()) {
                 val existingTitles = nextPhase.items.map { it.title }.toSet()
                 val itemsToAdd = uncompletedItems.filter { it.title !in existingTitles }
-                nextPhase.items + itemsToAdd
+                itemsToAdd + nextPhase.items
             } else {
                 nextPhase.items
             }
@@ -550,11 +525,11 @@ class ChecklistRepository(private val context: Context) {
             val scheduledForTomorrow = p.items.filter { it.scheduledDate == tomorrow && !it.isDeleted }
 
             val mergedItems = if (index == 0 && uncompletedItems.isNotEmpty()) {
-                val existingTitles = (baseItems + scheduledForTomorrow).map { it.title }.toSet()
+                val existingTitles = (scheduledForTomorrow + baseItems).map { it.title }.toSet()
                 val toAdd = uncompletedItems.filter { it.title !in existingTitles }
-                baseItems + scheduledForTomorrow + toAdd
+                toAdd + scheduledForTomorrow + baseItems
             } else {
-                baseItems + scheduledForTomorrow
+                scheduledForTomorrow + baseItems
             }
             p.copy(
                 items = mergedItems,
@@ -728,5 +703,11 @@ class ChecklistRepository(private val context: Context) {
             if (s.phaseIndex == phaseIndex) s.copy(startHour = startHour, startMinute = startMinute) else s
         }
         persist(current.copy(settings = current.settings.copy(phaseSchedules = updated)))
+    }
+
+    fun applyPresetTemplates() {
+        val presets = getDefaultPresetTemplates()
+        val current = _appState.value
+        persist(current.copy(templates = presets))
     }
 }

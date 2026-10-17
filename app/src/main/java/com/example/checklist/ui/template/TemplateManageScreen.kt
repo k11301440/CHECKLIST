@@ -3,6 +3,7 @@ package com.example.checklist.ui.template
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -87,6 +88,9 @@ fun TemplateManageScreen(
     }
 
     var showAddItemDialog by remember { mutableStateOf(false) }
+    var showPresetSuggestDialog by remember { mutableStateOf(existingTemplate == null && items.isEmpty()) }
+    var selectedPresetIndex by remember { mutableStateOf(0) }
+    val presetTemplates = remember { com.example.checklist.data.ChecklistRepository.getDefaultPresetTemplates() }
 
     Column(
         modifier = modifier
@@ -190,11 +194,18 @@ fun TemplateManageScreen(
                 letterSpacing = 1.5.sp
             )
 
-            SpaceXTextButton(
-                text = "+ 項目追加",
-                onClick = { showAddItemDialog = true },
-                prominent = true
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SpaceXTextButton(
+                    text = "💡 プリセット提案",
+                    onClick = { showPresetSuggestDialog = true },
+                    prominent = false
+                )
+                SpaceXTextButton(
+                    text = "+ 項目追加",
+                    onClick = { showAddItemDialog = true },
+                    prominent = true
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -407,6 +418,110 @@ fun TemplateManageScreen(
                                     showAddItemDialog = false
                                 }
                             }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // プリセット提案ダイアログ (ユーザーが許諾したらセットされる仕組み)
+    if (showPresetSuggestDialog) {
+        Dialog(onDismissRequest = { showPresetSuggestDialog = false }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, BorderProminent, RoundedCornerShape(2.dp))
+                    .background(SurfaceDark)
+                    .padding(20.dp)
+            ) {
+                Column {
+                    Text(
+                        text = "SUGGESTION // おすすめプリセット",
+                        color = TextPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.5.sp
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "業務フェーズに合わせた標準的なタスク構成を読み込みますか？選択して「セットする」を押すと項目が反映されます。",
+                        color = TextSecondary,
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    presetTemplates.forEachIndexed { pIdx, preset ->
+                        val isSelected = pIdx == selectedPresetIndex
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .border(
+                                    width = if (isSelected) 1.5.dp else 1.dp,
+                                    color = if (isSelected) TextPrimary else BorderSubtle,
+                                    shape = RoundedCornerShape(2.dp)
+                                )
+                                .background(if (isSelected) SurfaceElevated else SpaceBlack)
+                                .clickable { selectedPresetIndex = pIdx }
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Column {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = preset.name,
+                                        color = if (isSelected) TextPrimary else TextSecondary,
+                                        fontSize = 12.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                    Text(
+                                        text = "${preset.items.size}項目",
+                                        color = TextTertiary,
+                                        fontSize = 10.sp
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                val previewText = preset.items.take(2).joinToString(" / ") { it.title }
+                                Text(
+                                    text = previewText,
+                                    color = TextTertiary,
+                                    fontSize = 9.5.sp,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        SpaceXButton(
+                            text = "選択したプリセットを適用",
+                            onClick = {
+                                val chosen = presetTemplates.getOrNull(selectedPresetIndex)
+                                if (chosen != null) {
+                                    templateName = chosen.name
+                                    items.clear()
+                                    items.addAll(chosen.items)
+                                }
+                                showPresetSuggestDialog = false
+                            },
+                            prominent = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        SpaceXTextButton(
+                            text = "空のテンプレートで作成する",
+                            onClick = { showPresetSuggestDialog = false }
                         )
                     }
                 }

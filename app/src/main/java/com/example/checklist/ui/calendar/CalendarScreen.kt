@@ -176,8 +176,8 @@ fun CalendarScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Weekday Headers
-                val dayOfWeeks = listOf("SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT")
+                // Weekday Headers (月曜始まり: 最左列が月曜、最右列が日曜)
+                val dayOfWeeks = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
                 Row(modifier = Modifier.fillMaxWidth()) {
                     for (dayName in dayOfWeeks) {
                         Box(
@@ -197,9 +197,9 @@ fun CalendarScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Month Calendar Grid
+                // Month Calendar Grid (月曜始まり)
                 val firstDayOfMonth = currentYearMonth.atDay(1)
-                val dayOfWeekOffset = firstDayOfMonth.dayOfWeek.value % 7 // 0 for Sunday
+                val dayOfWeekOffset = firstDayOfMonth.dayOfWeek.value - 1 // 0 for Monday, 6 for Sunday
                 val daysInMonth = currentYearMonth.lengthOfMonth()
 
                 val totalCells = ((dayOfWeekOffset + daysInMonth + 6) / 7) * 7

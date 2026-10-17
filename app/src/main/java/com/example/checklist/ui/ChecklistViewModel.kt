@@ -153,4 +153,8 @@ class ChecklistViewModel(application: Application) : AndroidViewModel(applicatio
     fun setShowReqNotification(enabled: Boolean) {
         repository.setShowReqNotification(enabled)
     }
+
+    fun applyPresetTemplates() {
+        repository.applyPresetTemplates()
+    }
 }
