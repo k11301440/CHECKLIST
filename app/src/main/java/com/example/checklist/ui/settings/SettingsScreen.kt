@@ -533,7 +533,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("APPLICATION VERSION", color = TextSecondary, fontSize = 11.sp, letterSpacing = 1.sp)
-                        Text("v0.4.0 (Closed Beta)", color = TextPrimary, fontSize = 12.sp, fontFamily = FontFamily.SansSerif)
+                        Text("v0.4.1 (Closed Beta)", color = TextPrimary, fontSize = 12.sp, fontFamily = FontFamily.SansSerif)
                     }
 
                     SpaceXDivider()
