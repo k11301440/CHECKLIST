@@ -113,6 +113,7 @@ fun MainNavigation(
 
             entry<UserGuideNavKey> {
                 UserGuideScreen(
+                    state = state,
                     onBack = { backStack.removeLastOrNull() },
                     modifier = Modifier.adaptiveSystemBarsPadding()
                 )

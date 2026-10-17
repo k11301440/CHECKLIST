@@ -83,8 +83,10 @@ fun HomeScreen(
         }
     }
 
+    val isEnglish = state.settings.appLanguage == com.example.checklist.data.AppLanguage.EN
+
     val headerDateText = if (isActualToday) {
-        "$todayFormatted // TODAY"
+        if (isEnglish) "$todayFormatted • TODAY" else "$todayFormatted • 今日"
     } else {
         todayFormatted
     }
@@ -358,9 +360,12 @@ fun HomeScreen(
 
     if (showResetAllDialog) {
         com.example.checklist.ui.components.SpaceXConfirmDialog(
-            title = "CONFIRM RESET // ALL PHASES",
-            message = "すべてのフェーズのタスク完了状況をリセットしますか？この日のログは保持されます。",
-            confirmText = "RESET ALL",
+            title = if (isEnglish) "CONFIRM RESET: ALL PHASES" else "全フェーズのリセット確認",
+            message = if (isEnglish) 
+                "Reset all task completion statuses across all phases? Logs for today will be preserved." 
+            else 
+                "すべてのフェーズのタスク完了状況をリセットしますか？この日のログは保持されます。",
+            confirmText = if (isEnglish) "RESET ALL" else "全リセット",
             onConfirm = {
                 viewModel.resetAllPhases()
                 showResetAllDialog = false

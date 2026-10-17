@@ -5,7 +5,7 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
-// SpaceX Monochromatic Palettes - Pure Black & Crisp White
+// SpaceX Monochromatic & Futuristic Palettes
 data class SpaceXColorPalette(
     val isDark: Boolean,
     val bg: Color,
@@ -16,7 +16,8 @@ data class SpaceXColorPalette(
     val textPrimary: Color,
     val textSecondary: Color,
     val textTertiary: Color,
-    val textDisabled: Color
+    val textDisabled: Color,
+    val accent: Color = Color(0xFFFFFFFF)
 )
 
 val DarkSpaceXPalette = SpaceXColorPalette(
@@ -29,7 +30,8 @@ val DarkSpaceXPalette = SpaceXColorPalette(
     textPrimary = Color(0xFFFFFFFF),
     textSecondary = Color(0xFF888888),
     textTertiary = Color(0xFF555555),
-    textDisabled = Color(0xFF383838)
+    textDisabled = Color(0xFF383838),
+    accent = Color(0xFFFFFFFF)
 )
 
 val LightSpaceXPalette = SpaceXColorPalette(
@@ -42,7 +44,36 @@ val LightSpaceXPalette = SpaceXColorPalette(
     textPrimary = Color(0xFF000000),
     textSecondary = Color(0xFF555555),
     textTertiary = Color(0xFF888888),
-    textDisabled = Color(0xFFCCCCCC)
+    textDisabled = Color(0xFFCCCCCC),
+    accent = Color(0xFF000000)
+)
+
+val TronSpaceXPalette = SpaceXColorPalette(
+    isDark = true,
+    bg = Color(0xFF000000),
+    surfaceDark = Color(0xFF0D0405),
+    surfaceElevated = Color(0xFF18080A),
+    borderSubtle = Color(0xFF381014),
+    borderProminent = Color(0xFFFF1E27),
+    textPrimary = Color(0xFFFFFFFF),
+    textSecondary = Color(0xFFA8888A),
+    textTertiary = Color(0xFF70484A),
+    textDisabled = Color(0xFF3A2022),
+    accent = Color(0xFFFF1E27) // TRON Cyber Red
+)
+
+val MonsterSpaceXPalette = SpaceXColorPalette(
+    isDark = true,
+    bg = Color(0xFF000000),
+    surfaceDark = Color(0xFF040D05),
+    surfaceElevated = Color(0xFF08180A),
+    borderSubtle = Color(0xFF103814),
+    borderProminent = Color(0xFF00FF41),
+    textPrimary = Color(0xFFFFFFFF),
+    textSecondary = Color(0xFF88A88A),
+    textTertiary = Color(0xFF48704A),
+    textDisabled = Color(0xFF203A22),
+    accent = Color(0xFF00FF41) // MONSTER Energy Green
 )
 
 val LocalSpaceXColors = staticCompositionLocalOf { DarkSpaceXPalette }
@@ -99,3 +130,8 @@ val TextDisabled: Color
     @Composable
     @ReadOnlyComposable
     get() = SpaceXTheme.colors.textDisabled
+
+val SpaceXAccent: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = SpaceXTheme.colors.accent

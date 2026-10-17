@@ -12,6 +12,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,10 +54,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.checklist.data.AppLanguage
 import com.example.checklist.data.AppState
 import com.example.checklist.data.Phase
 import com.example.checklist.data.PhaseTemplate
 import com.example.checklist.data.ThemeMode
+import com.example.checklist.ui.common.AppStrings
 import com.example.checklist.theme.BorderProminent
 import com.example.checklist.theme.BorderSubtle
 import com.example.checklist.theme.SpaceBlack
@@ -104,6 +108,10 @@ fun SettingsScreen(
     var editingSchedule by remember { mutableStateOf<com.example.checklist.data.PhaseSchedule?>(null) }
     var showResetDefaultConfirm by remember { mutableStateOf(false) }
     var showResetAllDataConfirm by remember { mutableStateOf(false) }
+    var showReleaseNotesDialog by remember { mutableStateOf(false) }
+    var showAviationTipsDialog by remember { mutableStateOf(false) }
+    val lang = state.settings.appLanguage
+    val isEnglish = lang == AppLanguage.EN
 
     Column(
         modifier = modifier
@@ -131,7 +139,7 @@ fun SettingsScreen(
                 )
             }
             Text(
-                text = "SYSTEM SETTINGS",
+                text = AppStrings.settings(lang),
                 color = TextPrimary,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
@@ -144,36 +152,83 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // 1. THEME MODE (白黒テーマ切り替え)
+            // 0. LANGUAGE (日・英 表記切り替え)
             item {
-                SettingsSectionHeader("THEME // テーマ")
+                SettingsSectionHeader(AppStrings.sectionLanguage(lang))
                 Spacer(modifier = Modifier.height(8.dp))
 
-                val currentMode = state.settings.themeMode
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     ThemeOptionButton(
-                        text = "SPACE BLACK",
-                        subtext = "ダーク",
-                        isSelected = currentMode == ThemeMode.SPACE_BLACK,
-                        onClick = { viewModel.setThemeMode(ThemeMode.SPACE_BLACK) },
+                        text = "ENGLISH",
+                        subtext = "EN (DEFAULT)",
+                        isSelected = lang == AppLanguage.EN,
+                        onClick = { viewModel.setAppLanguage(AppLanguage.EN) },
                         modifier = Modifier.weight(1f)
                     )
                     ThemeOptionButton(
-                        text = "SPACE WHITE",
-                        subtext = "ライト",
-                        isSelected = currentMode == ThemeMode.SPACE_WHITE,
-                        onClick = { viewModel.setThemeMode(ThemeMode.SPACE_WHITE) },
+                        text = "日本語",
+                        subtext = "JA",
+                        isSelected = lang == AppLanguage.JA,
+                        onClick = { viewModel.setAppLanguage(AppLanguage.JA) },
                         modifier = Modifier.weight(1f)
                     )
                 }
             }
 
+            // 1. THEME MODE (白黒・トロン赤・モンスター緑)
+            item {
+                SettingsSectionHeader(AppStrings.sectionTheme(lang))
+                Spacer(modifier = Modifier.height(8.dp))
+
+                val currentMode = state.settings.themeMode
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ThemeOptionButton(
+                            text = "SPACE BLACK",
+                            subtext = if (isEnglish) "MINIMAL MONO" else "純黒モノクロ",
+                            isSelected = currentMode == ThemeMode.SPACE_BLACK,
+                            onClick = { viewModel.setThemeMode(ThemeMode.SPACE_BLACK) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        ThemeOptionButton(
+                            text = "TRON RED",
+                            subtext = if (isEnglish) "CYBER RED" else "トロン (赤基調)",
+                            isSelected = currentMode == ThemeMode.TRON_RED,
+                            onClick = { viewModel.setThemeMode(ThemeMode.TRON_RED) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ThemeOptionButton(
+                            text = "MONSTER",
+                            subtext = if (isEnglish) "ENERGY GREEN" else "モンスター (緑)",
+                            isSelected = currentMode == ThemeMode.MONSTER_GREEN,
+                            onClick = { viewModel.setThemeMode(ThemeMode.MONSTER_GREEN) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        ThemeOptionButton(
+                            text = "SPACE WHITE",
+                            subtext = if (isEnglish) "LIGHT MODE" else "ライトモード",
+                            isSelected = currentMode == ThemeMode.SPACE_WHITE,
+                            onClick = { viewModel.setThemeMode(ThemeMode.SPACE_WHITE) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+
             // 2. MISSION AUTOMATION (時間自動進行 & REQ/NORMキャリーオーバー & 完了確認)
             item {
-                SettingsSectionHeader("AUTOMATION // 運用自動化")
+                SettingsSectionHeader(AppStrings.sectionAutomation(lang))
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Column(
@@ -184,8 +239,8 @@ fun SettingsScreen(
                 ) {
                     // 自動進行トグル
                     SettingToggleRow(
-                        title = "時間による自動進行",
-                        description = "時刻（朝/午前/午後/夜）に応じて現在フェーズを自動切り替え",
+                        title = AppStrings.autoAdvance(lang),
+                        description = AppStrings.autoAdvanceDesc(lang),
                         enabled = state.settings.autoAdvanceByTime,
                         onToggle = { viewModel.setAutoAdvanceByTime(!state.settings.autoAdvanceByTime) }
                     )
@@ -194,8 +249,8 @@ fun SettingsScreen(
 
                     // 未完了REQタスク持ち越しトグル
                     SettingToggleRow(
-                        title = "未完了REQの自動引き継ぎ",
-                        description = "前のセクションで終わらなかった必須タスクを次フェーズ・翌日に持ち越し",
+                        title = AppStrings.carryoverReq(lang),
+                        description = AppStrings.carryoverReqDesc(lang),
                         enabled = state.settings.carryoverUnfinishedReq,
                         onToggle = { viewModel.setCarryoverUnfinishedReq(!state.settings.carryoverUnfinishedReq) }
                     )
@@ -204,8 +259,8 @@ fun SettingsScreen(
 
                     // 未完了NORMタスク持ち越しトグル (フィードバック対応)
                     SettingToggleRow(
-                        title = "未完了NORMの自動引き継ぎ",
-                        description = "前のセクションで終わらなかった普通タスクも次フェーズに持ち越し",
+                        title = AppStrings.carryoverNorm(lang),
+                        description = AppStrings.carryoverNormDesc(lang),
                         enabled = state.settings.carryoverUnfinishedNorm,
                         onToggle = { viewModel.setCarryoverUnfinishedNorm(!state.settings.carryoverUnfinishedNorm) }
                     )
@@ -214,8 +269,8 @@ fun SettingsScreen(
 
                     // フェーズ完了時の確認トグル
                     SettingToggleRow(
-                        title = "フェーズ進行時の確認",
-                        description = "次のフェーズへ進む際に完了確認ダイアログを表示する",
+                        title = if (isEnglish) "Confirm review on phase advance" else "フェーズ進行時の確認",
+                        description = if (isEnglish) "Show evaluation dialog before advancing" else "次のフェーズへ進む際に完了確認ダイアログを表示する",
                         enabled = state.settings.confirmReviewOnAdvance,
                         onToggle = { viewModel.setConfirmReviewOnAdvance(!state.settings.confirmReviewOnAdvance) }
                     )
@@ -224,8 +279,8 @@ fun SettingsScreen(
 
                     // 未完了REQタスク通知トグル (オプトイン)
                     SettingToggleRow(
-                        title = "未完了REQタスクの通知",
-                        description = "現在のフェーズで未処理の必須タスクをAndroid通知バーに常時表示",
+                        title = AppStrings.reqNotification(lang),
+                        description = AppStrings.reqNotificationDesc(lang),
                         enabled = state.settings.showReqNotification,
                         onToggle = {
                             val targetState = !state.settings.showReqNotification
@@ -248,6 +303,76 @@ fun SettingsScreen(
                             }
                         }
                     )
+
+                    SpaceXDivider()
+
+                    // フェーズ終了前リマインダー通知 (設定画面 4: 任意の時間前にリマインダー)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                            Text(
+                                text = AppStrings.phaseEndReminder(lang),
+                                color = TextPrimary,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = AppStrings.phaseEndReminderDesc(lang),
+                                color = TextSecondary,
+                                fontSize = 10.5.sp,
+                                lineHeight = 14.sp
+                            )
+                        }
+
+                        val currentMinutes = state.settings.phaseEndReminderMinutes
+                        val reminderLabel = when (currentMinutes) {
+                            10 -> if (isEnglish) "10 MIN" else "10分前"
+                            15 -> if (isEnglish) "15 MIN" else "15分前"
+                            30 -> if (isEnglish) "30 MIN" else "30分前"
+                            60 -> if (isEnglish) "60 MIN" else "60分前"
+                            else -> if (isEnglish) "OFF" else "OFF"
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .border(1.dp, if (currentMinutes > 0) TextPrimary else BorderSubtle, SpaceXSmallShape)
+                                .background(if (currentMinutes > 0) SurfaceElevated else SpaceBlack, shape = SpaceXSmallShape)
+                                .clickable {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        val hasPermission = ContextCompat.checkSelfPermission(
+                                            context,
+                                            Manifest.permission.POST_NOTIFICATIONS
+                                        ) == PackageManager.PERMISSION_GRANTED
+                                        if (!hasPermission) {
+                                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                        }
+                                    }
+                                    val next = when (currentMinutes) {
+                                        0 -> 10
+                                        10 -> 15
+                                        15 -> 30
+                                        30 -> 60
+                                        else -> 0
+                                    }
+                                    viewModel.setPhaseEndReminderMinutes(next)
+                                }
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = reminderLabel,
+                                color = if (currentMinutes > 0) TextPrimary else TextSecondary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
             }
 
@@ -258,7 +383,7 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    SettingsSectionHeader("PHASES & SCHEDULE // フェーズ・時間割 (${state.phases.size})")
+                    SettingsSectionHeader("${AppStrings.sectionPhases(lang)} (${state.phases.size})")
                     if (state.phases.size < 8) {
                         SpaceXTextButton(
                             text = "+ ADD PHASE",
@@ -366,7 +491,7 @@ fun SettingsScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
                 SpaceXButton(
-                    text = "4フェーズ構成 (朝/午前/午後/夜) に初期化",
+                    text = if (isEnglish) "RESET TO DEFAULT 4 PHASES" else "4フェーズ構成 (朝/午前/午後/夜) に初期化",
                     onClick = { showResetDefaultConfirm = true },
                     prominent = false,
                     modifier = Modifier.fillMaxWidth()
@@ -381,7 +506,7 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    SettingsSectionHeader("TEMPLATES (${state.templates.size}/${state.phases.size})")
+                    SettingsSectionHeader("${AppStrings.sectionTemplates(lang)} (${state.templates.size}/${state.phases.size})")
                     if (canAddTemplate) {
                         SpaceXTextButton(
                             text = "+ NEW TEMPLATE",
@@ -389,7 +514,7 @@ fun SettingsScreen(
                         )
                     } else {
                         Text(
-                            text = "MAX REACHED // 上限(${state.phases.size})",
+                            text = if (isEnglish) "MAX REACHED (${state.phases.size})" else "上限に達しました (${state.phases.size})",
                             color = TextTertiary,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
@@ -409,7 +534,7 @@ fun SettingsScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "NO TEMPLATES CONFIGURED",
+                            text = if (isEnglish) "NO TEMPLATES CONFIGURED" else "登録されたテンプレートはありません",
                             color = TextTertiary,
                             fontSize = 11.sp,
                             letterSpacing = 1.sp
@@ -466,9 +591,9 @@ fun SettingsScreen(
                 }
             }
 
-            // 5. STORE & PRIVACY COMPLIANCE (ストア要件・チュートリアル・ポリシー)
+            // 5. HELP, LEGAL & VERSION (チュートリアル・航空思想・規約・バージョン)
             item {
-                SettingsSectionHeader("HELP & LEGAL // ガイドと規約")
+                SettingsSectionHeader(AppStrings.sectionGuide(lang))
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Column(
@@ -477,7 +602,7 @@ fun SettingsScreen(
                         .border(1.dp, BorderSubtle, SpaceXShape)
                         .background(SurfaceDark, shape = SpaceXShape)
                 ) {
-                    // チュートリアル・機能説明
+                    // チュートリアル (文言変更: 「チュートリアル」)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -487,7 +612,31 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "使い方ガイド // チュートリアル",
+                            text = AppStrings.tutorial(lang),
+                            color = TextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = "Open",
+                            tint = TextSecondary
+                        )
+                    }
+
+                    SpaceXDivider()
+
+                    // TIPS: 航空業界の知見・設計思想 (小記事)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showAviationTipsDialog = true }
+                            .padding(horizontal = 14.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = AppStrings.aviationPhilosophy(lang),
                             color = TextPrimary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold
@@ -511,7 +660,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "プライバシーポリシー",
+                            text = AppStrings.privacyPolicy(lang),
                             color = TextPrimary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold
@@ -525,15 +674,36 @@ fun SettingsScreen(
 
                     SpaceXDivider()
 
+                    // バージョン名 (白地 + 矢印でリリースノート展開)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                            .clickable { showReleaseNotesDialog = true }
+                            .padding(horizontal = 14.dp, vertical = 14.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("APPLICATION VERSION", color = TextSecondary, fontSize = 11.sp, letterSpacing = 1.sp)
-                        Text("v0.4.1 (Closed Beta)", color = TextPrimary, fontSize = 12.sp, fontFamily = FontFamily.SansSerif)
+                        Column {
+                            Text(
+                                text = "v0.5.0 (Closed Beta)",
+                                color = TextPrimary,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.SansSerif
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = AppStrings.releaseNotes(lang),
+                                color = TextTertiary,
+                                fontSize = 10.sp,
+                                letterSpacing = 1.sp
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = "Release Notes",
+                            tint = TextSecondary
+                        )
                     }
 
                     SpaceXDivider()
@@ -553,11 +723,11 @@ fun SettingsScreen(
 
             // 6. DANGER ZONE // データ管理 (全データ初期化ボタン)
             item {
-                SettingsSectionHeader("DANGER ZONE // データ管理")
+                SettingsSectionHeader(AppStrings.sectionDanger(lang))
                 Spacer(modifier = Modifier.height(8.dp))
 
                 SpaceXDangerButton(
-                    text = "RESET ALL DATA // 全データ初期化",
+                    text = AppStrings.resetAllData(lang),
                     onClick = { showResetAllDataConfirm = true },
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -609,9 +779,12 @@ fun SettingsScreen(
     // Reset 4 Phases Confirmation (不可逆操作防止ダイアログ)
     if (showResetDefaultConfirm) {
         SpaceXConfirmDialog(
-            title = "CONFIRM RESET // 4 PHASES",
-            message = "すべてのフェーズとタスクを初期の4フェーズ構成 (朝/午前/午後/夜) に初期化しますか？現在のカスタムフェーズは上書きされます。",
-            confirmText = "RESET",
+            title = if (isEnglish) "CONFIRM RESET: 4 PHASES" else "4フェーズ初期化の確認",
+            message = if (isEnglish)
+                "Reset all phases and tasks back to the default 4 phases (Morning/Noon/Afternoon/Night)? Current phases will be overwritten."
+            else
+                "すべてのフェーズとタスクを初期の4フェーズ構成 (朝/午前/午後/夜) に初期化しますか？現在のカスタムフェーズは上書きされます。",
+            confirmText = if (isEnglish) "RESET" else "初期化",
             onConfirm = {
                 viewModel.restoreDefaultFourPhases()
                 showResetDefaultConfirm = false
@@ -623,15 +796,31 @@ fun SettingsScreen(
     // Reset All Data Confirmation (全データ初期化ダイアログ・赤色ハイライト)
     if (showResetAllDataConfirm) {
         SpaceXConfirmDialog(
-            title = "RESET ALL DATA // 全データ初期化",
-            message = "すべてのタスク、テンプレート、履歴、設定がリセットされ、初期状態に戻ります。この操作は取り消せません。よろしいですか？",
-            confirmText = "RESET ALL",
+            title = AppStrings.resetAllData(lang),
+            message = AppStrings.resetAllDataConfirm(lang),
+            confirmText = if (isEnglish) "RESET ALL" else "全初期化",
             isDanger = true,
             onConfirm = {
                 viewModel.resetAllData()
                 showResetAllDataConfirm = false
             },
             onDismiss = { showResetAllDataConfirm = false }
+        )
+    }
+
+    // Release Notes Dialog
+    if (showReleaseNotesDialog) {
+        ReleaseNotesDialog(
+            isEnglish = isEnglish,
+            onDismiss = { showReleaseNotesDialog = false }
+        )
+    }
+
+    // Aviation Tips Philosophy Dialog
+    if (showAviationTipsDialog) {
+        AviationTipsDialog(
+            isEnglish = isEnglish,
+            onDismiss = { showAviationTipsDialog = false }
         )
     }
 }
@@ -964,3 +1153,191 @@ private fun AddPhaseDialog(
         }
     }
 }
+
+// RELEASE NOTES DIALOG (v0.5.0, v0.4.1, etc.)
+@Composable
+fun ReleaseNotesDialog(
+    isEnglish: Boolean,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(SpaceBlack, shape = SpaceXShape)
+                .border(1.dp, BorderProminent, SpaceXShape)
+                .padding(20.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    text = if (isEnglish) "RELEASE NOTES" else "リリースノート",
+                    color = TextPrimary,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // v0.5.0
+                Text(
+                    text = "v0.5.0 (Closed Beta)",
+                    color = TextPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                val notesV050 = if (isEnglish) {
+                    """
+                    • REQ Visual Distinction: Required task cards now have a prominent border; task badges and left vertical lines are removed to streamline checkbox alignment.
+                    • New Color Themes: Added TRON RED (cyber red accent) and MONSTER GREEN (energy green accent) alongside SPACE BLACK and WHITE.
+                    • Bilingual Language Setting: Dropped '//' mixed labels. Choose between pure English and Japanese from Settings.
+                    • Phase End Reminders: Get notified 10, 15, 30, or 60 minutes before the current phase ends.
+                    • Notification Tap Action: Tapping task notifications now opens the app directly.
+                    • Input Bar Optimization: Balanced padding for the priority toggle and refined calendar highlight behavior.
+                    • Auto Chronological Sorting: New REQ tasks automatically sort above NORM tasks in chronological order.
+                    • Aviation Checklist Philosophy: Added insights explaining how flight checklist discipline inspired this app.
+                    """.trimIndent()
+                } else {
+                    """
+                    ・REQタスクの視覚的強調: 必須タスクカードを白枠（またはアクセント枠）に変更。カード内のバッジと左端縦線を廃止しチェックボックスの横軸を統一。
+                    ・新カラーテーマ: 赤を基調とする「トロン (TRON RED)」および緑のワンポイントを基調とする「モンスター (MONSTER GREEN)」を追加。
+                    ・日英表記切替: 「英語 // 日本語」の併記を廃止し、設定から英語・日本語を完全切り替え可能に。
+                    ・フェーズ終了前リマインダー: フェーズ終了の10分/15分/30分/60分前に通知でリマインドする機能を追加。
+                    ・通知タップ遷移: 通知タップ時にアプリへ直接遷移できるように改善。
+                    ・タスク設定バー改善: NORM/REQトグルボタンの余白統一、カレンダーアイコンの日付指定時ハイライト。
+                    ・タスク並び順の自動整合: 新規REQタスクがNORMタスクの上に古い順で並ぶよう自動配置。
+                    ・航空チェックリストの思想: 航空業界の知見・設計思想を紹介する小記事を追加。
+                    """.trimIndent()
+                }
+                Text(
+                    text = notesV050,
+                    color = TextSecondary,
+                    fontSize = 11.5.sp,
+                    lineHeight = 18.sp
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+                SpaceXDivider()
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // v0.4.1
+                Text(
+                    text = "v0.4.1 (Closed Beta)",
+                    color = TextSecondary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                val notesV041 = if (isEnglish) {
+                    "• Refined adaptive app icon and pure black launch splash screen."
+                } else {
+                    "・アプリアイコンの刷新および純黒スプラッシュ起動画面の統一。"
+                }
+                Text(
+                    text = notesV041,
+                    color = TextTertiary,
+                    fontSize = 11.sp,
+                    lineHeight = 16.sp
+                )
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    SpaceXButton(
+                        text = if (isEnglish) "CLOSE" else "閉じる",
+                        onClick = onDismiss
+                    )
+                }
+            }
+        }
+    }
+}
+
+// AVIATION TIPS PHILOSOPHY DIALOG (航空業界の知見・設計思想小記事)
+@Composable
+fun AviationTipsDialog(
+    isEnglish: Boolean,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(SpaceBlack, shape = SpaceXShape)
+                .border(1.dp, BorderProminent, SpaceXShape)
+                .padding(20.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    text = if (isEnglish) "AVIATION CHECKLIST PHILOSOPHY" else "航空チェックリストの思想",
+                    color = TextPrimary,
+                    fontSize = 14.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+
+                val content = if (isEnglish) {
+                    """
+                    1. Operational Phases (フェーズ運用)
+                    Aircraft operations strictly separate checklists into distinct flight phases: Pre-flight, Takeoff, Cruise, Descent, and Landing. This app segments daily human routines into phases (Morning, Noon, Afternoon, Night) so your cognitive capacity is 100% focused on immediate objectives without distraction.
+
+                    2. Discipline of REQ vs NORM (必須と通常の厳格な峻別)
+                    Aviation distinguishes between 'Critical / Emergency' procedures and 'Normal' procedures. REQ tasks represent vital non-negotiable checklist items. They stand out with prominent borders and are automatically carried over until executed.
+
+                    3. Visual De-cluttering (視覚的負荷の極小化)
+                    Completed tasks fade out into borderless rows, leaving only pending critical tasks prominent. Just like modern glass cockpit HUDs, unnecessary visual noise is eliminated to maintain situational awareness.
+
+                    4. Challenge & Response (確実な実行と復唱)
+                    Each item requires a deliberate single tap to verify completion, and long-press to undo, minimizing inadvertent clicks and cultivating disciplined daily momentum.
+                    """.trimIndent()
+                } else {
+                    """
+                    1. フェーズ運用（Operational Phases）
+                    航空機は「離陸前」「離陸」「巡航」「降下」「着陸」と飛行段階ごとにチェックリストを厳格に切り替えます。着陸態勢に入ったパイロットが離陸のタスクに気を取られることはありません。本アプリも1日をフェーズ（朝・午前・午後・夜）に区切ることで、認知負荷を最小化し、今この瞬間のミッションに100%集中させる設計です。
+
+                    2. REQ（必須）と NORM（通常）の規律
+                    航空運航における「クリティカルチェックリスト」と「ノーマルチェックリスト」の厳密な峻別です。生命線となるREQタスクは白枠で力強く存在感を示し、完了するまで次フェーズ・翌日に引き継がれます（自動キャリーオーバー）。
+
+                    3. デクラッター（Visual De-cluttering: 視覚ノイズの除去）
+                    完了したタスクの枠線を消し、未完了のタスクのみを高コントラストで際立たせます。最新鋭のグラスコクピットHUDと同様に、終わった不要な情報を削ぎ落とすことで状況認識（Situational Awareness）を最高度に維持します。
+
+                    4. Challenge & Response（確実な実行）
+                    指差呼称のように1タップで確実にトグルし、誤操作は長押しで解除。無駄なアニメーションや装飾を排した極限のミニマリズムです。
+                    """.trimIndent()
+                }
+
+                Text(
+                    text = content,
+                    color = TextSecondary,
+                    fontSize = 11.5.sp,
+                    lineHeight = 18.sp
+                )
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    SpaceXButton(
+                        text = if (isEnglish) "CLOSE" else "閉じる",
+                        onClick = onDismiss
+                    )
+                }
+            }
+        }
+    }
+}
+

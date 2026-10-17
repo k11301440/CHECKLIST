@@ -10,9 +10,17 @@ enum class Priority {
 }
 
 @Serializable
+enum class AppLanguage {
+    EN,
+    JA
+}
+
+@Serializable
 enum class ThemeMode {
     SPACE_BLACK,
     SPACE_WHITE,
+    TRON_RED,
+    MONSTER_GREEN,
     SYSTEM
 }
 
@@ -93,12 +101,14 @@ data class PhaseSchedule(
 
 @Serializable
 data class AppSettings(
+    val appLanguage: AppLanguage = AppLanguage.EN,
     val themeMode: ThemeMode = ThemeMode.SPACE_BLACK,
     val autoAdvanceByTime: Boolean = true,
     val carryoverUnfinishedReq: Boolean = true,
     val carryoverUnfinishedNorm: Boolean = false,
     val confirmReviewOnAdvance: Boolean = true,
     val showReqNotification: Boolean = false,
+    val phaseEndReminderMinutes: Int = 0,
     val phaseSchedules: List<PhaseSchedule> = listOf(
         PhaseSchedule(0, "朝", 6, 0),
         PhaseSchedule(1, "午前", 9, 0),

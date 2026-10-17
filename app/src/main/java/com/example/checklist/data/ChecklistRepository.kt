@@ -33,6 +33,7 @@ class ChecklistRepository(private val context: Context) {
         try {
             ReqNotificationHelper.createNotificationChannel(context)
             ReqNotificationHelper.updateNotification(context, _appState.value)
+            ReqNotificationHelper.schedulePhaseReminder(context, _appState.value)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -149,6 +150,7 @@ class ChecklistRepository(private val context: Context) {
             }
             try {
                 ReqNotificationHelper.updateNotification(context, newState)
+                ReqNotificationHelper.schedulePhaseReminder(context, newState)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -203,7 +205,26 @@ class ChecklistRepository(private val context: Context) {
         )
         val updatedPhases = current.phases.map { phase ->
             if (phase.id == phaseId) {
-                phase.copy(items = phase.items + newItem)
+                val currentItems = phase.items.toMutableList()
+                val insertIndex = if (priority == Priority.REQUIRED) {
+                    // 未完了のNORMタスクの先頭を探す
+                    val firstActiveNormIndex = currentItems.indexOfFirst {
+                        !it.isCompleted && !it.isDeleted && it.priority == Priority.NORMAL
+                    }
+                    if (firstActiveNormIndex != -1) {
+                        firstActiveNormIndex
+                    } else {
+                        // 未完了NORMがなければ、最初の非アクティブ（完了または削除）アイテムの手前、なければ末尾
+                        val firstInactiveIndex = currentItems.indexOfFirst { it.isCompleted || it.isDeleted }
+                        if (firstInactiveIndex != -1) firstInactiveIndex else currentItems.size
+                    }
+                } else {
+                    // NORMの場合：未完了タスクの末尾（＝最初の非アクティブアイテムの手前、なければ末尾）
+                    val firstInactiveIndex = currentItems.indexOfFirst { it.isCompleted || it.isDeleted }
+                    if (firstInactiveIndex != -1) firstInactiveIndex else currentItems.size
+                }
+                currentItems.add(insertIndex, newItem)
+                phase.copy(items = currentItems)
             } else phase
         }
         persist(current.copy(phases = updatedPhases))
@@ -670,6 +691,16 @@ class ChecklistRepository(private val context: Context) {
     fun setThemeMode(mode: ThemeMode) {
         val current = _appState.value
         persist(current.copy(settings = current.settings.copy(themeMode = mode)))
+    }
+
+    fun setAppLanguage(language: AppLanguage) {
+        val current = _appState.value
+        persist(current.copy(settings = current.settings.copy(appLanguage = language)))
+    }
+
+    fun setPhaseEndReminderMinutes(minutes: Int) {
+        val current = _appState.value
+        persist(current.copy(settings = current.settings.copy(phaseEndReminderMinutes = minutes)))
     }
 
     fun setAutoAdvanceByTime(enabled: Boolean) {

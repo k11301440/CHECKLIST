@@ -14,12 +14,18 @@ fun ChecklistTheme(
     content: @Composable () -> Unit,
 ) {
     val isDark = when (themeMode) {
-        ThemeMode.SPACE_BLACK -> true
+        ThemeMode.SPACE_BLACK, ThemeMode.TRON_RED, ThemeMode.MONSTER_GREEN -> true
         ThemeMode.SPACE_WHITE -> false
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
 
-    val palette = if (isDark) DarkSpaceXPalette else LightSpaceXPalette
+    val palette = when (themeMode) {
+        ThemeMode.SPACE_BLACK -> DarkSpaceXPalette
+        ThemeMode.SPACE_WHITE -> LightSpaceXPalette
+        ThemeMode.TRON_RED -> TronSpaceXPalette
+        ThemeMode.MONSTER_GREEN -> MonsterSpaceXPalette
+        ThemeMode.SYSTEM -> if (isDark) DarkSpaceXPalette else LightSpaceXPalette
+    }
 
     val colorScheme = if (isDark) {
         darkColorScheme(

@@ -38,16 +38,19 @@ import com.example.checklist.ui.components.SpaceXTopBar
 
 @Composable
 fun UserGuideScreen(
+    state: com.example.checklist.data.AppState,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isEnglish = state.settings.appLanguage == com.example.checklist.data.AppLanguage.EN
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(SpaceBlack)
     ) {
         SpaceXTopBar(
-            title = "FLIGHT MANUAL // 使い方ガイド",
+            title = if (isEnglish) "TUTORIAL" else "チュートリアル",
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(

@@ -81,10 +81,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.zIndex
+import com.example.checklist.data.AppLanguage
 import com.example.checklist.data.AppState
 import com.example.checklist.data.ChecklistItem
 import com.example.checklist.data.Phase
 import com.example.checklist.data.Priority
+import com.example.checklist.ui.common.AppStrings
 import com.example.checklist.theme.BorderProminent
 import com.example.checklist.theme.BorderSubtle
 import com.example.checklist.theme.SpaceBlack
@@ -141,6 +143,7 @@ fun PhaseScreen(
         return
     }
 
+    val isEnglish = state.settings.appLanguage == AppLanguage.EN
     val selectedIndex = state.selectedPhaseIndex.coerceIn(0, state.phases.size - 1)
     val currentPhase = state.phases[selectedIndex]
 
@@ -229,7 +232,7 @@ fun PhaseScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "CHECKLIST",
+                text = AppStrings.checklist(state.settings.appLanguage),
                 color = TextPrimary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
@@ -512,7 +515,7 @@ fun PhaseScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "ACTIVE TASKS (${activeItems.size})",
+                            text = AppStrings.activeTasks(state.settings.appLanguage, activeItems.size),
                             color = TextSecondary,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
@@ -584,7 +587,7 @@ fun PhaseScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "COMPLETED & ARCHIVED (${completedItems.size + discardedItems.size})",
+                            text = if (isEnglish) "COMPLETED & ARCHIVED (${completedItems.size + discardedItems.size})" else "完了・破棄されたタスク (${completedItems.size + discardedItems.size})",
                             color = TextTertiary,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
@@ -653,7 +656,7 @@ fun PhaseScreen(
                     .fillMaxWidth()
                     .border(1.dp, BorderSubtle, SpaceXShape)
                     .background(SurfaceDark, shape = SpaceXShape)
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                    .padding(start = 4.dp, top = 4.dp, bottom = 4.dp, end = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Priority switch (REQ / NORM) - コンパクト化 (46dp幅)
@@ -707,7 +710,7 @@ fun PhaseScreen(
                     )
                     if (quickInputTitle.isEmpty()) {
                         Text(
-                            text = "新しいタスクを入力...",
+                            text = if (isEnglish) "Enter new task..." else "新しいタスクを入力...",
                             color = TextTertiary,
                             fontSize = 12.sp
                         )
@@ -722,7 +725,7 @@ fun PhaseScreen(
                     Icon(
                         imageVector = if (showQuickOptions) Icons.Default.ExpandLess else Icons.Default.DateRange,
                         contentDescription = "Schedule",
-                        tint = if (quickTargetDayOffset > 0 || quickTargetPhaseIndex != selectedIndex) TextPrimary else TextTertiary,
+                        tint = if (quickTargetDayOffset > 0) TextPrimary else TextTertiary,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -753,19 +756,23 @@ fun PhaseScreen(
                         .padding(8.dp)
                 ) {
                     Text(
-                        text = "SCHEDULE // 開始日・フェーズ選択",
+                        text = AppStrings.scheduleSelect(state.settings.appLanguage),
                         color = TextTertiary,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    // 日付選択 (日本語のみ表記)
+                    // 日付選択 (設定言語に応じて切替)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        val dayLabels = listOf("今日" to 0, "明日" to 1, "明後日" to 2)
+                        val dayLabels = if (isEnglish) {
+                            listOf("TODAY" to 0, "TOMORROW" to 1, "IN 2 DAYS" to 2)
+                        } else {
+                            listOf("今日" to 0, "明日" to 1, "明後日" to 2)
+                        }
                         for ((label, offset) in dayLabels) {
                             val isSelected = quickTargetDayOffset == offset
                             Box(
@@ -820,9 +827,9 @@ fun PhaseScreen(
         // BOTTOM ACTION: Minimal Complete Button (タスク全クリア時は色を反転して強調)
         val isLastPhase = selectedIndex >= state.phases.size - 1
         val buttonLabel = when {
-            isLastPhase -> "COMPLETE DAY // ADVANCE TO MORNING"
-            currentPhase.isCompleted -> "PHASE COMPLETED // RE-EVALUATE"
-            else -> "COMPLETE PHASE // ADVANCE"
+            isLastPhase -> if (isEnglish) "COMPLETE DAY & RESTART" else "1日のタスクをすべて完了"
+            currentPhase.isCompleted -> if (isEnglish) "PHASE COMPLETED (RE-EVALUATE)" else "フェーズ完了済み (再確認)"
+            else -> if (isEnglish) "COMPLETE PHASE & ADVANCE" else "フェーズ完了して次へ"
         }
 
         val shouldInvertHighlight = allRequiredCompleted || allTasksCompleted
@@ -888,9 +895,12 @@ fun PhaseScreen(
     // RESET DEFAULT CONFIRMATION (不可逆操作防止ダイアログ)
     if (showResetDefaultDialog) {
         SpaceXConfirmDialog(
-            title = "CONFIRM RESET // 4 PHASES",
-            message = "すべてのフェーズとタスクを初期の4フェーズ構成 (朝/午前/午後/夜) にリセットしますか？この操作は取り消せません。",
-            confirmText = "RESET",
+            title = if (isEnglish) "CONFIRM RESET: 4 PHASES" else "4フェーズ初期化の確認",
+            message = if (isEnglish) 
+                "Are you sure you want to reset all phases to the default 4 phases (Morning/Noon/Afternoon/Night)? This cannot be undone."
+            else 
+                "すべてのフェーズとタスクを初期の4フェーズ構成 (朝/午前/午後/夜) にリセットしますか？この操作は取り消せません。",
+            confirmText = if (isEnglish) "RESET" else "リセット",
             onConfirm = {
                 viewModel.restoreDefaultFourPhases()
                 showResetDefaultDialog = false
@@ -902,9 +912,12 @@ fun PhaseScreen(
     // RESET PHASE CONFIRMATION (不可逆操作防止ダイアログ)
     if (showResetPhaseDialog) {
         SpaceXConfirmDialog(
-            title = "CONFIRM RESET // ${currentPhase.name.uppercase()}",
-            message = "現在のフェーズ「${currentPhase.name}」のすべてのチェック状態を未完了にリセットしますか？",
-            confirmText = "RESET",
+            title = if (isEnglish) "CONFIRM RESET: ${currentPhase.name.uppercase()}" else "フェーズ初期化: ${currentPhase.name}",
+            message = if (isEnglish) 
+                "Reset all task completions in '${currentPhase.name}' back to uncompleted?"
+            else 
+                "現在のフェーズ「${currentPhase.name}」のすべてのチェック状態を未完了にリセットしますか？",
+            confirmText = if (isEnglish) "RESET" else "リセット",
             onConfirm = {
                 viewModel.resetPhase(currentPhase.id)
                 showResetPhaseDialog = false
@@ -916,9 +929,12 @@ fun PhaseScreen(
     // CLEAR COMPLETED CONFIRMATION (不可逆操作防止ダイアログ)
     if (showClearCompletedDialog) {
         SpaceXConfirmDialog(
-            title = "CLEAR COMPLETED // ${currentPhase.name.uppercase()}",
-            message = "このフェーズ内の完了済みタスクを一括削除しますか？",
-            confirmText = "CLEAR",
+            title = if (isEnglish) "CLEAR COMPLETED: ${currentPhase.name.uppercase()}" else "完了タスクの消去: ${currentPhase.name}",
+            message = if (isEnglish) 
+                "Delete all completed tasks in this phase?"
+            else 
+                "このフェーズ内の完了済みタスクを一括削除しますか？",
+            confirmText = if (isEnglish) "CLEAR" else "消去",
             onConfirm = {
                 viewModel.clearCompletedItems(currentPhase.id)
                 showClearCompletedDialog = false
@@ -1018,12 +1034,12 @@ fun ChecklistItemRow(
             .background(androidx.compose.ui.graphics.Color.Transparent)
             .padding(horizontal = 6.dp, vertical = 4.dp)
     } else {
-        // 未完了カード: 枠線と背景を適用
+        // 未完了カード: REQならば白枠(TextPrimary)、NORMならば現行(BorderSubtle)のまま
         modifier
             .fillMaxWidth()
             .border(
                 width = 1.dp,
-                color = if (isCritical) BorderProminent else BorderSubtle,
+                color = if (isCritical) TextPrimary else BorderSubtle,
                 shape = SpaceXShape
             )
             .background(
@@ -1075,18 +1091,7 @@ fun ChecklistItemRow(
                     .padding(vertical = 4.dp, horizontal = 2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Visual distinction for critical items: Solid left vertical line
-                if (isCritical) {
-                    Box(
-                        modifier = Modifier
-                            .width(3.dp)
-                            .height(24.dp)
-                            .background(if (isCompleted) TextTertiary else TextPrimary)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                }
-
-                // SpaceX Wireframe Checkbox (大きめ 24.dp)
+                // SpaceX Wireframe Checkbox (横軸を統一)
                 SpaceXCheckbox(
                     checked = isCompleted,
                     size = 24.dp
@@ -1094,31 +1099,18 @@ fun ChecklistItemRow(
 
                 Spacer(modifier = Modifier.width(10.dp))
 
-                // Title and Priority Badges
+                // Title and Carryover Info
                 Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (item.isCarryover) {
                         Text(
-                            text = if (isCritical) "REQ" else "NORM",
-                            color = if (isCritical) TextPrimary else TextTertiary,
-                            fontSize = 8.sp,
+                            text = "CARRYOVER // ${item.sourcePhaseName ?: "PREVIOUS"}",
+                            color = TextSecondary,
+                            fontSize = 8.5.sp,
                             fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp,
-                            modifier = Modifier
-                                .border(1.dp, if (isCritical) TextPrimary else BorderSubtle, SpaceXSmallShape)
-                                .padding(horizontal = 3.dp, vertical = 0.5.dp)
+                            letterSpacing = 0.8.sp
                         )
-                        if (item.isCarryover) {
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "CARRYOVER // ${item.sourcePhaseName ?: "PREVIOUS"}",
-                                color = TextSecondary,
-                                fontSize = 8.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.8.sp
-                            )
-                        }
+                        Spacer(modifier = Modifier.height(2.dp))
                     }
-                    Spacer(modifier = Modifier.height(3.dp))
                     Text(
                         text = formatTaskText(item.title),
                         color = when {

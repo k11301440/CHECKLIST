@@ -3,6 +3,7 @@ package com.example.checklist.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.checklist.data.AppLanguage
 import com.example.checklist.data.AppState
 import com.example.checklist.data.ChecklistRepository
 import com.example.checklist.data.PhaseSchedule
@@ -120,6 +121,14 @@ class ChecklistViewModel(application: Application) : AndroidViewModel(applicatio
     // 設定関連
     fun setThemeMode(mode: ThemeMode) {
         repository.setThemeMode(mode)
+    }
+
+    fun setAppLanguage(language: AppLanguage) {
+        repository.setAppLanguage(language)
+    }
+
+    fun setPhaseEndReminderMinutes(minutes: Int) {
+        repository.setPhaseEndReminderMinutes(minutes)
     }
 
     fun setAutoAdvanceByTime(enabled: Boolean) {
