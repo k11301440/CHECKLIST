@@ -317,24 +317,24 @@ fun PhaseScreen(
                             )
                         }
                         DropdownMenuItem(
-                            text = { Text("現在のリストをテンプレート保存", color = TextPrimary, fontSize = 13.sp) },
+                            text = { Text(if (isEnglish) "Apply Template..." else "テンプレートを適用...", color = TextPrimary, fontSize = 13.sp) },
+                            onClick = {
+                                showMenu = false
+                                showTemplateSelectDialog = true
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(if (isEnglish) "Save Current as Template" else "現在のリストをテンプレート保存", color = TextPrimary, fontSize = 13.sp) },
                             onClick = {
                                 showMenu = false
                                 viewModel.savePhaseAsTemplate(currentPhase.id, "${currentPhase.name} テンプレート")
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("このフェーズをリセット", color = TextPrimary, fontSize = 13.sp) },
+                            text = { Text(if (isEnglish) "Reset This Phase" else "このフェーズをリセット", color = TextPrimary, fontSize = 13.sp) },
                             onClick = {
                                 showMenu = false
                                 showResetPhaseDialog = true
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("設定", color = TextSecondary, fontSize = 13.sp) },
-                            onClick = {
-                                showMenu = false
-                                onNavigateSettings()
                             }
                         )
                     }
@@ -870,6 +870,7 @@ fun PhaseScreen(
     if (showReviewDialog) {
         ReviewDialog(
             phaseName = currentPhase.name,
+            language = state.settings.appLanguage,
             onDismiss = { showReviewDialog = false },
             onConfirm = { hadIssue, note ->
                 viewModel.completePhase(currentPhase.id, hadIssue, note)
@@ -900,6 +901,7 @@ fun PhaseScreen(
     if (showTemplateSelectDialog) {
         TemplateSelectDialog(
             templates = state.templates,
+            language = state.settings.appLanguage,
             onDismiss = { showTemplateSelectDialog = false },
             onSelect = { templateId ->
                 viewModel.applyTemplate(currentPhase.id, templateId, replace = false)
@@ -1150,29 +1152,16 @@ fun ChecklistItemRow(
                 }
             }
 
-            // Edit icon (タスク設定を常に実行可能)
-            IconButton(
-                onClick = onEdit,
-                modifier = Modifier.size(28.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = "Edit task",
-                    tint = TextTertiary,
-                    modifier = Modifier.size(13.dp)
-                )
-            }
-
-            // Delete action (完了セクションに保管されるため誤破棄防止)
+            // Delete action (テキストタップで編集可能なため鉛筆アイコンは廃止し、右端に安全なタッチ領域で削除ボタンを配置)
             IconButton(
                 onClick = onDelete,
-                modifier = Modifier.size(28.dp)
+                modifier = Modifier.size(32.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Delete item",
                     tint = TextTertiary,
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(15.dp)
                 )
             }
         }
@@ -1235,6 +1224,7 @@ fun EditItemDialog(
 ) {
     var title by remember { mutableStateOf(item.title) }
     var priority by remember { mutableStateOf(item.priority) }
+    val isTitleValid = title.trim().isNotEmpty()
 
     Dialog(onDismissRequest = onDismiss) {
         Box(
@@ -1246,7 +1236,7 @@ fun EditItemDialog(
         ) {
             Column {
                 Text(
-                    text = "TASK CONFIG",
+                    text = AppStrings.taskConfig(language),
                     color = TextSecondary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
@@ -1273,8 +1263,19 @@ fun EditItemDialog(
                         ),
                         cursorBrush = SolidColor(TextPrimary),
                         modifier = Modifier.fillMaxSize(),
-                        singleLine = true
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = {
+                            if (isTitleValid) onSave(title.trim(), priority)
+                        })
                     )
+                    if (title.isEmpty()) {
+                        Text(
+                            text = AppStrings.taskTitleHint(language),
+                            color = TextTertiary,
+                            fontSize = 13.sp
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
@@ -1288,7 +1289,7 @@ fun EditItemDialog(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .border(1.dp, if (isReq) TextPrimary else BorderSubtle, SpaceXSmallShape)
+                            .border(1.dp, if (isReq) com.example.checklist.theme.SpaceXAccent else BorderSubtle, SpaceXSmallShape)
                             .background(if (isReq) SurfaceElevated else SpaceBlack, shape = SpaceXSmallShape)
                             .combinedClickable(onClick = { priority = Priority.REQUIRED })
                             .padding(vertical = 10.dp),
@@ -1296,7 +1297,7 @@ fun EditItemDialog(
                     ) {
                         Text(
                             text = if (language == AppLanguage.EN) "CRITICAL (CRIT)" else "重要 (CRIT)",
-                            color = if (isReq) TextPrimary else TextSecondary,
+                            color = if (isReq) com.example.checklist.theme.SpaceXAccent else TextSecondary,
                             fontSize = 12.sp,
                             fontWeight = if (isReq) FontWeight.Bold else FontWeight.Normal
                         )
@@ -1329,19 +1330,19 @@ fun EditItemDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     SpaceXTextButton(
-                        text = "DELETE",
+                        text = AppStrings.delete(language),
                         onClick = onDelete
                     )
 
                     Row {
-                        SpaceXTextButton(text = "CANCEL", onClick = onDismiss)
+                        SpaceXTextButton(text = AppStrings.cancel(language), onClick = onDismiss)
                         Spacer(modifier = Modifier.width(8.dp))
                         SpaceXButton(
-                            text = "SAVE",
+                            text = AppStrings.save(language),
                             onClick = {
-                                if (title.isNotBlank()) onSave(title, priority)
+                                if (isTitleValid) onSave(title.trim(), priority)
                             },
-                            enabled = title.isNotBlank()
+                            enabled = isTitleValid
                         )
                     }
                 }
@@ -1354,6 +1355,7 @@ fun EditItemDialog(
 @Composable
 fun ReviewDialog(
     phaseName: String,
+    language: AppLanguage = AppLanguage.JA,
     onDismiss: () -> Unit,
     onConfirm: (hadIssue: Boolean, note: String?) -> Unit
 ) {
@@ -1370,7 +1372,7 @@ fun ReviewDialog(
         ) {
             Column {
                 Text(
-                    text = "PHASE REVIEW // ${phaseName.uppercase()}",
+                    text = AppStrings.reviewTitle(language, phaseName),
                     color = TextSecondary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
@@ -1380,7 +1382,7 @@ fun ReviewDialog(
                 Spacer(modifier = Modifier.height(14.dp))
 
                 Text(
-                    text = "ALL SYSTEMS NOMINAL?",
+                    text = AppStrings.reviewQuestion(language),
                     color = TextPrimary,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
@@ -1396,13 +1398,13 @@ fun ReviewDialog(
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             SpaceXButton(
-                                text = "YES",
+                                text = AppStrings.reviewYes(language),
                                 onClick = { onConfirm(false, null) },
                                 prominent = true,
                                 modifier = Modifier.weight(1f)
                             )
                             SpaceXButton(
-                                text = "NO",
+                                text = AppStrings.reviewNo(language),
                                 onClick = { step = ReviewStep.NoteInput },
                                 prominent = false,
                                 modifier = Modifier.weight(1f)
@@ -1411,7 +1413,7 @@ fun ReviewDialog(
                     }
                     ReviewStep.NoteInput -> {
                         Text(
-                            text = "振り返りメモ (任意)",
+                            text = AppStrings.reviewNoteTitle(language),
                             color = TextSecondary,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
@@ -1440,7 +1442,7 @@ fun ReviewDialog(
                             )
                             if (noteText.isEmpty()) {
                                 Text(
-                                    text = "気づきや課題、ブロッカーを入力...",
+                                    text = AppStrings.reviewNoteHint(language),
                                     color = TextTertiary,
                                     fontSize = 13.sp
                                 )
@@ -1454,13 +1456,13 @@ fun ReviewDialog(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             SpaceXButton(
-                                text = "RECORD & COMPLETE",
-                                onClick = { onConfirm(true, noteText) },
+                                text = AppStrings.recordAndComplete(language),
+                                onClick = { onConfirm(true, noteText.trim().ifEmpty { null }) },
                                 prominent = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
                             SpaceXTextButton(
-                                text = "CANCEL",
+                                text = AppStrings.cancel(language),
                                 onClick = onDismiss,
                                 modifier = Modifier.fillMaxWidth()
                             )
@@ -1482,6 +1484,7 @@ private sealed interface ReviewStep {
 @Composable
 fun TemplateSelectDialog(
     templates: List<com.example.checklist.data.PhaseTemplate>,
+    language: AppLanguage = AppLanguage.JA,
     onDismiss: () -> Unit,
     onSelect: (templateId: String) -> Unit
 ) {
@@ -1495,7 +1498,7 @@ fun TemplateSelectDialog(
         ) {
             Column {
                 Text(
-                    text = "APPLY TEMPLATE",
+                    text = AppStrings.applyTemplateTitle(language),
                     color = TextSecondary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
@@ -1506,7 +1509,7 @@ fun TemplateSelectDialog(
 
                 if (templates.isEmpty()) {
                     Text(
-                        text = "利用可能なテンプレートがありません",
+                        text = AppStrings.noTemplatesAvailable(language),
                         color = TextTertiary,
                         fontSize = 13.sp,
                         modifier = Modifier.padding(vertical = 16.dp)
@@ -1534,9 +1537,9 @@ fun TemplateSelectDialog(
                                 ) {
                                     Column {
                                         Text(text = t.name, color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                        Text(text = "${t.items.size} 項目", color = TextSecondary, fontSize = 11.sp)
+                                        Text(text = AppStrings.itemsCount(language, t.items.size), color = TextSecondary, fontSize = 11.sp)
                                     }
-                                    Text(text = "適用", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                    Text(text = AppStrings.apply(language), color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                                 }
                             }
                         }
@@ -1546,7 +1549,7 @@ fun TemplateSelectDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    SpaceXTextButton(text = "CLOSE", onClick = onDismiss)
+                    SpaceXTextButton(text = AppStrings.close(language), onClick = onDismiss)
                 }
             }
         }

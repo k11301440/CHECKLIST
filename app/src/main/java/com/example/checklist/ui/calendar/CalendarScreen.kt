@@ -89,7 +89,7 @@ fun CalendarScreen(
     ) {
         // Top Bar
         SpaceXTopBar(
-            title = "CALENDAR",
+            title = com.example.checklist.ui.common.AppStrings.calendar(state.settings.appLanguage),
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(
@@ -111,7 +111,7 @@ fun CalendarScreen(
                         .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
                     Text(
-                        text = "TODAY",
+                        text = com.example.checklist.ui.common.AppStrings.today(state.settings.appLanguage),
                         color = TextPrimary,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
@@ -307,7 +307,7 @@ fun CalendarScreen(
                 ) {
                     Column {
                         Text(
-                            text = "DATE LOG // 一覧表",
+                            text = com.example.checklist.ui.common.AppStrings.dateLog(state.settings.appLanguage),
                             color = TextSecondary,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -324,7 +324,7 @@ fun CalendarScreen(
 
                     if (selectedDate == today) {
                         Text(
-                            text = "CURRENT SOL",
+                            text = com.example.checklist.ui.common.AppStrings.currentSol(state.settings.appLanguage),
                             color = TextPrimary,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -354,7 +354,12 @@ fun CalendarScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Column {
-                                    Text("COMPLETED ITEMS", color = TextSecondary, fontSize = 10.sp, letterSpacing = 1.sp)
+                                    Text(
+                                        com.example.checklist.ui.common.AppStrings.completedItems(state.settings.appLanguage),
+                                        color = TextSecondary,
+                                        fontSize = 10.sp,
+                                        letterSpacing = 1.sp
+                                    )
                                     Text(
                                         "${dailyRecord.completedItems} / ${dailyRecord.totalItems}",
                                         color = TextPrimary,
@@ -364,7 +369,12 @@ fun CalendarScreen(
                                     )
                                 }
                                 Column(horizontalAlignment = Alignment.End) {
-                                    Text("REQ PENDING", color = TextSecondary, fontSize = 10.sp, letterSpacing = 1.sp)
+                                    Text(
+                                        com.example.checklist.ui.common.AppStrings.reqPending(state.settings.appLanguage),
+                                        color = TextSecondary,
+                                        fontSize = 10.sp,
+                                        letterSpacing = 1.sp
+                                    )
                                     Text(
                                         "${dailyRecord.requiredPendingItems}",
                                         color = if (dailyRecord.requiredPendingItems > 0) TextPrimary else TextSecondary,
@@ -376,7 +386,12 @@ fun CalendarScreen(
 
                             Spacer(modifier = Modifier.height(14.dp))
 
-                            Text("PHASE BREAKDOWN", color = TextSecondary, fontSize = 10.sp, letterSpacing = 1.sp)
+                            Text(
+                                com.example.checklist.ui.common.AppStrings.phaseBreakdown(state.settings.appLanguage),
+                                color = TextSecondary,
+                                fontSize = 10.sp,
+                                letterSpacing = 1.sp
+                            )
                             Spacer(modifier = Modifier.height(6.dp))
 
                             for (phaseSummary in dailyRecord.phaseSummaries) {
@@ -431,7 +446,12 @@ fun CalendarScreen(
                             .padding(16.dp)
                     ) {
                         Column {
-                            Text("TODAY'S LIVE STATUS", color = TextSecondary, fontSize = 10.sp, letterSpacing = 1.sp)
+                            Text(
+                                com.example.checklist.ui.common.AppStrings.todaysLiveStatus(state.settings.appLanguage),
+                                color = TextSecondary,
+                                fontSize = 10.sp,
+                                letterSpacing = 1.sp
+                            )
                             Spacer(modifier = Modifier.height(10.dp))
 
                             val totalItems = state.phases.sumOf { it.items.size }
@@ -443,11 +463,19 @@ fun CalendarScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Column {
-                                    Text("COMPLETED ITEMS", color = TextTertiary, fontSize = 10.sp)
+                                    Text(
+                                        com.example.checklist.ui.common.AppStrings.completedItems(state.settings.appLanguage),
+                                        color = TextTertiary,
+                                        fontSize = 10.sp
+                                    )
                                     Text("$completedItems / $totalItems", color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                                 }
                                 Column(horizontalAlignment = Alignment.End) {
-                                    Text("REQ PENDING", color = TextTertiary, fontSize = 10.sp)
+                                    Text(
+                                        com.example.checklist.ui.common.AppStrings.reqPending(state.settings.appLanguage),
+                                        color = TextTertiary,
+                                        fontSize = 10.sp
+                                    )
                                     Text("$reqPending", color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
@@ -494,7 +522,7 @@ fun CalendarScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "NO MISSION LOG RECORDED",
+                            text = com.example.checklist.ui.common.AppStrings.noMissionLog(state.settings.appLanguage),
                             color = TextTertiary,
                             fontSize = 12.sp,
                             letterSpacing = 1.sp
@@ -508,7 +536,7 @@ fun CalendarScreen(
             if (matchingLogs.isNotEmpty()) {
                 item {
                     Text(
-                        text = "REVIEW LOGS (${matchingLogs.size})",
+                        text = com.example.checklist.ui.common.AppStrings.reviewLogs(state.settings.appLanguage, matchingLogs.size),
                         color = TextSecondary,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
@@ -537,7 +565,7 @@ fun CalendarScreen(
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = if (log.hadIssue) "ISSUE NOTED" else "ALL CLEAR",
+                                    text = if (log.hadIssue) com.example.checklist.ui.common.AppStrings.issueNoted(state.settings.appLanguage) else com.example.checklist.ui.common.AppStrings.allClear(state.settings.appLanguage),
                                     color = if (log.hadIssue) TextPrimary else TextSecondary,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold

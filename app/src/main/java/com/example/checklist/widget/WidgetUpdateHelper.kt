@@ -199,21 +199,25 @@ object WidgetUpdateHelper {
 
         // Calculate time remaining until next phase
         val schedules = state.settings.phaseSchedules
-        val nextSchedule = schedules.find { it.phaseIndex == (currentIdx + 1) % schedules.size }
-        val now = LocalTime.now()
-        val currentMinutes = now.hour * 60 + now.minute
-        val nextMinutes = if (nextSchedule != null) nextSchedule.startHour * 60 + nextSchedule.startMinute else 0
-        val diffMinutes = if (nextMinutes > currentMinutes) {
-            nextMinutes - currentMinutes
+        val timeRemainingStr = if (schedules.isNotEmpty()) {
+            val nextSchedule = schedules.find { it.phaseIndex == (currentIdx + 1) % schedules.size } ?: schedules.first()
+            val now = LocalTime.now()
+            val currentMinutes = now.hour * 60 + now.minute
+            val nextMinutes = nextSchedule.startHour * 60 + nextSchedule.startMinute
+            val diffMinutes = if (nextMinutes > currentMinutes) {
+                nextMinutes - currentMinutes
+            } else {
+                (24 * 60 - currentMinutes) + nextMinutes
+            }
+            val hoursLeft = diffMinutes / 60
+            val minsLeft = diffMinutes % 60
+            if (hoursLeft > 0) {
+                if (isEnglish) "${hoursLeft}h ${minsLeft}m left" else "残り ${hoursLeft}時間${minsLeft}分"
+            } else {
+                if (isEnglish) "${minsLeft}m left" else "残り ${minsLeft}分"
+            }
         } else {
-            (24 * 60 - currentMinutes) + nextMinutes
-        }
-        val hoursLeft = diffMinutes / 60
-        val minsLeft = diffMinutes % 60
-        val timeRemainingStr = if (hoursLeft > 0) {
-            if (isEnglish) "${hoursLeft}h ${minsLeft}m left" else "残り ${hoursLeft}時間${minsLeft}分"
-        } else {
-            if (isEnglish) "${minsLeft}m left" else "残り ${minsLeft}分"
+            ""
         }
         views.setTextViewText(R.id.widget_focus_time_remaining, timeRemainingStr)
 

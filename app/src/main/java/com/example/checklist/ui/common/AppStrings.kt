@@ -95,4 +95,53 @@ object AppStrings {
     fun cancel(lang: AppLanguage) = if (lang == AppLanguage.EN) "CANCEL" else "キャンセル"
     fun delete(lang: AppLanguage) = if (lang == AppLanguage.EN) "DELETE" else "削除"
     fun close(lang: AppLanguage) = if (lang == AppLanguage.EN) "CLOSE" else "閉じる"
+    fun edit(lang: AppLanguage) = if (lang == AppLanguage.EN) "EDIT" else "編集"
+    fun apply(lang: AppLanguage) = if (lang == AppLanguage.EN) "APPLY" else "適用"
+
+    // Dialogs & Review
+    fun reviewTitle(lang: AppLanguage, phase: String) = if (lang == AppLanguage.EN) "PHASE REVIEW // ${phase.uppercase()}" else "振り返り // $phase"
+    fun reviewQuestion(lang: AppLanguage) = if (lang == AppLanguage.EN) "ALL SYSTEMS NOMINAL?" else "問題ありませんでしたか？"
+    fun reviewYes(lang: AppLanguage) = if (lang == AppLanguage.EN) "YES (NOMINAL)" else "はい (問題なし)"
+    fun reviewNo(lang: AppLanguage) = if (lang == AppLanguage.EN) "NO (ISSUE)" else "いいえ (課題あり)"
+    fun reviewNoteTitle(lang: AppLanguage) = if (lang == AppLanguage.EN) "REVIEW NOTE (OPTIONAL)" else "振り返りメモ (任意)"
+    fun reviewNoteHint(lang: AppLanguage) = if (lang == AppLanguage.EN) "Enter blockers, learnings, or notes..." else "気づきや課題、ブロッカーを入力..."
+    fun recordAndComplete(lang: AppLanguage) = if (lang == AppLanguage.EN) "RECORD & COMPLETE" else "記録して完了"
+
+    // Edit Item Dialog
+    fun taskConfig(lang: AppLanguage) = if (lang == AppLanguage.EN) "TASK CONFIG" else "タスク設定"
+    fun taskTitleHint(lang: AppLanguage) = if (lang == AppLanguage.EN) "Task title..." else "タスク名..."
+
+    // Templates
+    fun applyTemplateTitle(lang: AppLanguage) = if (lang == AppLanguage.EN) "APPLY TEMPLATE" else "テンプレート適用"
+    fun noTemplatesAvailable(lang: AppLanguage) = if (lang == AppLanguage.EN) "NO TEMPLATES CONFIGURED" else "利用可能なテンプレートがありません"
+    fun itemsCount(lang: AppLanguage, count: Int) = if (lang == AppLanguage.EN) "$count ITEMS" else "$count 項目"
+    fun presetSuggestion(lang: AppLanguage) = if (lang == AppLanguage.EN) "PRESET SUGGESTION" else "プリセット提案"
+    fun addItem(lang: AppLanguage) = if (lang == AppLanguage.EN) "ADD ITEM" else "項目追加"
+
+    // Home Screen
+    fun dailyTimeline(lang: AppLanguage) = if (lang == AppLanguage.EN) "DAILY TIMELINE" else "タイムライン"
+    fun selectPhaseToMonitor(lang: AppLanguage) = if (lang == AppLanguage.EN) "SELECT PHASE TO MONITOR & EXECUTE" else "フェーズを選択して実行・管理"
+    fun advanceToNextDay(lang: AppLanguage) = if (lang == AppLanguage.EN) "ADVANCE TO NEXT DAY" else "翌日に進む"
+    fun resetAllPhases(lang: AppLanguage) = if (lang == AppLanguage.EN) "RESET ALL PHASES" else "全フェーズをリセット"
+    fun resetAllPhasesTitle(lang: AppLanguage) = if (lang == AppLanguage.EN) "CONFIRM RESET: ALL PHASES" else "全フェーズのリセット確認"
+    fun resetAllPhasesMessage(lang: AppLanguage) = if (lang == AppLanguage.EN) 
+        "Reset all task completion statuses across all phases? Logs for today will be preserved." 
+    else 
+        "すべてのフェーズのタスク完了状況をリセットしますか？この日のログは保持されます。"
+    fun resetAll(lang: AppLanguage) = if (lang == AppLanguage.EN) "RESET ALL" else "全リセット"
+    fun active(lang: AppLanguage) = if (lang == AppLanguage.EN) "ACTIVE" else "進行中"
+    fun done(lang: AppLanguage) = if (lang == AppLanguage.EN) "DONE" else "完了"
+
+    // Calendar Screen
+    fun dateLog(lang: AppLanguage) = if (lang == AppLanguage.EN) "DATE LOG" else "日付ログ"
+    fun completedItems(lang: AppLanguage) = if (lang == AppLanguage.EN) "COMPLETED ITEMS" else "完了タスク"
+    fun reqPending(lang: AppLanguage) = if (lang == AppLanguage.EN) "CRIT PENDING" else "重要未完了"
+    fun phaseBreakdown(lang: AppLanguage) = if (lang == AppLanguage.EN) "PHASE BREAKDOWN" else "フェーズ内訳"
+    fun todaysLiveStatus(lang: AppLanguage) = if (lang == AppLanguage.EN) "TODAY'S LIVE STATUS" else "本日のリアルタイム状況"
+    fun noMissionLog(lang: AppLanguage) = if (lang == AppLanguage.EN) "NO MISSION LOG RECORDED" else "記録されたログはありません"
+    fun reviewLogs(lang: AppLanguage, count: Int) = if (lang == AppLanguage.EN) "REVIEW LOGS ($count)" else "振り返りログ ($count)"
+    fun issueNoted(lang: AppLanguage) = if (lang == AppLanguage.EN) "ISSUE NOTED" else "課題あり"
+    fun allClear(lang: AppLanguage) = if (lang == AppLanguage.EN) "ALL CLEAR" else "問題なし"
+    fun currentSol(lang: AppLanguage) = if (lang == AppLanguage.EN) "CURRENT SOL" else "本日"
 }
+

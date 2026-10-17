@@ -21,8 +21,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -113,7 +113,7 @@ fun TemplateManageScreen(
                 modifier = Modifier.size(36.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.ArrowBack,
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
                     tint = TextSecondary,
                     modifier = Modifier.size(20.dp)
@@ -330,6 +330,14 @@ fun TemplateManageScreen(
                     )
                     Spacer(modifier = Modifier.height(14.dp))
 
+                    val isTitleValid = title.trim().isNotEmpty()
+                    val submitItem = {
+                        if (isTitleValid) {
+                            items.add(TemplateItem(title = title.trim(), priority = priority))
+                            showAddItemDialog = false
+                        }
+                    }
+
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -344,10 +352,12 @@ fun TemplateManageScreen(
                             textStyle = TextStyle(color = TextPrimary, fontSize = 14.sp),
                             cursorBrush = SolidColor(TextPrimary),
                             singleLine = true,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { submitItem() }),
                             modifier = Modifier.fillMaxSize()
                         )
                         if (title.isEmpty()) {
-                            Text(text = "項目内容", color = TextTertiary, fontSize = 13.sp)
+                            Text(text = "項目内容...", color = TextTertiary, fontSize = 13.sp)
                         }
                     }
 
@@ -361,15 +371,15 @@ fun TemplateManageScreen(
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .border(1.dp, if (isReq) TextPrimary else BorderSubtle, SpaceXSmallShape)
+                                .border(1.dp, if (isReq) com.example.checklist.theme.SpaceXAccent else BorderSubtle, SpaceXSmallShape)
                                 .background(if (isReq) SurfaceElevated else SpaceBlack, shape = SpaceXSmallShape)
                                 .combinedClickable(onClick = { priority = Priority.REQUIRED })
                                 .padding(vertical = 10.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "重要",
-                                color = if (isReq) TextPrimary else TextSecondary,
+                                text = "重要 (CRIT)",
+                                color = if (isReq) com.example.checklist.theme.SpaceXAccent else TextSecondary,
                                 fontSize = 12.sp,
                                 fontWeight = if (isReq) FontWeight.Bold else FontWeight.Normal
                             )
@@ -382,11 +392,11 @@ fun TemplateManageScreen(
                                 .border(1.dp, if (isNorm) TextPrimary else BorderSubtle, SpaceXSmallShape)
                                 .background(if (isNorm) SurfaceElevated else SpaceBlack, shape = SpaceXSmallShape)
                                 .combinedClickable(onClick = { priority = Priority.NORMAL })
-                                .padding(vertical = 10.dp),
+                            .padding(vertical = 10.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "標準",
+                                text = "標準 (STD)",
                                 color = if (isNorm) TextPrimary else TextSecondary,
                                 fontSize = 12.sp,
                                 fontWeight = if (isNorm) FontWeight.Bold else FontWeight.Normal
@@ -404,12 +414,8 @@ fun TemplateManageScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         SpaceXButton(
                             text = "ADD",
-                            onClick = {
-                                if (title.isNotBlank()) {
-                                    items.add(TemplateItem(title = title.trim(), priority = priority))
-                                    showAddItemDialog = false
-                                }
-                            }
+                            onClick = { submitItem() },
+                            enabled = isTitleValid
                         )
                     }
                 }

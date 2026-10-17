@@ -26,6 +26,12 @@ class ChecklistRepository(private val context: Context) {
     private val dataFile: File
         get() = File(context.filesDir, "checklist_state.json")
 
+    private val tempFile: File
+        get() = File(context.filesDir, "checklist_state.json.tmp")
+
+    private val backupFile: File
+        get() = File(context.filesDir, "checklist_state.json.bak")
+
     private val _appState = MutableStateFlow(loadInitialState())
     val appState: StateFlow<AppState> = _appState.asStateFlow()
 
@@ -43,39 +49,44 @@ class ChecklistRepository(private val context: Context) {
         return LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
     }
 
-    private fun loadInitialState(): AppState {
+    private fun tryLoadFromFile(file: File): AppState? {
         return try {
-            val today = getTodayDateString()
-            if (dataFile.exists()) {
-                val text = dataFile.readText()
-                val loaded = json.decodeFromString<AppState>(text)
-                // マイグレーション & 日付チェック
-                val stateWithDate = if (loaded.currentDate.isEmpty()) {
-                    loaded.copy(currentDate = today)
-                } else {
-                    loaded
-                }
-
-                // 4フェーズ未満の場合はリセット
-                if (stateWithDate.phases.size < 4 || stateWithDate.phases.any { it.name == "日中" }) {
-                    val migrated = createDefaultState().copy(
-                        currentDate = today,
-                        templates = if (stateWithDate.templates.isNotEmpty()) stateWithDate.templates else createDefaultState().templates,
-                        reviewLogs = stateWithDate.reviewLogs,
-                        dailyRecords = stateWithDate.dailyRecords,
-                        settings = stateWithDate.settings
-                    )
-                    persist(migrated)
-                    migrated
-                } else {
-                    stateWithDate
-                }
-            } else {
-                createDefaultState()
-            }
+            if (file.exists() && file.length() > 0) {
+                val text = file.readText()
+                json.decodeFromString<AppState>(text)
+            } else null
         } catch (e: Exception) {
             e.printStackTrace()
-            createDefaultState()
+            null
+        }
+    }
+
+    private fun loadInitialState(): AppState {
+        val today = getTodayDateString()
+        // 1. メインファイルからの読み込み、失敗時はバックアップファイルから自己修復
+        val loaded = tryLoadFromFile(dataFile)
+            ?: tryLoadFromFile(backupFile)
+            ?: createDefaultState()
+
+        val stateWithDate = if (loaded.currentDate.isEmpty()) {
+            loaded.copy(currentDate = today)
+        } else {
+            loaded
+        }
+
+        // フェーズが空、または旧来の「日中」が含まれる場合のみマイグレーション (3フェーズや5フェーズのカスタムは保護)
+        return if (stateWithDate.phases.isEmpty() || stateWithDate.phases.any { it.name == "日中" }) {
+            val migrated = createDefaultState().copy(
+                currentDate = today,
+                templates = if (stateWithDate.templates.isNotEmpty()) stateWithDate.templates else createDefaultState().templates,
+                reviewLogs = stateWithDate.reviewLogs,
+                dailyRecords = stateWithDate.dailyRecords,
+                settings = stateWithDate.settings
+            )
+            persist(migrated)
+            migrated
+        } else {
+            stateWithDate
         }
     }
 
@@ -144,7 +155,17 @@ class ChecklistRepository(private val context: Context) {
         scope.launch {
             try {
                 val jsonString = json.encodeToString(newState)
-                dataFile.writeText(jsonString)
+                // 1. 一時ファイルに完全に書き込み
+                tempFile.writeText(jsonString)
+                // 2. メインファイルが存在する場合はバックアップを更新
+                if (dataFile.exists()) {
+                    dataFile.copyTo(backupFile, overwrite = true)
+                }
+                // 3. アトミック置換 (renameTo失敗時はcopyTo+deleteでフォールバック)
+                if (!tempFile.renameTo(dataFile)) {
+                    tempFile.copyTo(dataFile, overwrite = true)
+                    tempFile.delete()
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -311,16 +332,46 @@ class ChecklistRepository(private val context: Context) {
         val current = _appState.value
         if (current.phases.size >= 8) return false
         val newPhase = Phase(name = trimmed)
-        persist(current.copy(phases = current.phases + newPhase))
+        val newIndex = current.phases.size
+
+        val existingSchedules = current.settings.phaseSchedules
+        val nextHour = if (existingSchedules.isNotEmpty()) {
+            (existingSchedules.maxOf { it.startHour } + 3) % 24
+        } else {
+            (newIndex * 4 + 7) % 24
+        }
+        val newSchedule = PhaseSchedule(
+            phaseIndex = newIndex,
+            phaseName = trimmed,
+            startHour = nextHour,
+            startMinute = 0
+        )
+        val updatedSettings = current.settings.copy(phaseSchedules = existingSchedules + newSchedule)
+        persist(current.copy(phases = current.phases + newPhase, settings = updatedSettings))
         return true
     }
 
     fun removePhase(phaseId: String): Boolean {
         val current = _appState.value
         if (current.phases.size <= 1) return false
+        val targetIndex = current.phases.indexOfFirst { it.id == phaseId }
+        if (targetIndex < 0) return false
+
         val updatedPhases = current.phases.filterNot { it.id == phaseId }
         val newIndex = current.selectedPhaseIndex.coerceAtMost(updatedPhases.size - 1)
-        persist(current.copy(phases = updatedPhases, selectedPhaseIndex = newIndex))
+
+        val updatedSchedules = updatedPhases.mapIndexed { idx, p ->
+            val oldSchedule = current.settings.phaseSchedules.find { it.phaseIndex == (if (idx >= targetIndex) idx + 1 else idx) }
+            oldSchedule?.copy(phaseIndex = idx, phaseName = p.name) ?: PhaseSchedule(
+                phaseIndex = idx,
+                phaseName = p.name,
+                startHour = (idx * 4 + 7) % 24,
+                startMinute = 0
+            )
+        }
+        val updatedSettings = current.settings.copy(phaseSchedules = updatedSchedules)
+
+        persist(current.copy(phases = updatedPhases, selectedPhaseIndex = newIndex, settings = updatedSettings))
         return true
     }
 
@@ -390,46 +441,15 @@ class ChecklistRepository(private val context: Context) {
         val isLastPhase = targetPhaseIndex >= current.phases.size - 1
 
         if (isLastPhase) {
-            // 夜セクション完了 -> 本日の日別レコードを保存し、翌日の朝へ進む
-            val dailyRecord = createDailyRecord(today, phasesAfterTargetCompletion)
-            val updatedDailyRecords = current.dailyRecords + (today to dailyRecord)
-
-            // 翌日（今日+1日）へ日付更新
-            val baseDate = runCatching { LocalDate.parse(today) }.getOrElse { LocalDate.now() }
-            val tomorrow = baseDate.plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE)
-
-            // 各フェーズを初期化し、朝フェーズ（インデックス0）に未完了タスクを引き継ぐ
-            val resetPhases = phasesAfterTargetCompletion.mapIndexed { index, p ->
-                val templateForPhase = current.templates.getOrNull(index)
-                val baseItems = if (templateForPhase != null && templateForPhase.items.isNotEmpty()) {
-                    templateForPhase.items.map { ChecklistItem(title = it.title, priority = it.priority) }
-                } else {
-                    p.items.filterNot { it.isDeleted }.map { it.copy(isCompleted = false, completedAt = null) }
-                }
-                val newItems = if (index == 0 && uncompletedItems.isNotEmpty()) {
-                    val existingTitles = baseItems.map { it.title }.toSet()
-                    val itemsToAdd = uncompletedItems.filter { it.title !in existingTitles }
-                    itemsToAdd + baseItems
-                } else {
-                    baseItems
-                }
-                p.copy(
-                    items = newItems,
-                    isCompleted = false,
-                    completedAt = null,
-                    reviewNote = null
-                )
-            }
-
-            persist(
-                current.copy(
-                    currentDate = tomorrow,
-                    phases = resetPhases,
-                    selectedPhaseIndex = 0,
-                    reviewLogs = updatedReviewLogs,
-                    dailyRecords = updatedDailyRecords
-                )
+            // 夜セクション完了 -> 本日の日別レコードを保存し、翌日の朝へ進む (統合ヘルパー呼び出し)
+            val nextDayState = buildNextDayState(
+                current = current,
+                basePhases = phasesAfterTargetCompletion,
+                uncompletedItems = uncompletedItems,
+                today = today,
+                updatedReviewLogs = updatedReviewLogs
             )
+            persist(nextDayState)
         } else {
             // 通常のフェーズ完了 -> 次のフェーズへ進み、未完了タスクを次のフェーズへキャリーオーバー（優先度高いため上部に表示）
             val nextIndex = targetPhaseIndex + 1
@@ -453,6 +473,54 @@ class ChecklistRepository(private val context: Context) {
                 )
             )
         }
+    }
+
+    private fun buildNextDayState(
+        current: AppState,
+        basePhases: List<Phase>,
+        uncompletedItems: List<ChecklistItem>,
+        today: String,
+        updatedReviewLogs: List<ReviewLog>? = null
+    ): AppState {
+        val dailyRecord = createDailyRecord(today, basePhases)
+        val updatedDailyRecords = current.dailyRecords + (today to dailyRecord)
+
+        val baseDate = runCatching { LocalDate.parse(today) }.getOrElse { LocalDate.now() }
+        val tomorrow = baseDate.plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE)
+
+        val resetPhases = basePhases.mapIndexed { index, p ->
+            val templateForPhase = current.templates.getOrNull(index)
+            val baseItems = if (templateForPhase != null && templateForPhase.items.isNotEmpty()) {
+                templateForPhase.items.map { ChecklistItem(title = it.title, priority = it.priority) }
+            } else {
+                p.items.filterNot { it.isDeleted }.map { it.copy(isCompleted = false, completedAt = null) }
+            }
+
+            // 翌日指定タスク
+            val scheduledForTomorrow = p.items.filter { it.scheduledDate == tomorrow && !it.isDeleted }
+
+            val mergedItems = if (index == 0 && uncompletedItems.isNotEmpty()) {
+                val existingTitles = (scheduledForTomorrow + baseItems).map { it.title }.toSet()
+                val toAdd = uncompletedItems.filter { it.title !in existingTitles }
+                toAdd + scheduledForTomorrow + baseItems
+            } else {
+                scheduledForTomorrow + baseItems
+            }
+            p.copy(
+                items = mergedItems,
+                isCompleted = false,
+                completedAt = null,
+                reviewNote = null
+            )
+        }
+
+        return current.copy(
+            currentDate = tomorrow,
+            phases = resetPhases,
+            selectedPhaseIndex = 0,
+            reviewLogs = updatedReviewLogs ?: current.reviewLogs,
+            dailyRecords = updatedDailyRecords
+        )
     }
 
     private fun createDailyRecord(date: String, phases: List<Phase>): DailyRecord {
@@ -508,11 +576,6 @@ class ChecklistRepository(private val context: Context) {
     fun advanceToNextDay() {
         val current = _appState.value
         val today = current.currentDate.ifEmpty { getTodayDateString() }
-        val dailyRecord = createDailyRecord(today, current.phases)
-        val updatedDailyRecords = current.dailyRecords + (today to dailyRecord)
-
-        val baseDate = runCatching { LocalDate.parse(today) }.getOrElse { LocalDate.now() }
-        val tomorrow = baseDate.plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE)
 
         // 未完了タスクを取得（REQ / NORM）
         val uncompletedItems = mutableListOf<ChecklistItem>()
@@ -535,40 +598,13 @@ class ChecklistRepository(private val context: Context) {
             )
         }
 
-        val resetPhases = current.phases.mapIndexed { index, p ->
-            val templateForPhase = current.templates.getOrNull(index)
-            val baseItems = if (templateForPhase != null && templateForPhase.items.isNotEmpty()) {
-                templateForPhase.items.map { ChecklistItem(title = it.title, priority = it.priority) }
-            } else {
-                p.items.filterNot { it.isDeleted }.map { it.copy(isCompleted = false, completedAt = null) }
-            }
-
-            // 明日指定タスク
-            val scheduledForTomorrow = p.items.filter { it.scheduledDate == tomorrow && !it.isDeleted }
-
-            val mergedItems = if (index == 0 && uncompletedItems.isNotEmpty()) {
-                val existingTitles = (scheduledForTomorrow + baseItems).map { it.title }.toSet()
-                val toAdd = uncompletedItems.filter { it.title !in existingTitles }
-                toAdd + scheduledForTomorrow + baseItems
-            } else {
-                scheduledForTomorrow + baseItems
-            }
-            p.copy(
-                items = mergedItems,
-                isCompleted = false,
-                completedAt = null,
-                reviewNote = null
-            )
-        }
-
-        persist(
-            current.copy(
-                currentDate = tomorrow,
-                phases = resetPhases,
-                selectedPhaseIndex = 0,
-                dailyRecords = updatedDailyRecords
-            )
+        val nextDayState = buildNextDayState(
+            current = current,
+            basePhases = current.phases,
+            uncompletedItems = uncompletedItems,
+            today = today
         )
+        persist(nextDayState)
     }
 
     fun resetPhase(phaseId: String) {

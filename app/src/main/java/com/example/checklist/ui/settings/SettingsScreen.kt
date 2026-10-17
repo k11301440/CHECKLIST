@@ -386,7 +386,7 @@ fun SettingsScreen(
                     SettingsSectionHeader("${AppStrings.sectionPhases(lang)} (${state.phases.size})")
                     if (state.phases.size < 8) {
                         SpaceXTextButton(
-                            text = "+ ADD PHASE",
+                            text = if (isEnglish) "+ ADD PHASE" else "+ フェーズ追加",
                             onClick = { showAddPhaseDialog = true }
                         )
                     }
@@ -432,7 +432,7 @@ fun SettingsScreen(
                                         )
                                     }
                                     Text(
-                                        text = "${phase.items.size} ITEMS",
+                                        text = AppStrings.itemsCount(lang, phase.items.size),
                                         color = TextTertiary,
                                         fontSize = 10.sp
                                     )
@@ -509,7 +509,7 @@ fun SettingsScreen(
                     SettingsSectionHeader("${AppStrings.sectionTemplates(lang)} (${state.templates.size}/${state.phases.size})")
                     if (canAddTemplate) {
                         SpaceXTextButton(
-                            text = "+ NEW TEMPLATE",
+                            text = if (isEnglish) "+ NEW TEMPLATE" else "+ テンプレート追加",
                             onClick = { onOpenTemplateEditor(null) }
                         )
                     } else {
@@ -564,7 +564,7 @@ fun SettingsScreen(
                                         fontWeight = FontWeight.Medium
                                     )
                                     Text(
-                                        text = "${template.items.size} ITEMS",
+                                        text = AppStrings.itemsCount(lang, template.items.size),
                                         color = TextTertiary,
                                         fontSize = 10.sp
                                     )
@@ -785,6 +785,7 @@ fun SettingsScreen(
             else
                 "すべてのフェーズとタスクを初期の4フェーズ構成 (朝/午前/午後/夜) に初期化しますか？現在のカスタムフェーズは上書きされます。",
             confirmText = if (isEnglish) "RESET" else "初期化",
+            cancelText = AppStrings.cancel(lang),
             onConfirm = {
                 viewModel.restoreDefaultFourPhases()
                 showResetDefaultConfirm = false
@@ -799,6 +800,7 @@ fun SettingsScreen(
             title = AppStrings.resetAllData(lang),
             message = AppStrings.resetAllDataConfirm(lang),
             confirmText = if (isEnglish) "RESET ALL" else "全初期化",
+            cancelText = AppStrings.cancel(lang),
             isDanger = true,
             onConfirm = {
                 viewModel.resetAllData()
@@ -1072,7 +1074,11 @@ private fun EditPhaseNameDialog(
                         ),
                         cursorBrush = SolidColor(TextPrimary),
                         modifier = Modifier.fillMaxSize(),
-                        singleLine = true
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = {
+                            if (name.trim().isNotEmpty()) onConfirm(name.trim())
+                        })
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
@@ -1084,8 +1090,10 @@ private fun EditPhaseNameDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     SpaceXButton(
                         text = "SAVE",
-                        onClick = { onConfirm(name) },
-                        enabled = name.isNotBlank()
+                        onClick = {
+                            if (name.trim().isNotEmpty()) onConfirm(name.trim())
+                        },
+                        enabled = name.trim().isNotEmpty()
                     )
                 }
             }
@@ -1099,6 +1107,7 @@ private fun AddPhaseDialog(
     onConfirm: (name: String) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
+    val isNameValid = name.trim().isNotEmpty()
 
     Dialog(onDismissRequest = onDismiss) {
         Box(
@@ -1135,7 +1144,11 @@ private fun AddPhaseDialog(
                         ),
                         cursorBrush = SolidColor(TextPrimary),
                         modifier = Modifier.fillMaxSize(),
-                        singleLine = true
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = {
+                            if (isNameValid) onConfirm(name.trim())
+                        })
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
@@ -1147,8 +1160,10 @@ private fun AddPhaseDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     SpaceXButton(
                         text = "ADD",
-                        onClick = { onConfirm(name) },
-                        enabled = name.isNotBlank()
+                        onClick = {
+                            if (isNameValid) onConfirm(name.trim())
+                        },
+                        enabled = isNameValid
                     )
                 }
             }

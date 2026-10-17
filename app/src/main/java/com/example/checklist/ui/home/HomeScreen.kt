@@ -174,7 +174,7 @@ fun HomeScreen(
         Spacer(modifier = Modifier.height(2.dp))
 
         Text(
-            text = "DAILY TIMELINE",
+            text = com.example.checklist.ui.common.AppStrings.dailyTimeline(state.settings.appLanguage),
             color = TextPrimary,
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
@@ -182,7 +182,7 @@ fun HomeScreen(
         )
 
         Text(
-            text = "SELECT PHASE TO MONITOR & EXECUTE",
+            text = com.example.checklist.ui.common.AppStrings.selectPhaseToMonitor(state.settings.appLanguage),
             color = TextSecondary,
             fontSize = 10.5.sp,
             letterSpacing = 1.sp
@@ -247,7 +247,7 @@ fun HomeScreen(
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = "DONE",
+                                        text = com.example.checklist.ui.common.AppStrings.done(state.settings.appLanguage),
                                         color = TextPrimary,
                                         fontSize = 10.5.sp,
                                         fontWeight = FontWeight.Bold,
@@ -256,7 +256,7 @@ fun HomeScreen(
                                 }
                             } else if (isSelected) {
                                 Text(
-                                    text = "ACTIVE",
+                                    text = com.example.checklist.ui.common.AppStrings.active(state.settings.appLanguage),
                                     color = TextPrimary,
                                     fontSize = 9.5.sp,
                                     fontWeight = FontWeight.Bold,
@@ -341,13 +341,13 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     SpaceXButton(
-                        text = "ADVANCE TO NEXT DAY",
+                        text = com.example.checklist.ui.common.AppStrings.advanceToNextDay(state.settings.appLanguage),
                         onClick = { viewModel.advanceToNextDay() },
                         prominent = false,
                         modifier = Modifier.fillMaxWidth()
                     )
                     SpaceXButton(
-                        text = "RESET ALL PHASES",
+                        text = com.example.checklist.ui.common.AppStrings.resetAllPhases(state.settings.appLanguage),
                         onClick = { showResetAllDialog = true },
                         prominent = false,
                         modifier = Modifier.fillMaxWidth()
@@ -360,12 +360,10 @@ fun HomeScreen(
 
     if (showResetAllDialog) {
         com.example.checklist.ui.components.SpaceXConfirmDialog(
-            title = if (isEnglish) "CONFIRM RESET: ALL PHASES" else "全フェーズのリセット確認",
-            message = if (isEnglish) 
-                "Reset all task completion statuses across all phases? Logs for today will be preserved." 
-            else 
-                "すべてのフェーズのタスク完了状況をリセットしますか？この日のログは保持されます。",
-            confirmText = if (isEnglish) "RESET ALL" else "全リセット",
+            title = com.example.checklist.ui.common.AppStrings.resetAllPhasesTitle(state.settings.appLanguage),
+            message = com.example.checklist.ui.common.AppStrings.resetAllPhasesMessage(state.settings.appLanguage),
+            confirmText = com.example.checklist.ui.common.AppStrings.resetAll(state.settings.appLanguage),
+            cancelText = com.example.checklist.ui.common.AppStrings.cancel(state.settings.appLanguage),
             onConfirm = {
                 viewModel.resetAllPhases()
                 showResetAllDialog = false
