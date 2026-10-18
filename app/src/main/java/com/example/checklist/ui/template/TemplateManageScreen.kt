@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,26 +26,33 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerInputScope
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.zIndex
 import com.example.checklist.data.AppState
 import com.example.checklist.data.PhaseTemplate
 import com.example.checklist.data.Priority
@@ -63,6 +72,53 @@ import com.example.checklist.ui.components.SpaceXShape
 import com.example.checklist.ui.components.SpaceXSmallShape
 import com.example.checklist.ui.components.SpaceXTextButton
 import java.util.UUID
+import kotlinx.coroutines.withTimeoutOrNull
+
+/**
+ * テンプレート並び替え用の長押しドラッグジェスチャー検出
+ */
+private suspend fun PointerInputScope.detectTemplateDragAfterLongPress(
+    onDragStart: () -> Unit,
+    onDragDelta: (Float) -> Unit,
+    onDragEnd: () -> Unit
+) {
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false)
+        val longPressTimeout = 220L
+        val longPressCancelled = withTimeoutOrNull(longPressTimeout) {
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Main)
+                val change = event.changes.firstOrNull { it.id == down.id }
+                if (change == null || !change.pressed) {
+                    return@withTimeoutOrNull true
+                }
+                val distance = (change.position - down.position).getDistance()
+                if (distance > 40f) {
+                    return@withTimeoutOrNull true
+                }
+            }
+            @Suppress("UNREACHABLE_CODE")
+            false
+        }
+
+        if (longPressCancelled == null) {
+            down.consume()
+            onDragStart()
+
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Main)
+                val change = event.changes.firstOrNull { it.id == down.id }
+                if (change == null || !change.pressed) {
+                    onDragEnd()
+                    break
+                }
+                val deltaY = change.position.y - change.previousPosition.y
+                change.consume()
+                onDragDelta(deltaY)
+            }
+        }
+    }
+}
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -81,6 +137,10 @@ fun TemplateManageScreen(
         mutableStateOf(existingTemplate?.name ?: "新規テンプレート")
     }
 
+    var selectedDays by remember {
+        mutableStateOf(existingTemplate?.targetDaysOfWeek?.toSet() ?: emptySet())
+    }
+
     val items = remember {
         mutableStateListOf<TemplateItem>().apply {
             if (existingTemplate != null) {
@@ -93,6 +153,11 @@ fun TemplateManageScreen(
     var showPresetSuggestDialog by remember { mutableStateOf(existingTemplate == null && items.isEmpty()) }
     var selectedPresetIndex by remember { mutableStateOf(0) }
     val presetTemplates = remember { com.example.checklist.data.ChecklistRepository.getDefaultPresetTemplates() }
+
+    // ドラッグ＆ドロップ並び替えステート
+    var draggingItemId by remember { mutableStateOf<String?>(null) }
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+    val itemHeightPx = with(LocalDensity.current) { 56.dp.toPx() }
 
     Column(
         modifier = modifier
@@ -134,7 +199,8 @@ fun TemplateManageScreen(
                     val finalTemplate = PhaseTemplate(
                         id = existingTemplate?.id ?: UUID.randomUUID().toString(),
                         name = templateName.trim().ifEmpty { "テンプレート" },
-                        items = items.toList()
+                        items = items.toList(),
+                        targetDaysOfWeek = selectedDays.sorted()
                     )
                     viewModel.saveTemplate(finalTemplate)
                     onBack()
@@ -145,7 +211,7 @@ fun TemplateManageScreen(
 
         SpaceXDivider()
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         // TEMPLATE NAME INPUT
         Text(
@@ -156,7 +222,7 @@ fun TemplateManageScreen(
             letterSpacing = 1.2.sp
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         Box(
             modifier = Modifier
@@ -181,7 +247,100 @@ fun TemplateManageScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // RECURRENCE / DAY SCHEDULE OPTIONS
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "APPLY SCHEDULE (適用曜日オプション)",
+                color = TextSecondary,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.2.sp
+            )
+            Text(
+                text = if (selectedDays.isEmpty()) "毎日 (全曜日)" else "${selectedDays.size} 曜日選択中",
+                color = if (selectedDays.isNotEmpty()) com.example.checklist.theme.SpaceXAccent else TextTertiary,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // Weekday Toggle Chips
+        val weekdays = listOf(
+            1 to "月", 2 to "火", 3 to "水", 4 to "木", 5 to "金", 6 to "土", 7 to "日"
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            weekdays.forEach { (dayNum, dayLabel) ->
+                val isSelected = dayNum in selectedDays
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(34.dp)
+                        .border(
+                            width = if (isSelected) 1.5.dp else 1.dp,
+                            color = if (isSelected) com.example.checklist.theme.SpaceXAccent else BorderSubtle,
+                            shape = SpaceXSmallShape
+                        )
+                        .background(
+                            if (isSelected) SurfaceElevated else SurfaceDark,
+                            shape = SpaceXSmallShape
+                        )
+                        .clickable {
+                            selectedDays = if (isSelected) {
+                                selectedDays - dayNum
+                            } else {
+                                selectedDays + dayNum
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = dayLabel,
+                        color = if (isSelected) com.example.checklist.theme.SpaceXAccent else TextSecondary,
+                        fontSize = 11.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // Quick Presets: [平日 (月-金)] [週末 (土日)] [全日リセット]
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            SpaceXTextButton(
+                text = "平日 (月-金)",
+                onClick = { selectedDays = setOf(1, 2, 3, 4, 5) },
+                prominent = selectedDays == setOf(1, 2, 3, 4, 5)
+            )
+            SpaceXTextButton(
+                text = "週末 (土日)",
+                onClick = { selectedDays = setOf(6, 7) },
+                prominent = selectedDays == setOf(6, 7)
+            )
+            if (selectedDays.isNotEmpty()) {
+                SpaceXTextButton(
+                    text = "全日クリア",
+                    onClick = { selectedDays = emptySet() },
+                    prominent = false
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -212,27 +371,87 @@ fun TemplateManageScreen(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // ITEMS LIST
+        // ITEMS LIST (ドラッグ＆ドロップ並び替え対応)
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            itemsIndexed(items) { index, item ->
+            itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
                 val isReq = item.priority == Priority.REQUIRED
+                val isDragging = item.id == draggingItemId
 
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, if (isReq) BorderProminent else BorderSubtle, SpaceXShape)
-                        .background(if (isReq) SurfaceElevated else SurfaceDark, shape = SpaceXShape)
-                        .padding(horizontal = 14.dp, vertical = 12.dp)
+                    modifier = (if (isDragging) {
+                        Modifier
+                            .fillMaxWidth()
+                            .zIndex(15f)
+                            .graphicsLayer {
+                                translationY = dragOffsetY
+                                scaleX = 1.03f
+                                scaleY = 1.03f
+                                shadowElevation = 15f
+                            }
+                            .border(2.dp, com.example.checklist.theme.SpaceXAccent, SpaceXShape)
+                            .background(SurfaceElevated, shape = SpaceXShape)
+                    } else {
+                        Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, if (isReq) BorderProminent else BorderSubtle, SpaceXShape)
+                            .background(if (isReq) SurfaceElevated else SurfaceDark, shape = SpaceXShape)
+                    }).padding(horizontal = 10.dp, vertical = 10.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // ドラッグハンドル
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .pointerInput(item.id) {
+                                    detectTemplateDragAfterLongPress(
+                                        onDragStart = {
+                                            draggingItemId = item.id
+                                            dragOffsetY = 0f
+                                        },
+                                        onDragDelta = { deltaY ->
+                                            dragOffsetY += deltaY
+                                            val currentIndex = items.indexOfFirst { it.id == item.id }
+                                            val threshold = itemHeightPx * 0.6f
+                                            if (currentIndex != -1) {
+                                                if (dragOffsetY > threshold && currentIndex < items.size - 1) {
+                                                    val temp = items[currentIndex]
+                                                    items[currentIndex] = items[currentIndex + 1]
+                                                    items[currentIndex + 1] = temp
+                                                    dragOffsetY -= itemHeightPx
+                                                } else if (dragOffsetY < -threshold && currentIndex > 0) {
+                                                    val temp = items[currentIndex]
+                                                    items[currentIndex] = items[currentIndex - 1]
+                                                    items[currentIndex - 1] = temp
+                                                    dragOffsetY += itemHeightPx
+                                                }
+                                            }
+                                        },
+                                        onDragEnd = {
+                                            draggingItemId = null
+                                            dragOffsetY = 0f
+                                        }
+                                    )
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DragHandle,
+                                contentDescription = "長押しして並び替え",
+                                tint = if (isDragging) com.example.checklist.theme.SpaceXAccent else TextSecondary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(6.dp))
+
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = item.title,
@@ -242,53 +461,11 @@ fun TemplateManageScreen(
                             )
                             Text(
                                 text = if (isReq) "重要 (CRIT)" else "標準 (STD)",
-                                color = TextSecondary,
+                                color = if (isReq) com.example.checklist.theme.SpaceXAccent else TextSecondary,
                                 fontSize = 10.sp,
                                 letterSpacing = 0.5.sp
                             )
                         }
-
-                        // 上下並び替えボタン
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(
-                                onClick = {
-                                    if (index > 0) {
-                                        val temp = items[index]
-                                        items[index] = items[index - 1]
-                                        items[index - 1] = temp
-                                    }
-                                },
-                                enabled = index > 0,
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.KeyboardArrowUp,
-                                    contentDescription = "Move Up",
-                                    tint = if (index > 0) TextSecondary else BorderSubtle,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                            IconButton(
-                                onClick = {
-                                    if (index < items.size - 1) {
-                                        val temp = items[index]
-                                        items[index] = items[index + 1]
-                                        items[index + 1] = temp
-                                    }
-                                },
-                                enabled = index < items.size - 1,
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.KeyboardArrowDown,
-                                    contentDescription = "Move Down",
-                                    tint = if (index < items.size - 1) TextSecondary else BorderSubtle,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.width(4.dp))
 
                         IconButton(
                             onClick = { items.removeAt(index) },
@@ -349,57 +526,69 @@ fun TemplateManageScreen(
                         BasicTextField(
                             value = title,
                             onValueChange = { title = it },
-                            textStyle = TextStyle(color = TextPrimary, fontSize = 14.sp),
+                            textStyle = TextStyle(
+                                color = TextPrimary,
+                                fontSize = 15.sp,
+                                fontFamily = FontFamily.SansSerif
+                            ),
                             cursorBrush = SolidColor(TextPrimary),
                             singleLine = true,
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
-                            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { submitItem() }),
                             modifier = Modifier.fillMaxSize()
                         )
-                        if (title.isEmpty()) {
-                            Text(text = "項目内容...", color = TextTertiary, fontSize = 13.sp)
-                        }
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
+                    // Priority selection
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        val isReq = priority == Priority.REQUIRED
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .border(1.dp, if (isReq) com.example.checklist.theme.SpaceXAccent else BorderSubtle, SpaceXSmallShape)
-                                .background(if (isReq) SurfaceElevated else SpaceBlack, shape = SpaceXSmallShape)
-                                .combinedClickable(onClick = { priority = Priority.REQUIRED })
-                                .padding(vertical = 10.dp),
+                                .height(38.dp)
+                                .border(
+                                    width = 1.dp,
+                                    color = if (priority == Priority.REQUIRED) com.example.checklist.theme.SpaceXAccent else BorderSubtle,
+                                    shape = SpaceXSmallShape
+                                )
+                                .background(
+                                    if (priority == Priority.REQUIRED) SurfaceElevated else SpaceBlack,
+                                    shape = SpaceXSmallShape
+                                )
+                                .clickable { priority = Priority.REQUIRED },
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = "重要 (CRIT)",
-                                color = if (isReq) com.example.checklist.theme.SpaceXAccent else TextSecondary,
-                                fontSize = 12.sp,
-                                fontWeight = if (isReq) FontWeight.Bold else FontWeight.Normal
+                                color = if (priority == Priority.REQUIRED) com.example.checklist.theme.SpaceXAccent else TextSecondary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
 
-                        val isNorm = priority == Priority.NORMAL
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .border(1.dp, if (isNorm) TextPrimary else BorderSubtle, SpaceXSmallShape)
-                                .background(if (isNorm) SurfaceElevated else SpaceBlack, shape = SpaceXSmallShape)
-                                .combinedClickable(onClick = { priority = Priority.NORMAL })
-                            .padding(vertical = 10.dp),
+                                .height(38.dp)
+                                .border(
+                                    width = 1.dp,
+                                    color = if (priority == Priority.NORMAL) TextPrimary else BorderSubtle,
+                                    shape = SpaceXSmallShape
+                                )
+                                .background(
+                                    if (priority == Priority.NORMAL) SurfaceElevated else SpaceBlack,
+                                    shape = SpaceXSmallShape
+                                )
+                                .clickable { priority = Priority.NORMAL },
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = "標準 (STD)",
-                                color = if (isNorm) TextPrimary else TextSecondary,
-                                fontSize = 12.sp,
-                                fontWeight = if (isNorm) FontWeight.Bold else FontWeight.Normal
+                                color = if (priority == Priority.NORMAL) TextPrimary else TextSecondary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
@@ -410,12 +599,15 @@ fun TemplateManageScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End
                     ) {
-                        SpaceXTextButton(text = "CANCEL", onClick = { showAddItemDialog = false })
+                        SpaceXButton(
+                            text = "CANCEL",
+                            onClick = { showAddItemDialog = false }
+                        )
                         Spacer(modifier = Modifier.width(8.dp))
                         SpaceXButton(
                             text = "ADD",
-                            onClick = { submitItem() },
-                            enabled = isTitleValid
+                            onClick = submitItem,
+                            prominent = isTitleValid
                         )
                     }
                 }
@@ -423,74 +615,59 @@ fun TemplateManageScreen(
         }
     }
 
-    // プリセット提案ダイアログ (ユーザーが許諾したらセットされる仕組み)
+    // PRESET SUGGESTION DIALOG
     if (showPresetSuggestDialog) {
         Dialog(onDismissRequest = { showPresetSuggestDialog = false }) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .background(SpaceBlack, shape = SpaceXShape)
                     .border(1.dp, BorderProminent, SpaceXShape)
-                    .background(SurfaceDark, shape = SpaceXShape)
                     .padding(20.dp)
             ) {
                 Column {
                     Text(
-                        text = "SUGGESTION // おすすめプリセット",
-                        color = TextPrimary,
-                        fontSize = 13.sp,
+                        text = "LOAD PRESET TEMPLATE",
+                        color = TextSecondary,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.5.sp
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "業務フェーズに合わせた標準的なタスク構成を読み込みますか？選択して「セットする」を押すと項目が反映されます。",
-                        color = TextSecondary,
-                        fontSize = 11.sp,
-                        lineHeight = 16.sp
+                        text = "航空・宇宙運用の知見に基づく推奨タスク構成",
+                        color = TextTertiary,
+                        fontSize = 11.sp
                     )
 
                     Spacer(modifier = Modifier.height(14.dp))
 
                     presetTemplates.forEachIndexed { pIdx, preset ->
-                        val isSelected = pIdx == selectedPresetIndex
+                        val isSelected = selectedPresetIndex == pIdx
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 4.dp)
                                 .border(
                                     width = if (isSelected) 1.5.dp else 1.dp,
-                                    color = if (isSelected) TextPrimary else BorderSubtle,
-                                    shape = SpaceXSmallShape
+                                    color = if (isSelected) com.example.checklist.theme.SpaceXAccent else BorderSubtle,
+                                    shape = SpaceXShape
                                 )
-                                .background(if (isSelected) SurfaceElevated else SpaceBlack, shape = SpaceXSmallShape)
+                                .background(if (isSelected) SurfaceElevated else SurfaceDark, shape = SpaceXShape)
                                 .clickable { selectedPresetIndex = pIdx }
-                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                                .padding(12.dp)
                         ) {
                             Column {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = preset.name,
-                                        color = if (isSelected) TextPrimary else TextSecondary,
-                                        fontSize = 12.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                    )
-                                    Text(
-                                        text = "${preset.items.size}項目",
-                                        color = TextTertiary,
-                                        fontSize = 10.sp
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(2.dp))
-                                val previewText = preset.items.take(2).joinToString(" / ") { it.title }
                                 Text(
-                                    text = previewText,
-                                    color = TextTertiary,
-                                    fontSize = 9.5.sp,
-                                    maxLines = 1
+                                    text = preset.name,
+                                    color = TextPrimary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "${preset.items.size} 項目 (重要 ${preset.items.count { it.priority == Priority.REQUIRED }}件)",
+                                    color = TextSecondary,
+                                    fontSize = 10.sp
                                 )
                             }
                         }
@@ -498,28 +675,27 @@ fun TemplateManageScreen(
 
                     Spacer(modifier = Modifier.height(18.dp))
 
-                    Column(
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        horizontalArrangement = Arrangement.End
                     ) {
                         SpaceXButton(
-                            text = "選択したプリセットを適用",
+                            text = "CANCEL",
+                            onClick = { showPresetSuggestDialog = false }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        SpaceXButton(
+                            text = "APPLY PRESET",
                             onClick = {
-                                val chosen = presetTemplates.getOrNull(selectedPresetIndex)
-                                if (chosen != null) {
-                                    templateName = chosen.name
+                                val selected = presetTemplates.getOrNull(selectedPresetIndex)
+                                if (selected != null) {
+                                    templateName = selected.name
                                     items.clear()
-                                    items.addAll(chosen.items)
+                                    items.addAll(selected.items)
                                 }
                                 showPresetSuggestDialog = false
                             },
-                            prominent = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        SpaceXTextButton(
-                            text = "空のテンプレートで作成する",
-                            onClick = { showPresetSuggestDialog = false }
+                            prominent = true
                         )
                     }
                 }

@@ -52,13 +52,13 @@ val TronSpaceXPalette = SpaceXColorPalette(
     isDark = true,
     bg = Color(0xFF000000),
     surfaceDark = Color(0xFF0A0A0A),
-    surfaceElevated = Color(0xFF141414),
-    borderSubtle = Color(0xFF262626),
+    surfaceElevated = Color(0xFF1F0808),
+    borderSubtle = Color(0xFF3E1212),
     borderProminent = Color(0xFFFF1E27),
-    textPrimary = Color(0xFFFFFFFF),
-    textSecondary = Color(0xFF888888),
-    textTertiary = Color(0xFF555555),
-    textDisabled = Color(0xFF383838),
+    textPrimary = Color(0xFFFF5252),
+    textSecondary = Color(0xFFFF8A80),
+    textTertiary = Color(0xFFCC5555),
+    textDisabled = Color(0xFF4A2020),
     accent = Color(0xFFFF1E27) // TRON Cyber Red Glow Accent
 )
 
@@ -66,14 +66,42 @@ val MonsterSpaceXPalette = SpaceXColorPalette(
     isDark = true,
     bg = Color(0xFF000000),
     surfaceDark = Color(0xFF0A0A0A),
-    surfaceElevated = Color(0xFF141414),
-    borderSubtle = Color(0xFF262626),
+    surfaceElevated = Color(0xFF071F0C),
+    borderSubtle = Color(0xFF0D3817),
     borderProminent = Color(0xFF00FF41),
-    textPrimary = Color(0xFFFFFFFF),
-    textSecondary = Color(0xFF888888),
-    textTertiary = Color(0xFF555555),
-    textDisabled = Color(0xFF383838),
+    textPrimary = Color(0xFF69F0AE),
+    textSecondary = Color(0xFF00E676),
+    textTertiary = Color(0xFF2E7D32),
+    textDisabled = Color(0xFF1B4021),
     accent = Color(0xFF00FF41) // MONSTER Energy Green Glow Accent
+)
+
+val AnaSpaceXPalette = SpaceXColorPalette(
+    isDark = true,
+    bg = Color(0xFF00050D),
+    surfaceDark = Color(0xFF030D1A),
+    surfaceElevated = Color(0xFF08172E),
+    borderSubtle = Color(0xFF132B52),
+    borderProminent = Color(0xFF0066CC),
+    textPrimary = Color(0xFFE1EFFF),
+    textSecondary = Color(0xFF80B3FF),
+    textTertiary = Color(0xFF4A74A8),
+    textDisabled = Color(0xFF243B59),
+    accent = Color(0xFF1A8CFF) // ANA Triton Blue
+)
+
+val JalSpaceXPalette = SpaceXColorPalette(
+    isDark = true,
+    bg = Color(0xFF080000),
+    surfaceDark = Color(0xFF120303),
+    surfaceElevated = Color(0xFF1E0808),
+    borderSubtle = Color(0xFF401010),
+    borderProminent = Color(0xFFD6001C),
+    textPrimary = Color(0xFFFFEEEE),
+    textSecondary = Color(0xFFFF7A7A),
+    textTertiary = Color(0xFFA84545),
+    textDisabled = Color(0xFF4D1C1C),
+    accent = Color(0xFFE60012) // JAL Tsurumaru Red
 )
 
 val LocalSpaceXColors = staticCompositionLocalOf { DarkSpaceXPalette }

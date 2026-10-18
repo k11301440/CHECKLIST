@@ -116,11 +116,11 @@ fun UserGuideScreen(
 
                 GuideSection(
                     stepNumber = "04",
-                    title = if (isEnglish) "Review Log (Nominal Check)" else "振り返りログ (ALL SYSTEMS NOMINAL?)",
+                    title = if (isEnglish) "Review Log & Calendar Jump" else "振り返りログとカレンダー日付ジャンプ",
                     description = if (isEnglish)
-                        "When advancing phases, verify whether execution was nominal. Selecting NO allows recording blockers into the mission calendar log."
+                        "When advancing phases, verify whether execution was nominal. Selecting NO allows recording blockers into the mission calendar log. Double-tapping any date in the calendar instantly jumps to that date's task cockpit."
                     else
-                        "フェーズ進行時、問題がなかったか（NOMINAL）の振り返りが行えます。「NO」を選択すると課題やブロッカーをメモとして記録でき、カレンダー画面でいつでも過去のミッション記録を振り返ることができます。"
+                        "フェーズ進行時、問題がなかったか（NOMINAL）の振り返りが行えます。「NO」を選択すると課題やブロッカーをメモとして記録でき、カレンダー画面で過去のミッション記録を確認できます。カレンダーの日付をダブルタップすると、その日付のタスク画面へ直接ジャンプできます（当月以前への無用な逆戻りは防止されています）。"
                 )
 
                 GuideSection(

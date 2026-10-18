@@ -185,10 +185,10 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 val currentMode = state.settings.themeMode
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         ThemeOptionButton(
                             text = "SPACE BLACK",
@@ -207,20 +207,39 @@ fun SettingsScreen(
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         ThemeOptionButton(
                             text = "TRON RED",
-                            subtext = if (isEnglish) "CYBER RED" else "トロン (赤外縁)",
+                            subtext = if (isEnglish) "CYBER RED" else "赤アクセント",
                             isSelected = currentMode == ThemeMode.TRON_RED,
                             onClick = { viewModel.setThemeMode(ThemeMode.TRON_RED) },
                             modifier = Modifier.weight(1f)
                         )
                         ThemeOptionButton(
                             text = "MONSTER",
-                            subtext = if (isEnglish) "ENERGY GREEN" else "モンスター (緑外縁)",
+                            subtext = if (isEnglish) "NEON GREEN" else "緑アクセント",
                             isSelected = currentMode == ThemeMode.MONSTER_GREEN,
                             onClick = { viewModel.setThemeMode(ThemeMode.MONSTER_GREEN) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        ThemeOptionButton(
+                            text = "ANA BLUE",
+                            subtext = if (isEnglish) "TRITON BLUE" else "ANAブルー",
+                            isSelected = currentMode == ThemeMode.ANA_BLUE,
+                            onClick = { viewModel.setThemeMode(ThemeMode.ANA_BLUE) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        ThemeOptionButton(
+                            text = "JAL RED",
+                            subtext = if (isEnglish) "TSURUMARU RED" else "JALレッド",
+                            isSelected = currentMode == ThemeMode.JAL_RED,
+                            onClick = { viewModel.setThemeMode(ThemeMode.JAL_RED) },
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -738,7 +757,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "v0.7.0 (Closed Beta)",
+                            text = "v0.8.0 (Closed Beta)",
                             color = TextPrimary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
@@ -1006,22 +1025,22 @@ private fun ThemeOptionButton(
             )
             .background(if (isSelected) SurfaceElevated else SurfaceDark, shape = SpaceXShape)
             .clickable(onClick = onClick)
-            .padding(vertical = 12.dp, horizontal = 10.dp),
+            .padding(vertical = 8.dp, horizontal = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = text,
                 color = if (isSelected) com.example.checklist.theme.SpaceXAccent else TextSecondary,
-                fontSize = 12.sp,
+                fontSize = 11.sp,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                letterSpacing = 1.sp
+                letterSpacing = 0.8.sp
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = subtext,
                 color = TextTertiary,
-                fontSize = 10.sp
+                fontSize = 9.5.sp
             )
         }
     }
@@ -1251,6 +1270,46 @@ fun ReleaseNotesDialog(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
                 )
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // v0.8.0
+                Text(
+                    text = "v0.8.0 (Closed Beta)",
+                    color = TextPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                val notesV080 = if (isEnglish) {
+                    """
+                    • App Name & Identity: Confirmed app name as 'CHECKLIST' across system and repository.
+                    • Carryover & Completion Sync: Full bidirectional synchronization of completed/discarded tasks across all phases, resolving previous-phase clearance mismatches and notification state.
+                    • Task Screen Visual Refinements: Frameless discarded task rows, compact phase name right-aligned on header line, tightened CARRYOVER label spacing, and 'CLEAR COMPLETED TASKS'.
+                    • Calendar Double-Tap Jump: Double-tap any calendar date to directly jump into its task cockpit; past month traversal locked to current release month.
+                    • Aviation Themes (ANA & JAL): Added ANA Triton Blue and JAL Tsurumaru Red; full typography/surface color tinting for Tron and Monster.
+                    • Widget Maximize Count Display: Full-height giant number display for task count widgets; theme-aware pin button visibility.
+                    • Template Drag Reordering & Recurrence: Long-press drag reordering and customizable day-of-week options (e.g. weekdays/weekends).
+                    """.trimIndent()
+                } else {
+                    """
+                    ・アプリ名確定: アプリ名を「CHECKLIST」に統一、GitHubリポジトリ名を刷新。
+                    ・キャリーオーバー・完了タスクの全フェーズ双方向同期: 前フェーズでクリアしたタスクが次フェーズで未クリアに戻る不具合・通知の不整合を完全解消。
+                    ・タスク画面の視覚的洗練: 破棄タスクの外枠撤廃、ヘッダー右端へのフェーズ名集約による垂直スペース節約、CARRYOVER行間密着、「完了タスクの消去」表記統一。
+                    ・カレンダーダブルタップジャンプ: 日付をダブルタップで即座にその日のタスク画面へ遷移（11月リリース準備に伴う過去月逆戻り防止ガード付き）。
+                    ・航空テーマ追加（ANA & JAL）: ANAトリトンブルー・JAL鶴丸レッドを新設。トロン・モンスターの文字色・背景色もテーマカラーに完全連動。
+                    ・ウィジェット数表示の縦幅最大化: タスク数ウィジェットで数字を縦幅いっぱいに拡大表示。ライトモードピン留めボタンの視認性改善。
+                    ・テンプレート管理のドラッグ並び替え＆曜日指定: 長押しドラッグによる直感的な並び替え、および平日・週末・特定曜日のスケジュール適用オプションを新設。
+                    """.trimIndent()
+                }
+                Text(
+                    text = notesV080,
+                    color = TextSecondary,
+                    fontSize = 11.5.sp,
+                    lineHeight = 18.sp
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+                SpaceXDivider()
                 Spacer(modifier = Modifier.height(14.dp))
 
                 // v0.7.0
@@ -1491,14 +1550,14 @@ private fun WidgetPinRow(
         Spacer(modifier = Modifier.width(12.dp))
         Box(
             modifier = Modifier
-                .border(1.dp, Color.White, SpaceXShape)
+                .border(1.dp, TextPrimary, SpaceXShape)
                 .clickable { onClick() }
                 .padding(horizontal = 10.dp, vertical = 6.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = buttonText,
-                color = Color.White,
+                color = TextPrimary,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold
             )

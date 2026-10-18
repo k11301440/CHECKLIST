@@ -102,7 +102,12 @@ object WidgetUpdateHelper {
         views.setTextColor(R.id.widget_count_badge, accentColor)
         views.setTextColor(R.id.widget_big_count, accentColor)
         views.setTextColor(R.id.widget_big_label, secondaryColor)
-        views.setInt(R.id.widget_divider, "setBackgroundColor", if (themeMode == ThemeMode.SPACE_WHITE) Color.parseColor("#DDDDDD") else Color.parseColor("#262626"))
+        views.setInt(R.id.widget_divider, "setBackgroundColor", when (themeMode) {
+            ThemeMode.SPACE_WHITE -> Color.parseColor("#DDDDDD")
+            ThemeMode.ANA_BLUE -> Color.parseColor("#132B52")
+            ThemeMode.JAL_RED -> Color.parseColor("#401010")
+            else -> Color.parseColor("#262626")
+        })
 
         // Set title
         val titleText = if (isCriticalOnly) {
@@ -211,7 +216,12 @@ object WidgetUpdateHelper {
         views.setTextColor(R.id.widget_focus_label, accentColor)
         views.setTextColor(R.id.widget_focus_task_title, textColor)
         views.setTextColor(R.id.widget_focus_subinfo, secondaryColor)
-        views.setInt(R.id.widget_focus_divider, "setBackgroundColor", if (themeMode == ThemeMode.SPACE_WHITE) Color.parseColor("#DDDDDD") else Color.parseColor("#262626"))
+        views.setInt(R.id.widget_focus_divider, "setBackgroundColor", when (themeMode) {
+            ThemeMode.SPACE_WHITE -> Color.parseColor("#DDDDDD")
+            ThemeMode.ANA_BLUE -> Color.parseColor("#132B52")
+            ThemeMode.JAL_RED -> Color.parseColor("#401010")
+            else -> Color.parseColor("#262626")
+        })
 
         val activePhases = state.phases
         val currentIdx = state.selectedPhaseIndex.coerceIn(0, (activePhases.size - 1).coerceAtLeast(0))
@@ -324,6 +334,18 @@ object WidgetUpdateHelper {
                 textPrimary = Color.WHITE,
                 textSecondary = Color.parseColor("#888888"),
                 accentColor = Color.parseColor("#FF00FF41") // Monster Green
+            )
+            ThemeMode.ANA_BLUE -> ThemeWidgetColors(
+                bgDrawable = R.drawable.widget_bg_ana,
+                textPrimary = Color.parseColor("#E1EFFF"),
+                textSecondary = Color.parseColor("#80B3FF"),
+                accentColor = Color.parseColor("#FF1A8CFF") // ANA Blue
+            )
+            ThemeMode.JAL_RED -> ThemeWidgetColors(
+                bgDrawable = R.drawable.widget_bg_jal,
+                textPrimary = Color.parseColor("#FFFFEEEE"),
+                textSecondary = Color.parseColor("#FFFF7A7A"),
+                accentColor = Color.parseColor("#FFE60012") // JAL Red
             )
             ThemeMode.SYSTEM -> ThemeWidgetColors(
                 bgDrawable = R.drawable.widget_bg_black,

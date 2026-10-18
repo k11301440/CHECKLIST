@@ -32,7 +32,7 @@ object AppStrings {
     fun tomorrow(lang: AppLanguage) = if (lang == AppLanguage.EN) "TOMORROW" else "明日"
     fun dayAfterTomorrow(lang: AppLanguage) = if (lang == AppLanguage.EN) "IN 2 DAYS" else "明後日"
     fun completeDay(lang: AppLanguage) = if (lang == AppLanguage.EN) "COMPLETE DAY & RESTART" else "1日の全フェーズを完了"
-    fun completePhase(lang: AppLanguage) = if (lang == AppLanguage.EN) "COMPLETE PHASE & ADVANCE" else "フェーズ完了して次へ"
+    fun completePhase(lang: AppLanguage) = if (lang == AppLanguage.EN) "ADVANCE TO NEXT PHASE" else "次のフェーズへ"
     fun phaseCompletedReevaluate(lang: AppLanguage) = if (lang == AppLanguage.EN) "PHASE COMPLETED // RE-EVALUATE" else "フェーズ完了済み // 再確認"
     fun carryoverFrom(lang: AppLanguage, phase: String) = if (lang == AppLanguage.EN) "CARRYOVER // $phase" else "持越 // $phase"
     fun restore(lang: AppLanguage) = if (lang == AppLanguage.EN) "RESTORE" else "復元"

@@ -1,10 +1,10 @@
 ================================================================================
-Flight Checklist プライバシーポリシー (Privacy Policy)
-最終更新日: 2026年10月17日
+CHECKLIST プライバシーポリシー (Privacy Policy)
+最終更新日: 2026年10月18日
 ================================================================================
 
 【基本方針】
-Flight Checklist（以下、「本アプリ」）は、ユーザーのプライバシーを最優先事項として尊重し、個人情報の保護に最大限の配慮を行っています。本アプリは「完全オフライン・ローカルファースト」の思想で設計されており、ユーザーのプライバシーを侵害するいかなる情報収集も行いません。
+CHECKLIST（以下、「本アプリ」）は、ユーザーのプライバシーを最優先事項として尊重し、個人情報の保護に最大限の配慮を行っています。本アプリは「完全オフライン・ローカルファースト」の思想で設計されており、ユーザーのプライバシーを侵害するいかなる情報収集も行いません。
 
 【1. 収集する情報とその利用目的】
 本アプリは、ユーザーの氏名、メールアドレス、電話番号、位置情報、端末識別子、連絡先などの個人情報を一切収集、保存、または外部サーバーへ送信しません。
@@ -31,9 +31,9 @@ Flight Checklist（以下、「本アプリ」）は、ユーザーのプライ�
 本プライバシーポリシーに関するご質問やご不明な点がございましたら、以下のGitHubリポジトリのIssueよりお問い合わせください。
 
 GitHubリポジトリ:
-https://github.com/k11301440/flight-checklist
+https://github.com/k11301440/CHECKLIST
 
 ================================================================================
 (English Summary)
-Flight Checklist is an offline-first task application. It does NOT collect, store, or transmit any personal data, analytics, or tracking information. All checklist items and settings remain strictly on your local device.
+CHECKLIST is an offline-first task application. It does NOT collect, store, or transmit any personal data, analytics, or tracking information. All checklist items and settings remain strictly on your local device.
 ================================================================================

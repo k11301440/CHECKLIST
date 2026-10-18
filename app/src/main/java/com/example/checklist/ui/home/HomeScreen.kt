@@ -195,7 +195,7 @@ fun HomeScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             itemsIndexed(state.phases) { index, phase ->
                 val phaseNumber = String.format("%02d", index + 1)
@@ -335,7 +335,6 @@ fun HomeScreen(
             }
 
             item {
-                Spacer(modifier = Modifier.height(12.dp))
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(10.dp)

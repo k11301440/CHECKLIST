@@ -294,7 +294,7 @@ fun PhaseScreen(
                         val advanceLabel = if (isLast) {
                             if (isEnglish) "Complete Day & Restart" else "1日のタスクをすべて完了"
                         } else {
-                            if (isEnglish) "Complete Phase & Advance" else "フェーズ完了して次へ"
+                            if (isEnglish) "Advance to Next Phase" else "次のフェーズへ"
                         }
                         DropdownMenuItem(
                             text = { Text(advanceLabel, color = TextPrimary, fontSize = 13.sp) },
@@ -418,22 +418,27 @@ fun PhaseScreen(
 
         // PHASE STATUS HEADER
         Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = "$todayStr // PHASE 0${selectedIndex + 1}",
-                color = TextSecondary,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.2.sp
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = currentPhase.name.uppercase(),
-                color = TextPrimary,
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp,
-                lineHeight = 36.sp
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Text(
+                    text = "$todayStr // PHASE 0${selectedIndex + 1}",
+                    color = TextSecondary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.2.sp
+                )
+                Text(
+                    text = currentPhase.name.uppercase(),
+                    color = TextPrimary,
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp,
+                    lineHeight = 36.sp
+                )
+            }
             Spacer(modifier = Modifier.height(4.dp))
 
             // STATUS TEXT & CLEAR DONE BUTTON (完全に同じ横一列で垂直中央揃え)
@@ -445,7 +450,7 @@ fun PhaseScreen(
                 val statusText = if (remainingRequiredCount > 0) {
                     if (isEnglish) "$remainingRequiredCount CRITICAL PENDING" else "重要タスク残り $remainingRequiredCount 件"
                 } else if (totalRequired.isNotEmpty()) {
-                    if (isEnglish) "ALL CRITICAL CHECKED" else "重要タスク全完了"
+                    if (isEnglish) "NO PENDING TASKS" else "未処理のタスクなし"
                 } else {
                     if (isEnglish) "NO CRITICAL ITEMS" else "重要タスクなし"
                 }
@@ -460,7 +465,7 @@ fun PhaseScreen(
                 // 完了済み単発タスクのクリアボタン（誤破棄防止の確認ダイアログ付き）
                 if (completedTotalCount > 0) {
                     SpaceXTextButton(
-                        text = if (isEnglish) "CLEAR DONE ($completedTotalCount)" else "完了消去 ($completedTotalCount)",
+                        text = if (isEnglish) "CLEAR DONE ($completedTotalCount)" else "完了タスクの消去 ($completedTotalCount)",
                         onClick = { showClearCompletedDialog = true },
                         prominent = false
                     )
@@ -843,7 +848,7 @@ fun PhaseScreen(
             val buttonLabel = when {
                 isLastPhase -> if (isEnglish) "COMPLETE DAY & RESTART" else "1日のタスクをすべて完了"
                 currentPhase.isCompleted -> if (isEnglish) "PHASE COMPLETED (RE-EVALUATE)" else "フェーズ完了済み (再確認)"
-                else -> if (isEnglish) "COMPLETE PHASE & ADVANCE" else "フェーズ完了して次へ"
+                else -> if (isEnglish) "ADVANCE TO NEXT PHASE" else "次のフェーズへ"
             }
 
             val shouldInvertHighlight = allRequiredCompleted || allTasksCompleted
@@ -1134,7 +1139,6 @@ fun ChecklistItemRow(
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.8.sp
                         )
-                        Spacer(modifier = Modifier.height(1.dp)) // 行間を半減
                     }
                     Text(
                         text = formatTaskText(item.title),
@@ -1177,9 +1181,8 @@ fun DiscardedItemRow(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, BorderSubtle, SpaceXShape)
-            .background(SurfaceDark, shape = SpaceXShape)
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .background(androidx.compose.ui.graphics.Color.Transparent)
+            .padding(horizontal = 6.dp, vertical = 4.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

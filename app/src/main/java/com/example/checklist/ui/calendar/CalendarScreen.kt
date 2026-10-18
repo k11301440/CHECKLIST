@@ -1,8 +1,10 @@
 package com.example.checklist.ui.calendar
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,6 +59,7 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CalendarScreen(
     state: AppState,
@@ -153,14 +156,16 @@ fun CalendarScreen(
                     }
 
                     Row {
+                        val canGoPrev = currentYearMonth > YearMonth.now()
                         IconButton(
-                            onClick = { currentYearMonth = currentYearMonth.minusMonths(1) },
+                            onClick = { if (canGoPrev) currentYearMonth = currentYearMonth.minusMonths(1) },
+                            enabled = canGoPrev,
                             modifier = Modifier.size(36.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                                 contentDescription = "Prev Month",
-                                tint = TextPrimary
+                                tint = if (canGoPrev) TextPrimary else TextDisabled
                             )
                         }
                         IconButton(
@@ -257,7 +262,13 @@ fun CalendarScreen(
                                                     else -> SpaceBlack
                                                 }
                                             )
-                                            .clickable { selectedDate = date },
+                                            .combinedClickable(
+                                                onClick = { selectedDate = date },
+                                                onDoubleClick = {
+                                                    viewModel.setDate(dateStr)
+                                                    onBack()
+                                                }
+                                            ),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Column(

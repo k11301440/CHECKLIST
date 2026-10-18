@@ -21,6 +21,8 @@ enum class ThemeMode {
     SPACE_WHITE,
     TRON_RED,
     MONSTER_GREEN,
+    ANA_BLUE,
+    JAL_RED,
     SYSTEM
 }
 
@@ -58,7 +60,10 @@ data class TemplateItem(
 data class PhaseTemplate(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
-    val items: List<TemplateItem> = emptyList()
+    val items: List<TemplateItem> = emptyList(),
+    val targetDaysOfWeek: List<Int> = emptyList(), // 1: Mon .. 7: Sun. Empty means all days
+    val startDate: String? = null, // "yyyy-MM-dd"
+    val endDate: String? = null   // "yyyy-MM-dd"
 )
 
 @Serializable

@@ -186,32 +186,50 @@ class ChecklistRepository(private val context: Context) {
         }
     }
 
+    // 同一タスク（同一IDまたはキャリーオーバー関係の同一タイトル）を判定するヘルパー
+    private fun isSameOrCarryoverTask(item: ChecklistItem, targetItem: ChecklistItem): Boolean {
+        return item.id == targetItem.id ||
+                (item.title.trim() == targetItem.title.trim() && (item.isCarryover || targetItem.isCarryover))
+    }
+
+    private fun findItemAcrossPhases(itemId: String): ChecklistItem? {
+        val current = _appState.value
+        for (phase in current.phases) {
+            val item = phase.items.find { it.id == itemId }
+            if (item != null) return item
+        }
+        return null
+    }
+
     fun completeItem(phaseId: String, itemId: String) {
         val current = _appState.value
+        val targetItem = findItemAcrossPhases(itemId) ?: return
+        val now = System.currentTimeMillis()
+
+        // キャリーオーバー元・先含め、同一実体のタスクを全フェーズで完了同期
         val updatedPhases = current.phases.map { phase ->
-            if (phase.id == phaseId) {
-                val updatedItems = phase.items.map { item ->
-                    if (item.id == itemId) {
-                        item.copy(isCompleted = true, completedAt = System.currentTimeMillis())
-                    } else item
-                }
-                phase.copy(items = updatedItems)
-            } else phase
+            val updatedItems = phase.items.map { item ->
+                if (isSameOrCarryoverTask(item, targetItem)) {
+                    item.copy(isCompleted = true, completedAt = now)
+                } else item
+            }
+            phase.copy(items = updatedItems)
         }
         persist(current.copy(phases = updatedPhases))
     }
 
     fun undoItem(phaseId: String, itemId: String) {
         val current = _appState.value
+        val targetItem = findItemAcrossPhases(itemId) ?: return
+
+        // キャリーオーバー元・先含め、同一実体のタスクを全フェーズで未完了に戻す
         val updatedPhases = current.phases.map { phase ->
-            if (phase.id == phaseId) {
-                val updatedItems = phase.items.map { item ->
-                    if (item.id == itemId) {
-                        item.copy(isCompleted = false, completedAt = null)
-                    } else item
-                }
-                phase.copy(items = updatedItems)
-            } else phase
+            val updatedItems = phase.items.map { item ->
+                if (isSameOrCarryoverTask(item, targetItem)) {
+                    item.copy(isCompleted = false, completedAt = null)
+                } else item
+            }
+            phase.copy(items = updatedItems)
         }
         persist(current.copy(phases = updatedPhases))
     }
@@ -256,47 +274,47 @@ class ChecklistRepository(private val context: Context) {
         val trimmed = newTitle.trim()
         if (trimmed.isEmpty()) return
         val current = _appState.value
+        val targetItem = findItemAcrossPhases(itemId) ?: return
+
         val updatedPhases = current.phases.map { phase ->
-            if (phase.id == phaseId) {
-                val updatedItems = phase.items.map { item ->
-                    if (item.id == itemId) {
-                        item.copy(title = trimmed, priority = newPriority)
-                    } else item
-                }
-                phase.copy(items = updatedItems)
-            } else phase
+            val updatedItems = phase.items.map { item ->
+                if (isSameOrCarryoverTask(item, targetItem)) {
+                    item.copy(title = trimmed, priority = newPriority)
+                } else item
+            }
+            phase.copy(items = updatedItems)
         }
         persist(current.copy(phases = updatedPhases))
     }
 
-    // 誤破棄防止のため即時削除ではなく保管（isDeleted = true）
+    // 誤破棄防止のため即時削除ではなく保管（isDeleted = true）- 全フェーズで同期
     fun removeItem(phaseId: String, itemId: String) {
         val current = _appState.value
+        val targetItem = findItemAcrossPhases(itemId) ?: return
+
         val updatedPhases = current.phases.map { phase ->
-            if (phase.id == phaseId) {
-                val updatedItems = phase.items.map { item ->
-                    if (item.id == itemId) {
-                        item.copy(isDeleted = true)
-                    } else item
-                }
-                phase.copy(items = updatedItems)
-            } else phase
+            val updatedItems = phase.items.map { item ->
+                if (isSameOrCarryoverTask(item, targetItem)) {
+                    item.copy(isDeleted = true)
+                } else item
+            }
+            phase.copy(items = updatedItems)
         }
         persist(current.copy(phases = updatedPhases))
     }
 
-    // 削除されたアイテムを復元
+    // 削除されたアイテムを復元 - 全フェーズで同期
     fun restoreItem(phaseId: String, itemId: String) {
         val current = _appState.value
+        val targetItem = findItemAcrossPhases(itemId) ?: return
+
         val updatedPhases = current.phases.map { phase ->
-            if (phase.id == phaseId) {
-                val updatedItems = phase.items.map { item ->
-                    if (item.id == itemId) {
-                        item.copy(isDeleted = false)
-                    } else item
-                }
-                phase.copy(items = updatedItems)
-            } else phase
+            val updatedItems = phase.items.map { item ->
+                if (isSameOrCarryoverTask(item, targetItem)) {
+                    item.copy(isDeleted = false)
+                } else item
+            }
+            phase.copy(items = updatedItems)
         }
         persist(current.copy(phases = updatedPhases))
     }
@@ -475,6 +493,21 @@ class ChecklistRepository(private val context: Context) {
         }
     }
 
+    fun isTemplateApplicable(template: PhaseTemplate, date: LocalDate): Boolean {
+        // 曜日チェック (1:月曜 .. 7:日曜)。空なら全曜日
+        if (template.targetDaysOfWeek.isNotEmpty() && date.dayOfWeek.value !in template.targetDaysOfWeek) {
+            return false
+        }
+        val dateStr = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
+        if (template.startDate != null && dateStr < template.startDate) {
+            return false
+        }
+        if (template.endDate != null && dateStr > template.endDate) {
+            return false
+        }
+        return true
+    }
+
     private fun buildNextDayState(
         current: AppState,
         basePhases: List<Phase>,
@@ -486,10 +519,16 @@ class ChecklistRepository(private val context: Context) {
         val updatedDailyRecords = current.dailyRecords + (today to dailyRecord)
 
         val baseDate = runCatching { LocalDate.parse(today) }.getOrElse { LocalDate.now() }
-        val tomorrow = baseDate.plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE)
+        val tomorrowDate = baseDate.plusDays(1)
+        val tomorrow = tomorrowDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
 
         val resetPhases = basePhases.mapIndexed { index, p ->
-            val templateForPhase = current.templates.getOrNull(index)
+            // 明日の日付・曜日に合致するテンプレートを選定
+            val templateForPhase = current.templates.find { t ->
+                val isPhaseMatch = (current.templates.indexOf(t) == index) || (t.name.contains(p.name))
+                isPhaseMatch && isTemplateApplicable(t, tomorrowDate)
+            } ?: current.templates.getOrNull(index)?.takeIf { isTemplateApplicable(it, tomorrowDate) }
+
             val baseItems = if (templateForPhase != null && templateForPhase.items.isNotEmpty()) {
                 templateForPhase.items.map { ChecklistItem(title = it.title, priority = it.priority) }
             } else {
@@ -716,6 +755,13 @@ class ChecklistRepository(private val context: Context) {
         val current = _appState.value
         if (current.currentDate != today) {
             persist(current.copy(currentDate = today))
+        }
+    }
+
+    fun setDate(dateString: String) {
+        val current = _appState.value
+        if (current.currentDate != dateString) {
+            persist(current.copy(currentDate = dateString))
         }
     }
 

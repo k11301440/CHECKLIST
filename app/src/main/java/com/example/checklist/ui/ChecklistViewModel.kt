@@ -159,6 +159,10 @@ class ChecklistViewModel(application: Application) : AndroidViewModel(applicatio
         repository.resetToToday()
     }
 
+    fun setDate(dateString: String) {
+        repository.setDate(dateString)
+    }
+
     fun setShowReqNotification(enabled: Boolean) {
         repository.setShowReqNotification(enabled)
     }
