@@ -6,28 +6,57 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import com.example.checklist.data.AccentTheme
+import com.example.checklist.data.DarkThemeConfig
 import com.example.checklist.data.ThemeMode
+
+fun getSpaceXPalette(isDark: Boolean, accentTheme: AccentTheme): SpaceXColorPalette {
+    return when (accentTheme) {
+        AccentTheme.MONOCHROME -> if (isDark) DarkSpaceXPalette else LightSpaceXPalette
+        AccentTheme.TRON -> if (isDark) TronSpaceXPalette else TronLightPalette
+        AccentTheme.MONSTER -> if (isDark) MonsterSpaceXPalette else MonsterLightPalette
+        AccentTheme.ANA -> if (isDark) AnaSpaceXPalette else AnaLightPalette
+        AccentTheme.AIRDO -> if (isDark) AirdoSpaceXPalette else AirdoLightPalette
+        AccentTheme.JAL -> if (isDark) JalSpaceXPalette else JalLightPalette
+    }
+}
 
 @Composable
 fun ChecklistTheme(
-    themeMode: ThemeMode = ThemeMode.SPACE_BLACK,
+    darkThemeConfig: DarkThemeConfig = DarkThemeConfig.DARK,
+    accentTheme: AccentTheme = AccentTheme.MONOCHROME,
+    themeMode: ThemeMode? = null,
     content: @Composable () -> Unit,
 ) {
-    val isDark = when (themeMode) {
-        ThemeMode.SPACE_BLACK, ThemeMode.TRON_RED, ThemeMode.MONSTER_GREEN, ThemeMode.ANA_BLUE, ThemeMode.JAL_RED -> true
-        ThemeMode.SPACE_WHITE -> false
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    val effectiveConfig = if (themeMode != null) {
+        when (themeMode) {
+            ThemeMode.SPACE_WHITE -> DarkThemeConfig.LIGHT
+            ThemeMode.SYSTEM -> DarkThemeConfig.SYSTEM
+            else -> DarkThemeConfig.DARK
+        }
+    } else {
+        darkThemeConfig
     }
 
-    val palette = when (themeMode) {
-        ThemeMode.SPACE_BLACK -> DarkSpaceXPalette
-        ThemeMode.SPACE_WHITE -> LightSpaceXPalette
-        ThemeMode.TRON_RED -> TronSpaceXPalette
-        ThemeMode.MONSTER_GREEN -> MonsterSpaceXPalette
-        ThemeMode.ANA_BLUE -> AnaSpaceXPalette
-        ThemeMode.JAL_RED -> JalSpaceXPalette
-        ThemeMode.SYSTEM -> if (isDark) DarkSpaceXPalette else LightSpaceXPalette
+    val effectiveAccent = if (themeMode != null) {
+        when (themeMode) {
+            ThemeMode.SPACE_BLACK, ThemeMode.SPACE_WHITE, ThemeMode.SYSTEM -> AccentTheme.MONOCHROME
+            ThemeMode.TRON_RED -> AccentTheme.TRON
+            ThemeMode.MONSTER_GREEN -> AccentTheme.MONSTER
+            ThemeMode.ANA_BLUE -> AccentTheme.ANA
+            ThemeMode.JAL_RED -> AccentTheme.JAL
+        }
+    } else {
+        accentTheme
     }
+
+    val isDark = when (effectiveConfig) {
+        DarkThemeConfig.DARK -> true
+        DarkThemeConfig.LIGHT -> false
+        DarkThemeConfig.SYSTEM -> isSystemInDarkTheme()
+    }
+
+    val palette = getSpaceXPalette(isDark, effectiveAccent)
 
     val colorScheme = if (isDark) {
         darkColorScheme(

@@ -40,7 +40,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.checklist.data.AppState
+import com.example.checklist.data.*
 import com.example.checklist.theme.BorderProminent
 import com.example.checklist.theme.BorderSubtle
 import com.example.checklist.theme.SpaceBlack
@@ -465,9 +465,9 @@ fun CalendarScreen(
                             )
                             Spacer(modifier = Modifier.height(10.dp))
 
-                            val totalItems = state.phases.sumOf { it.items.size }
-                            val completedItems = state.phases.sumOf { p -> p.items.count { it.isCompleted } }
-                            val reqPending = state.phases.sumOf { p -> p.items.count { it.priority == com.example.checklist.data.Priority.REQUIRED && !it.isCompleted } }
+                            val totalItems = state.phases.sumOf { it.totalValidCount }
+                            val completedItems = state.phases.sumOf { it.totalDoneCount }
+                            val reqPending = state.phases.sumOf { it.requiredPendingCount }
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -494,7 +494,8 @@ fun CalendarScreen(
                             Spacer(modifier = Modifier.height(12.dp))
 
                             for (phase in state.phases) {
-                                val doneCount = phase.items.count { it.isCompleted }
+                                val doneCount = phase.totalDoneCount
+                                val validTotal = phase.totalValidCount
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -512,7 +513,7 @@ fun CalendarScreen(
                                         Text(phase.name, color = TextPrimary, fontSize = 13.sp)
                                     }
                                     Text(
-                                        "$doneCount / ${phase.items.size} 完了",
+                                        "$doneCount / $validTotal 完了",
                                         color = TextSecondary,
                                         fontSize = 12.sp
                                     )

@@ -107,6 +107,15 @@ fun UserGuideScreen(
 
                 GuideSection(
                     stepNumber = "03",
+                    title = if (isEnglish) "Horizontal Swipe Phase Navigation" else "画面横スワイプでのフェーズ移動",
+                    description = if (isEnglish)
+                        "Swipe left or right anywhere on the task screen to seamlessly switch between phases. Moving past the first or last phase triggers a confirmation dialog before crossing days. This gesture can be toggled in Settings."
+                    else
+                        "タスク画面を左右にスワイプすることで、素早く前後のフェーズへ切り替えられます。最終フェーズから翌日に進む際や、前日に戻る際には日跨ぎ確認ポップアップが表示されます。この機能は設定画面でいつでもON/OFFを切り替え可能です。"
+                )
+
+                GuideSection(
+                    stepNumber = "04",
                     title = if (isEnglish) "Quick Add & Future Scheduling" else "クイック追加 & 未来タスク予約",
                     description = if (isEnglish)
                         "Add ad-hoc tasks anytime from the bottom input bar. Expand options to select starting date (today, tomorrow, in 2 days) and phase."
@@ -115,7 +124,7 @@ fun UserGuideScreen(
                 )
 
                 GuideSection(
-                    stepNumber = "04",
+                    stepNumber = "05",
                     title = if (isEnglish) "Review Log & Calendar Jump" else "振り返りログとカレンダー日付ジャンプ",
                     description = if (isEnglish)
                         "When advancing phases, verify whether execution was nominal. Selecting NO allows recording blockers into the mission calendar log. Double-tapping any date in the calendar instantly jumps to that date's task cockpit."
@@ -124,7 +133,7 @@ fun UserGuideScreen(
                 )
 
                 GuideSection(
-                    stepNumber = "05",
+                    stepNumber = "06",
                     title = if (isEnglish) "Templates & Future Sync" else "テンプレート編集と未来への即時同期",
                     description = if (isEnglish)
                         "Customize recurring phase tasks from Settings > Templates. Changes immediately synchronize with future phases and upcoming days."
@@ -133,7 +142,7 @@ fun UserGuideScreen(
                 )
 
                 GuideSection(
-                    stepNumber = "06",
+                    stepNumber = "07",
                     title = if (isEnglish) "Status Bar Notifications" else "未完了タスクの通知バー常駐",
                     description = if (isEnglish)
                         "Enable 'Critical task notifications' to keep remaining priority tasks visible in Android's notification tray."
@@ -142,7 +151,7 @@ fun UserGuideScreen(
                 )
 
                 GuideSection(
-                    stepNumber = "07",
+                    stepNumber = "08",
                     title = if (isEnglish) "Offline-First Local Storage" else "完全ローカル・通信ゼロの安全性",
                     description = if (isEnglish)
                         "All data stays safely stored in local device JSON with zero network transmissions. Fully operational offline or aboard aircraft."

@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 
 class ChecklistViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository = ChecklistRepository(application.applicationContext)
+    private val repository = ChecklistRepository.getInstance(application.applicationContext)
 
     val state: StateFlow<AppState> = repository.appState.stateIn(
         scope = viewModelScope,
@@ -119,6 +119,18 @@ class ChecklistViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     // 設定関連
+    fun setDarkThemeConfig(config: com.example.checklist.data.DarkThemeConfig) {
+        repository.setDarkThemeConfig(config)
+    }
+
+    fun setAccentTheme(theme: com.example.checklist.data.AccentTheme) {
+        repository.setAccentTheme(theme)
+    }
+
+    fun setEnableSwipePhase(enabled: Boolean) {
+        repository.setEnableSwipePhase(enabled)
+    }
+
     fun setThemeMode(mode: ThemeMode) {
         repository.setThemeMode(mode)
     }

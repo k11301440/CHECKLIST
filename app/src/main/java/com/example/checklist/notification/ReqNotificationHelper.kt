@@ -29,8 +29,8 @@ object ReqNotificationHelper {
 
     fun createNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = "REQUIRED Tasks"
-            val descriptionText = "未完了の必須(REQ)タスクを通知バーに表示します"
+            val name = "重要タスク通知"
+            val descriptionText = "未完了の重要タスクを通知バーに表示します"
             val importance = NotificationManager.IMPORTANCE_LOW
             val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
                 description = descriptionText
@@ -72,29 +72,16 @@ object ReqNotificationHelper {
         }
 
         if (activeReqItems.isEmpty()) {
-            // 未完了REQタスクがない場合は通知を消去
+            // 未完了重要タスクがない場合は通知を消去
             notificationManager.cancel(NOTIFICATION_ID)
             return
         }
 
         val isEnglish = state.settings.appLanguage == AppLanguage.EN
-        val phaseNumber = String.format("%02d", selectedIndex + 1)
         val title = if (isEnglish) {
-            "[REQ] ${activeReqItems.size} PENDING TASKS // PHASE $phaseNumber ${currentPhase.name}"
+            "${activeReqItems.size} Pending Tasks"
         } else {
-            "[REQ] 未完了タスク ${activeReqItems.size}件 // PHASE $phaseNumber ${currentPhase.name}"
-        }
-        val text = activeReqItems.first().title
-
-        val inboxStyle = NotificationCompat.InboxStyle()
-            .setBigContentTitle(title)
-            .setSummaryText(if (isEnglish) "${activeReqItems.size} required tasks" else "${activeReqItems.size}件の必須タスク")
-
-        activeReqItems.take(5).forEach { item ->
-            inboxStyle.addLine("・${item.title}")
-        }
-        if (activeReqItems.size > 5) {
-            inboxStyle.addLine(if (isEnglish) "+${activeReqItems.size - 5} more..." else "他 ${activeReqItems.size - 5} 件...")
+            "未完了のタスク ${activeReqItems.size}件"
         }
 
         // タップ時にアプリを開く PendingIntent
@@ -111,8 +98,6 @@ object ReqNotificationHelper {
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
-            .setContentText(text)
-            .setStyle(inboxStyle)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .setOnlyAlertOnce(true)

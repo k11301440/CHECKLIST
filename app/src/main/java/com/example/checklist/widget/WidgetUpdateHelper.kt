@@ -11,8 +11,11 @@ import android.view.View
 import android.widget.RemoteViews
 import com.example.checklist.MainActivity
 import com.example.checklist.R
+import com.example.checklist.data.AccentTheme
 import com.example.checklist.data.AppLanguage
+import com.example.checklist.data.AppSettings
 import com.example.checklist.data.ChecklistRepository
+import com.example.checklist.data.DarkThemeConfig
 import com.example.checklist.data.Priority
 import com.example.checklist.data.ThemeMode
 import kotlinx.coroutines.CoroutineScope
@@ -35,7 +38,7 @@ object WidgetUpdateHelper {
 
     fun updateAllWidgetsSync(context: Context, customState: com.example.checklist.data.AppState? = null) {
         try {
-            val state = customState ?: ChecklistRepository(context.applicationContext).appState.value
+            val state = customState ?: ChecklistRepository.getInstance(context.applicationContext).appState.value
             val appWidgetManager = AppWidgetManager.getInstance(context)
 
             // 1. Critical Tasks Widget
@@ -93,19 +96,21 @@ object WidgetUpdateHelper {
     ): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_task_list)
         val isEnglish = state.settings.appLanguage == AppLanguage.EN
-        val themeMode = state.settings.themeMode
+        val settings = state.settings
 
         // Theme colors
-        val (bgRes, textColor, secondaryColor, accentColor) = getThemeColors(themeMode)
+        val (bgRes, textColor, secondaryColor, accentColor) = getThemeColors(settings)
         views.setInt(R.id.widget_root, "setBackgroundResource", bgRes)
         views.setTextColor(R.id.widget_title, textColor)
         views.setTextColor(R.id.widget_count_badge, accentColor)
         views.setTextColor(R.id.widget_big_count, accentColor)
         views.setTextColor(R.id.widget_big_label, secondaryColor)
-        views.setInt(R.id.widget_divider, "setBackgroundColor", when (themeMode) {
-            ThemeMode.SPACE_WHITE -> Color.parseColor("#DDDDDD")
-            ThemeMode.ANA_BLUE -> Color.parseColor("#132B52")
-            ThemeMode.JAL_RED -> Color.parseColor("#401010")
+        val isLight = settings.darkThemeConfig == DarkThemeConfig.LIGHT || settings.themeMode == ThemeMode.SPACE_WHITE
+        views.setInt(R.id.widget_divider, "setBackgroundColor", when {
+            isLight -> Color.parseColor("#DDDDDD")
+            settings.accentTheme == AccentTheme.ANA -> Color.parseColor("#132B52")
+            settings.accentTheme == AccentTheme.AIRDO -> Color.parseColor("#0B333F")
+            settings.accentTheme == AccentTheme.JAL -> Color.parseColor("#401010")
             else -> Color.parseColor("#262626")
         })
 
@@ -207,19 +212,21 @@ object WidgetUpdateHelper {
     ): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_phase_focus)
         val isEnglish = state.settings.appLanguage == AppLanguage.EN
-        val themeMode = state.settings.themeMode
+        val settings = state.settings
 
-        val (bgRes, textColor, secondaryColor, accentColor) = getThemeColors(themeMode)
+        val (bgRes, textColor, secondaryColor, accentColor) = getThemeColors(settings)
         views.setInt(R.id.widget_focus_root, "setBackgroundResource", bgRes)
         views.setTextColor(R.id.widget_focus_phase, textColor)
         views.setTextColor(R.id.widget_focus_time_remaining, secondaryColor)
         views.setTextColor(R.id.widget_focus_label, accentColor)
         views.setTextColor(R.id.widget_focus_task_title, textColor)
         views.setTextColor(R.id.widget_focus_subinfo, secondaryColor)
-        views.setInt(R.id.widget_focus_divider, "setBackgroundColor", when (themeMode) {
-            ThemeMode.SPACE_WHITE -> Color.parseColor("#DDDDDD")
-            ThemeMode.ANA_BLUE -> Color.parseColor("#132B52")
-            ThemeMode.JAL_RED -> Color.parseColor("#401010")
+        val isLight = settings.darkThemeConfig == DarkThemeConfig.LIGHT || settings.themeMode == ThemeMode.SPACE_WHITE
+        views.setInt(R.id.widget_focus_divider, "setBackgroundColor", when {
+            isLight -> Color.parseColor("#DDDDDD")
+            settings.accentTheme == AccentTheme.ANA -> Color.parseColor("#132B52")
+            settings.accentTheme == AccentTheme.AIRDO -> Color.parseColor("#0B333F")
+            settings.accentTheme == AccentTheme.JAL -> Color.parseColor("#401010")
             else -> Color.parseColor("#262626")
         })
 
@@ -309,49 +316,55 @@ object WidgetUpdateHelper {
         val accentColor: Int
     )
 
-    private fun getThemeColors(themeMode: ThemeMode): ThemeWidgetColors {
-        return when (themeMode) {
-            ThemeMode.SPACE_BLACK -> ThemeWidgetColors(
-                bgDrawable = R.drawable.widget_bg_black,
-                textPrimary = Color.WHITE,
-                textSecondary = Color.parseColor("#888888"),
-                accentColor = Color.WHITE
+    private fun getThemeColors(settings: AppSettings): ThemeWidgetColors {
+        val isLight = settings.darkThemeConfig == DarkThemeConfig.LIGHT || settings.themeMode == ThemeMode.SPACE_WHITE
+        return when (settings.accentTheme) {
+            AccentTheme.MONOCHROME -> {
+                if (isLight) {
+                    ThemeWidgetColors(
+                        bgDrawable = R.drawable.widget_bg_white,
+                        textPrimary = Color.BLACK,
+                        textSecondary = Color.parseColor("#666666"),
+                        accentColor = Color.BLACK
+                    )
+                } else {
+                    ThemeWidgetColors(
+                        bgDrawable = R.drawable.widget_bg_black,
+                        textPrimary = Color.WHITE,
+                        textSecondary = Color.parseColor("#888888"),
+                        accentColor = Color.WHITE
+                    )
+                }
+            }
+            AccentTheme.TRON -> ThemeWidgetColors(
+                bgDrawable = if (isLight) R.drawable.widget_bg_white else R.drawable.widget_bg_tron,
+                textPrimary = if (isLight) Color.parseColor("#C62828") else Color.WHITE,
+                textSecondary = if (isLight) Color.parseColor("#E53935") else Color.parseColor("#888888"),
+                accentColor = Color.parseColor("#FFFF1E27")
             )
-            ThemeMode.SPACE_WHITE -> ThemeWidgetColors(
-                bgDrawable = R.drawable.widget_bg_white,
-                textPrimary = Color.BLACK,
-                textSecondary = Color.parseColor("#666666"),
-                accentColor = Color.BLACK
+            AccentTheme.MONSTER -> ThemeWidgetColors(
+                bgDrawable = if (isLight) R.drawable.widget_bg_white else R.drawable.widget_bg_monster,
+                textPrimary = if (isLight) Color.parseColor("#1B5E20") else Color.WHITE,
+                textSecondary = if (isLight) Color.parseColor("#2E7D32") else Color.parseColor("#888888"),
+                accentColor = if (isLight) Color.parseColor("#FF00A844") else Color.parseColor("#FF00FF41")
             )
-            ThemeMode.TRON_RED -> ThemeWidgetColors(
-                bgDrawable = R.drawable.widget_bg_tron,
-                textPrimary = Color.WHITE,
-                textSecondary = Color.parseColor("#888888"),
-                accentColor = Color.parseColor("#FFFF1E27") // TRON Red
+            AccentTheme.ANA -> ThemeWidgetColors(
+                bgDrawable = if (isLight) R.drawable.widget_bg_white else R.drawable.widget_bg_ana,
+                textPrimary = if (isLight) Color.parseColor("#002D62") else Color.parseColor("#E1EFFF"),
+                textSecondary = if (isLight) Color.parseColor("#0056B3") else Color.parseColor("#80B3FF"),
+                accentColor = Color.parseColor("#FF1A8CFF")
             )
-            ThemeMode.MONSTER_GREEN -> ThemeWidgetColors(
-                bgDrawable = R.drawable.widget_bg_monster,
-                textPrimary = Color.WHITE,
-                textSecondary = Color.parseColor("#888888"),
-                accentColor = Color.parseColor("#FF00FF41") // Monster Green
+            AccentTheme.AIRDO -> ThemeWidgetColors(
+                bgDrawable = if (isLight) R.drawable.widget_bg_white else R.drawable.widget_bg_airdo,
+                textPrimary = if (isLight) Color.parseColor("#004D40") else Color.parseColor("#E0F7FA"),
+                textSecondary = if (isLight) Color.parseColor("#00838F") else Color.parseColor("#80DEEA"),
+                accentColor = Color.parseColor("#FFFFD200")
             )
-            ThemeMode.ANA_BLUE -> ThemeWidgetColors(
-                bgDrawable = R.drawable.widget_bg_ana,
-                textPrimary = Color.parseColor("#E1EFFF"),
-                textSecondary = Color.parseColor("#80B3FF"),
-                accentColor = Color.parseColor("#FF1A8CFF") // ANA Blue
-            )
-            ThemeMode.JAL_RED -> ThemeWidgetColors(
-                bgDrawable = R.drawable.widget_bg_jal,
-                textPrimary = Color.parseColor("#FFFFEEEE"),
-                textSecondary = Color.parseColor("#FFFF7A7A"),
-                accentColor = Color.parseColor("#FFE60012") // JAL Red
-            )
-            ThemeMode.SYSTEM -> ThemeWidgetColors(
-                bgDrawable = R.drawable.widget_bg_black,
-                textPrimary = Color.WHITE,
-                textSecondary = Color.parseColor("#888888"),
-                accentColor = Color.WHITE
+            AccentTheme.JAL -> ThemeWidgetColors(
+                bgDrawable = if (isLight) R.drawable.widget_bg_white else R.drawable.widget_bg_jal,
+                textPrimary = if (isLight) Color.parseColor("#61000A") else Color.parseColor("#FFFFEEEE"),
+                textSecondary = if (isLight) Color.parseColor("#B71C1C") else Color.parseColor("#FFFF7A7A"),
+                accentColor = Color.parseColor("#FFE60012")
             )
         }
     }

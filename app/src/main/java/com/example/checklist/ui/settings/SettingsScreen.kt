@@ -179,48 +179,87 @@ fun SettingsScreen(
                 }
             }
 
-            // 1. THEME MODE (白黒・トロン赤・モンスター緑)
+            // 1. THEME MODE (明暗設定 & アクセントカラー)
             item {
-                SettingsSectionHeader(AppStrings.sectionTheme(lang))
+                SettingsSectionHeader(if (isEnglish) "APPEARANCE & THEME" else "外観 & テーマカラー")
                 Spacer(modifier = Modifier.height(8.dp))
 
-                val currentMode = state.settings.themeMode
+                val currentDarkConfig = state.settings.darkThemeConfig
+                val currentAccent = state.settings.accentTheme
+
+                Text(
+                    text = if (isEnglish) "MODE" else "明暗モード",
+                    color = TextSecondary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+
+                // Row 1: Mode (Dark / Light / System)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    ThemeOptionButton(
+                        text = if (isEnglish) "DARK" else "ダーク",
+                        subtext = if (isEnglish) "Deep Black" else "暗色基調",
+                        isSelected = currentDarkConfig == com.example.checklist.data.DarkThemeConfig.DARK,
+                        onClick = { viewModel.setDarkThemeConfig(com.example.checklist.data.DarkThemeConfig.DARK) },
+                        modifier = Modifier.weight(1f)
+                    )
+                    ThemeOptionButton(
+                        text = if (isEnglish) "LIGHT" else "ライト",
+                        subtext = if (isEnglish) "Clean White" else "明色基調",
+                        isSelected = currentDarkConfig == com.example.checklist.data.DarkThemeConfig.LIGHT,
+                        onClick = { viewModel.setDarkThemeConfig(com.example.checklist.data.DarkThemeConfig.LIGHT) },
+                        modifier = Modifier.weight(1f)
+                    )
+                    ThemeOptionButton(
+                        text = if (isEnglish) "SYSTEM" else "端末設定",
+                        subtext = if (isEnglish) "Follow OS" else "OS連動",
+                        isSelected = currentDarkConfig == com.example.checklist.data.DarkThemeConfig.SYSTEM,
+                        onClick = { viewModel.setDarkThemeConfig(com.example.checklist.data.DarkThemeConfig.SYSTEM) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Text(
+                    text = if (isEnglish) "ACCENT COLOR" else "アクセントカラー",
+                    color = TextSecondary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+
+                // Accent Options (Monochrome, Tron, Monster, ANA, AIRDO, JAL)
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         ThemeOptionButton(
-                            text = "SPACE BLACK",
-                            subtext = if (isEnglish) "MINIMAL MONO" else "純黒モノクロ",
-                            isSelected = currentMode == ThemeMode.SPACE_BLACK,
-                            onClick = { viewModel.setThemeMode(ThemeMode.SPACE_BLACK) },
+                            text = "MONO",
+                            subtext = if (isEnglish) "Monochrome" else "モノクロ",
+                            isSelected = currentAccent == com.example.checklist.data.AccentTheme.MONOCHROME,
+                            onClick = { viewModel.setAccentTheme(com.example.checklist.data.AccentTheme.MONOCHROME) },
                             modifier = Modifier.weight(1f)
                         )
                         ThemeOptionButton(
-                            text = "SPACE WHITE",
-                            subtext = if (isEnglish) "LIGHT MODE" else "ライトモード",
-                            isSelected = currentMode == ThemeMode.SPACE_WHITE,
-                            onClick = { viewModel.setThemeMode(ThemeMode.SPACE_WHITE) },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        ThemeOptionButton(
-                            text = "TRON RED",
-                            subtext = if (isEnglish) "CYBER RED" else "赤アクセント",
-                            isSelected = currentMode == ThemeMode.TRON_RED,
-                            onClick = { viewModel.setThemeMode(ThemeMode.TRON_RED) },
+                            text = "TRON",
+                            subtext = if (isEnglish) "Red" else "トロン (赤)",
+                            isSelected = currentAccent == com.example.checklist.data.AccentTheme.TRON,
+                            onClick = { viewModel.setAccentTheme(com.example.checklist.data.AccentTheme.TRON) },
                             modifier = Modifier.weight(1f)
                         )
                         ThemeOptionButton(
                             text = "MONSTER",
-                            subtext = if (isEnglish) "NEON GREEN" else "緑アクセント",
-                            isSelected = currentMode == ThemeMode.MONSTER_GREEN,
-                            onClick = { viewModel.setThemeMode(ThemeMode.MONSTER_GREEN) },
+                            subtext = if (isEnglish) "Green" else "モンスター (緑)",
+                            isSelected = currentAccent == com.example.checklist.data.AccentTheme.MONSTER,
+                            onClick = { viewModel.setAccentTheme(com.example.checklist.data.AccentTheme.MONSTER) },
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -229,17 +268,24 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         ThemeOptionButton(
-                            text = "ANA BLUE",
-                            subtext = if (isEnglish) "TRITON BLUE" else "ANAブルー",
-                            isSelected = currentMode == ThemeMode.ANA_BLUE,
-                            onClick = { viewModel.setThemeMode(ThemeMode.ANA_BLUE) },
+                            text = "ANA",
+                            subtext = if (isEnglish) "Blue" else "ANAブルー",
+                            isSelected = currentAccent == com.example.checklist.data.AccentTheme.ANA,
+                            onClick = { viewModel.setAccentTheme(com.example.checklist.data.AccentTheme.ANA) },
                             modifier = Modifier.weight(1f)
                         )
                         ThemeOptionButton(
-                            text = "JAL RED",
-                            subtext = if (isEnglish) "TSURUMARU RED" else "JALレッド",
-                            isSelected = currentMode == ThemeMode.JAL_RED,
-                            onClick = { viewModel.setThemeMode(ThemeMode.JAL_RED) },
+                            text = "AIRDO",
+                            subtext = if (isEnglish) "Yellow&Cyan" else "AIRDO",
+                            isSelected = currentAccent == com.example.checklist.data.AccentTheme.AIRDO,
+                            onClick = { viewModel.setAccentTheme(com.example.checklist.data.AccentTheme.AIRDO) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        ThemeOptionButton(
+                            text = "JAL",
+                            subtext = if (isEnglish) "Red" else "JALレッド",
+                            isSelected = currentAccent == com.example.checklist.data.AccentTheme.JAL,
+                            onClick = { viewModel.setAccentTheme(com.example.checklist.data.AccentTheme.JAL) },
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -393,6 +439,19 @@ fun SettingsScreen(
                             )
                         }
                     }
+
+                    SpaceXDivider()
+
+                    // 横スワイプフェーズ移動トグル
+                    SettingToggleRow(
+                        title = if (isEnglish) "Swipe to switch phases" else "横スワイプでフェーズ移動",
+                        description = if (isEnglish)
+                            "Swipe left/right on task screen to navigate phases. Day crossings show confirmation."
+                        else
+                            "タスク画面を左右にスワイプしてフェーズを切り替えます。日をまたぐ際は確認ダイアログを表示します。",
+                        enabled = state.settings.enableSwipePhase,
+                        onToggle = { viewModel.setEnableSwipePhase(!state.settings.enableSwipePhase) }
+                    )
                 }
             }
 
@@ -757,7 +816,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "v0.8.0 (Closed Beta)",
+                            text = "v0.9.0 (Closed Beta)",
                             color = TextPrimary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
@@ -1272,11 +1331,51 @@ fun ReleaseNotesDialog(
                 )
                 Spacer(modifier = Modifier.height(14.dp))
 
+                // v0.9.0
+                Text(
+                    text = "v0.9.0 (Closed Beta)",
+                    color = TextPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                val notesV090 = if (isEnglish) {
+                    """
+                    • Size & Performance Optimization: Enabled R8 minification and resource shrinking, reducing APK from 19.5MB to 1.4MB (>92% reduction).
+                    • Appearance & Color Decoupling: Freely combine Dark, Light, or System OS modes with Monochrome, Tron (Red), Monster (Green), ANA (Blue), AIRDO (Yellow & Cyan), and JAL (Red).
+                    • Swipe Phase Navigation: Horizontal swipe to transition phases smoothly, with confirmation safety popups when traversing day boundaries (toggleable in Settings).
+                    • Clean Minimal Notification: Replaced multi-line status notification with a focused single-line readout ('未完了のタスク ◯件'), removing REQ/NORM tags and slashes.
+                    • Unified Task Accounting: Centralized task state calculations, ensuring deleted/discarded items never appear as pending in Calendar or Home overviews.
+                    • Visual Alignment: Perfect symmetry between phase cards and active status badges across Home and Calendar.
+                    • Production Hardening: Raised minSdk to 26 for native java.time support, set official production package ID (com.k11301440.checklist), singleton repository, and reboot alarm restoration.
+                    """.trimIndent()
+                } else {
+                    """
+                    ・ファイルサイズの劇的縮小: R8難読化と未使用リソース削減により、APKサイズを19.5MBから1.4MBへ92%以上大幅削減。
+                    ・外観モードとアクセントカラーの独立設定: 明暗（ダーク/ライト/OS連動）とアクセント色（モノクロ/トロン/モンスター/ANA/AIRDO/JAL）を自由に組み合わせ可能に。
+                    ・横スワイプでのフェーズ切り替え: タスク画面の左右スワイプでフェーズ移動（設定でON/OFF可能）。日をまたぐ際は確認ダイアログで誤操作を防止。
+                    ・1行極限ミニマル通知: 複数行表示・[REQ]表記・スラッシュを全廃し、「未完了のタスク ◯件」の1行通知に刷新。
+                    ・状態管理の一元化とカレンダー整合性: 破棄したタスクがカレンダー等で未完了として残る不具合を根本解消。
+                    ・視覚的余白の均等化: ホーム画面の「進行中」バッジの外枠からの上・右余白を12dpに完全統一。
+                    ・リリース品質への強化: Android 8.0 (API 26) 以上ネイティブ対応、Playストア要件を満たす本番パッケージIDへの変更、Repositoryシングルトン化、端末再起動時のリマインダー自動復元。
+                    """.trimIndent()
+                }
+                Text(
+                    text = notesV090,
+                    color = TextSecondary,
+                    fontSize = 11.5.sp,
+                    lineHeight = 18.sp
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+                SpaceXDivider()
+                Spacer(modifier = Modifier.height(14.dp))
+
                 // v0.8.0
                 Text(
                     text = "v0.8.0 (Closed Beta)",
-                    color = TextPrimary,
-                    fontSize = 13.sp,
+                    color = TextSecondary,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(6.dp))

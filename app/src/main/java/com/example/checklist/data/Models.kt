@@ -27,6 +27,23 @@ enum class ThemeMode {
 }
 
 @Serializable
+enum class DarkThemeConfig {
+    DARK,
+    LIGHT,
+    SYSTEM
+}
+
+@Serializable
+enum class AccentTheme {
+    MONOCHROME,
+    TRON,
+    MONSTER,
+    ANA,
+    AIRDO,
+    JAL
+}
+
+@Serializable
 data class ChecklistItem(
     val id: String = UUID.randomUUID().toString(),
     val title: String,
@@ -108,6 +125,9 @@ data class PhaseSchedule(
 data class AppSettings(
     val appLanguage: AppLanguage = AppLanguage.JA,
     val themeMode: ThemeMode = ThemeMode.SPACE_BLACK,
+    val darkThemeConfig: DarkThemeConfig = DarkThemeConfig.DARK,
+    val accentTheme: AccentTheme = AccentTheme.MONOCHROME,
+    val enableSwipePhase: Boolean = true,
     val autoAdvanceByTime: Boolean = true,
     val carryoverUnfinishedReq: Boolean = true,
     val carryoverUnfinishedNorm: Boolean = false,
@@ -132,3 +152,34 @@ data class AppState(
     val dailyRecords: Map<String, DailyRecord> = emptyMap(),
     val settings: AppSettings = AppSettings()
 )
+
+val Phase.validItems: List<ChecklistItem>
+    get() = items.filterNot { it.isDeleted }
+
+val Phase.activeItems: List<ChecklistItem>
+    get() = items.filter { !it.isCompleted && !it.isDeleted }
+
+val Phase.completedItemsList: List<ChecklistItem>
+    get() = items.filter { it.isCompleted && !it.isDeleted }
+
+val Phase.discardedItemsList: List<ChecklistItem>
+    get() = items.filter { it.isDeleted }
+
+val Phase.requiredPendingCount: Int
+    get() = items.count { it.priority == Priority.REQUIRED && !it.isCompleted && !it.isDeleted }
+
+val Phase.requiredDoneCount: Int
+    get() = items.count { it.priority == Priority.REQUIRED && it.isCompleted && !it.isDeleted }
+
+val Phase.normalPendingCount: Int
+    get() = items.count { it.priority == Priority.NORMAL && !it.isCompleted && !it.isDeleted }
+
+val Phase.normalDoneCount: Int
+    get() = items.count { it.priority == Priority.NORMAL && it.isCompleted && !it.isDeleted }
+
+val Phase.totalValidCount: Int
+    get() = items.count { !it.isDeleted }
+
+val Phase.totalDoneCount: Int
+    get() = items.count { it.isCompleted && !it.isDeleted }
+

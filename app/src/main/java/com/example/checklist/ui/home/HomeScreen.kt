@@ -37,8 +37,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.checklist.data.AppState
-import com.example.checklist.data.Priority
+import com.example.checklist.data.*
 import com.example.checklist.theme.BorderProminent
 import com.example.checklist.theme.BorderSubtle
 import com.example.checklist.theme.SpaceBlack
@@ -199,10 +198,10 @@ fun HomeScreen(
         ) {
             itemsIndexed(state.phases) { index, phase ->
                 val phaseNumber = String.format("%02d", index + 1)
-                val requiredTotal = phase.items.count { it.priority == Priority.REQUIRED }
-                val requiredDone = phase.items.count { it.priority == Priority.REQUIRED && it.isCompleted }
-                val normalTotal = phase.items.count { it.priority == Priority.NORMAL }
-                val normalDone = phase.items.count { it.priority == Priority.NORMAL && it.isCompleted }
+                val requiredTotal = phase.requiredPendingCount + phase.requiredDoneCount
+                val requiredDone = phase.requiredDoneCount
+                val normalTotal = phase.normalPendingCount + phase.normalDoneCount
+                val normalDone = phase.normalDoneCount
 
                 val isCompleted = phase.isCompleted
                 val isSelected = index == state.selectedPhaseIndex
@@ -222,20 +221,21 @@ fun HomeScreen(
                                 onSelectPhase(index)
                             }
                         )
-                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                        .padding(12.dp)
                 ) {
                     Column {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.Top
                         ) {
                             Text(
                                 text = "PHASE $phaseNumber",
                                 color = TextSecondary,
                                 fontSize = 10.5.sp,
                                 fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.5.sp
+                                letterSpacing = 1.5.sp,
+                                modifier = Modifier.padding(top = 1.dp)
                             )
                             if (isCompleted) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {

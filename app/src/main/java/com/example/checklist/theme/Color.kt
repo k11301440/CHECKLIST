@@ -59,7 +59,21 @@ val TronSpaceXPalette = SpaceXColorPalette(
     textSecondary = Color(0xFFFF8A80),
     textTertiary = Color(0xFFCC5555),
     textDisabled = Color(0xFF4A2020),
-    accent = Color(0xFFFF1E27) // TRON Cyber Red Glow Accent
+    accent = Color(0xFFFF1E27)
+)
+
+val TronLightPalette = SpaceXColorPalette(
+    isDark = false,
+    bg = Color(0xFFFAFAFA),
+    surfaceDark = Color(0xFFF2F2F2),
+    surfaceElevated = Color(0xFFFFEBEE),
+    borderSubtle = Color(0xFFFFCDD2),
+    borderProminent = Color(0xFFE53935),
+    textPrimary = Color(0xFFC62828),
+    textSecondary = Color(0xFFE53935),
+    textTertiary = Color(0xFFEF9A9A),
+    textDisabled = Color(0xFFB0BEC5),
+    accent = Color(0xFFD32F2F)
 )
 
 val MonsterSpaceXPalette = SpaceXColorPalette(
@@ -73,7 +87,21 @@ val MonsterSpaceXPalette = SpaceXColorPalette(
     textSecondary = Color(0xFF00E676),
     textTertiary = Color(0xFF2E7D32),
     textDisabled = Color(0xFF1B4021),
-    accent = Color(0xFF00FF41) // MONSTER Energy Green Glow Accent
+    accent = Color(0xFF00FF41)
+)
+
+val MonsterLightPalette = SpaceXColorPalette(
+    isDark = false,
+    bg = Color(0xFFFAFAFA),
+    surfaceDark = Color(0xFFF2F2F2),
+    surfaceElevated = Color(0xFFE8F5E9),
+    borderSubtle = Color(0xFFC8E6C9),
+    borderProminent = Color(0xFF00C853),
+    textPrimary = Color(0xFF1B5E20),
+    textSecondary = Color(0xFF2E7D32),
+    textTertiary = Color(0xFF81C784),
+    textDisabled = Color(0xFFB0BEC5),
+    accent = Color(0xFF00A844)
 )
 
 val AnaSpaceXPalette = SpaceXColorPalette(
@@ -87,7 +115,49 @@ val AnaSpaceXPalette = SpaceXColorPalette(
     textSecondary = Color(0xFF80B3FF),
     textTertiary = Color(0xFF4A74A8),
     textDisabled = Color(0xFF243B59),
-    accent = Color(0xFF1A8CFF) // ANA Triton Blue
+    accent = Color(0xFF1A8CFF)
+)
+
+val AnaLightPalette = SpaceXColorPalette(
+    isDark = false,
+    bg = Color(0xFFF7FAFD),
+    surfaceDark = Color(0xFFEBF3FC),
+    surfaceElevated = Color(0xFFDCEBFA),
+    borderSubtle = Color(0xFFB8D7F7),
+    borderProminent = Color(0xFF0066CC),
+    textPrimary = Color(0xFF002D62),
+    textSecondary = Color(0xFF0056B3),
+    textTertiary = Color(0xFF6B8DB5),
+    textDisabled = Color(0xFFA0B5CC),
+    accent = Color(0xFF0066CC)
+)
+
+val AirdoSpaceXPalette = SpaceXColorPalette(
+    isDark = true,
+    bg = Color(0xFF00080B),
+    surfaceDark = Color(0xFF021217),
+    surfaceElevated = Color(0xFF051D24),
+    borderSubtle = Color(0xFF0B333F),
+    borderProminent = Color(0xFFFFD200),
+    textPrimary = Color(0xFFE0F7FA),
+    textSecondary = Color(0xFF80DEEA),
+    textTertiary = Color(0xFF00ACC1),
+    textDisabled = Color(0xFF264850),
+    accent = Color(0xFFFFD200)
+)
+
+val AirdoLightPalette = SpaceXColorPalette(
+    isDark = false,
+    bg = Color(0xFFF5FCFF),
+    surfaceDark = Color(0xFFE1F5FE),
+    surfaceElevated = Color(0xFFFFF9C4),
+    borderSubtle = Color(0xFFB2EBF2),
+    borderProminent = Color(0xFF0097A7),
+    textPrimary = Color(0xFF004D40),
+    textSecondary = Color(0xFF00838F),
+    textTertiary = Color(0xFF4DD0E1),
+    textDisabled = Color(0xFFB0BEC5),
+    accent = Color(0xFFE6A800)
 )
 
 val JalSpaceXPalette = SpaceXColorPalette(
@@ -101,7 +171,21 @@ val JalSpaceXPalette = SpaceXColorPalette(
     textSecondary = Color(0xFFFF7A7A),
     textTertiary = Color(0xFFA84545),
     textDisabled = Color(0xFF4D1C1C),
-    accent = Color(0xFFE60012) // JAL Tsurumaru Red
+    accent = Color(0xFFE60012)
+)
+
+val JalLightPalette = SpaceXColorPalette(
+    isDark = false,
+    bg = Color(0xFFFFFDFC),
+    surfaceDark = Color(0xFFFBEBEB),
+    surfaceElevated = Color(0xFFFFEBEE),
+    borderSubtle = Color(0xFFFFCDD2),
+    borderProminent = Color(0xFFD6001C),
+    textPrimary = Color(0xFF61000A),
+    textSecondary = Color(0xFFB71C1C),
+    textTertiary = Color(0xFFE57373),
+    textDisabled = Color(0xFFCFD8DC),
+    accent = Color(0xFFE60012)
 )
 
 val LocalSpaceXColors = staticCompositionLocalOf { DarkSpaceXPalette }

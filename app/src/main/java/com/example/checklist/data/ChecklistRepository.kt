@@ -68,11 +68,28 @@ class ChecklistRepository(private val context: Context) {
             ?: tryLoadFromFile(backupFile)
             ?: createDefaultState()
 
-        val stateWithDate = if (loaded.currentDate.isEmpty()) {
+        val migratedSettings = if (loaded.settings.darkThemeConfig == DarkThemeConfig.DARK &&
+            loaded.settings.accentTheme == AccentTheme.MONOCHROME &&
+            loaded.settings.themeMode != ThemeMode.SPACE_BLACK
+        ) {
+            when (loaded.settings.themeMode) {
+                ThemeMode.SPACE_WHITE -> loaded.settings.copy(darkThemeConfig = DarkThemeConfig.LIGHT, accentTheme = AccentTheme.MONOCHROME)
+                ThemeMode.TRON_RED -> loaded.settings.copy(darkThemeConfig = DarkThemeConfig.DARK, accentTheme = AccentTheme.TRON)
+                ThemeMode.MONSTER_GREEN -> loaded.settings.copy(darkThemeConfig = DarkThemeConfig.DARK, accentTheme = AccentTheme.MONSTER)
+                ThemeMode.ANA_BLUE -> loaded.settings.copy(darkThemeConfig = DarkThemeConfig.DARK, accentTheme = AccentTheme.ANA)
+                ThemeMode.JAL_RED -> loaded.settings.copy(darkThemeConfig = DarkThemeConfig.DARK, accentTheme = AccentTheme.JAL)
+                ThemeMode.SYSTEM -> loaded.settings.copy(darkThemeConfig = DarkThemeConfig.SYSTEM, accentTheme = AccentTheme.MONOCHROME)
+                else -> loaded.settings
+            }
+        } else {
+            loaded.settings
+        }
+
+        val stateWithDate = (if (loaded.currentDate.isEmpty()) {
             loaded.copy(currentDate = today)
         } else {
             loaded
-        }
+        }).copy(settings = migratedSettings)
 
         // フェーズが空、または旧来の「日中」が含まれる場合のみマイグレーション (3フェーズや5フェーズのカスタムは保護)
         return if (stateWithDate.phases.isEmpty() || stateWithDate.phases.any { it.name == "日中" }) {
@@ -91,6 +108,15 @@ class ChecklistRepository(private val context: Context) {
     }
 
     companion object {
+        @Volatile
+        private var INSTANCE: ChecklistRepository? = null
+
+        fun getInstance(context: Context): ChecklistRepository {
+            return INSTANCE ?: synchronized(this) {
+                INSTANCE ?: ChecklistRepository(context.applicationContext).also { INSTANCE = it }
+            }
+        }
+
         fun getDefaultPresetTemplates(): List<PhaseTemplate> {
             return listOf(
                 PhaseTemplate(
@@ -563,17 +589,16 @@ class ChecklistRepository(private val context: Context) {
     }
 
     private fun createDailyRecord(date: String, phases: List<Phase>): DailyRecord {
-        val totalItems = phases.sumOf { it.items.count { item -> !item.isDeleted } }
-        val completedItems = phases.sumOf { p -> p.items.count { it.isCompleted && !it.isDeleted } }
-        val reqPending = phases.sumOf { p -> p.items.count { it.priority == Priority.REQUIRED && !it.isCompleted && !it.isDeleted } }
+        val totalItems = phases.sumOf { it.totalValidCount }
+        val completedItems = phases.sumOf { it.totalDoneCount }
+        val reqPending = phases.sumOf { it.requiredPendingCount }
 
         val summaries = phases.map { p ->
-            val validItems = p.items.filterNot { it.isDeleted }
             PhaseDailySummary(
                 phaseName = p.name,
                 isCompleted = p.isCompleted,
-                completedCount = validItems.count { it.isCompleted },
-                totalCount = validItems.size,
+                completedCount = p.totalDoneCount,
+                totalCount = p.totalValidCount,
                 reviewNote = p.reviewNote,
                 hadIssue = p.reviewNote != null
             )
@@ -771,9 +796,40 @@ class ChecklistRepository(private val context: Context) {
     }
 
     // 設定更新
+    fun setDarkThemeConfig(config: DarkThemeConfig) {
+        val current = _appState.value
+        persist(current.copy(settings = current.settings.copy(darkThemeConfig = config)))
+    }
+
+    fun setAccentTheme(theme: AccentTheme) {
+        val current = _appState.value
+        persist(current.copy(settings = current.settings.copy(accentTheme = theme)))
+    }
+
+    fun setEnableSwipePhase(enabled: Boolean) {
+        val current = _appState.value
+        persist(current.copy(settings = current.settings.copy(enableSwipePhase = enabled)))
+    }
+
     fun setThemeMode(mode: ThemeMode) {
         val current = _appState.value
-        persist(current.copy(settings = current.settings.copy(themeMode = mode)))
+        val config = when (mode) {
+            ThemeMode.SPACE_WHITE -> DarkThemeConfig.LIGHT
+            ThemeMode.SYSTEM -> DarkThemeConfig.SYSTEM
+            else -> DarkThemeConfig.DARK
+        }
+        val accent = when (mode) {
+            ThemeMode.SPACE_BLACK, ThemeMode.SPACE_WHITE, ThemeMode.SYSTEM -> AccentTheme.MONOCHROME
+            ThemeMode.TRON_RED -> AccentTheme.TRON
+            ThemeMode.MONSTER_GREEN -> AccentTheme.MONSTER
+            ThemeMode.ANA_BLUE -> AccentTheme.ANA
+            ThemeMode.JAL_RED -> AccentTheme.JAL
+        }
+        persist(current.copy(settings = current.settings.copy(
+            themeMode = mode,
+            darkThemeConfig = config,
+            accentTheme = accent
+        )))
     }
 
     fun setAppLanguage(language: AppLanguage) {

@@ -8,17 +8,19 @@ android {
     namespace = "com.example.checklist"
     compileSdk = 36
     defaultConfig {
-        applicationId = "com.example.checklist"
-        minSdk = 24
+        applicationId = "com.k11301440.checklist"
+        minSdk = 26
         targetSdk = 36
-        versionCode = 10
-        versionName = "0.8.0"
+        versionCode = 11
+        versionName = "0.9.0"
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
     compileOptions {

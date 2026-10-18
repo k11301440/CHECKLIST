@@ -12,10 +12,12 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputScope
 import kotlinx.coroutines.withTimeoutOrNull
+import com.example.checklist.ui.components.SpaceXConfirmDialog
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -169,6 +171,44 @@ fun PhaseScreen(
     var showMenu by remember { mutableStateOf(false) }
     var editingItem by remember { mutableStateOf<ChecklistItem?>(null) }
     var showTemplateSelectDialog by remember { mutableStateOf(false) }
+    var showNextDaySwipeDialog by remember { mutableStateOf(false) }
+    var showPrevDaySwipeDialog by remember { mutableStateOf(false) }
+
+    var swipeDragTotalX by remember { mutableFloatStateOf(0f) }
+    val swipeThresholdPx = with(LocalDensity.current) { 70.dp.toPx() }
+
+    val swipePhaseModifier = if (state.settings.enableSwipePhase) {
+        Modifier.pointerInput(selectedIndex, state.phases.size) {
+            detectHorizontalDragGestures(
+                onDragEnd = {
+                    if (swipeDragTotalX < -swipeThresholdPx) {
+                        // Swiped Left -> Advance to next
+                        if (selectedIndex < state.phases.size - 1) {
+                            viewModel.selectPhase(selectedIndex + 1)
+                        } else {
+                            showNextDaySwipeDialog = true
+                        }
+                    } else if (swipeDragTotalX > swipeThresholdPx) {
+                        // Swiped Right -> Go to previous
+                        if (selectedIndex > 0) {
+                            viewModel.selectPhase(selectedIndex - 1)
+                        } else {
+                            showPrevDaySwipeDialog = true
+                        }
+                    }
+                    swipeDragTotalX = 0f
+                },
+                onDragCancel = {
+                    swipeDragTotalX = 0f
+                },
+                onHorizontalDrag = { _, dragAmount ->
+                    swipeDragTotalX += dragAmount
+                }
+            )
+        }
+    } else {
+        Modifier
+    }
 
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -481,7 +521,8 @@ fun PhaseScreen(
             animationSpec = androidx.compose.animation.core.tween(180),
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .then(swipePhaseModifier),
             label = "PhaseCrossfade"
         ) { targetIdx ->
             val phaseForList = state.phases.getOrNull(targetIdx) ?: currentPhase
@@ -963,6 +1004,49 @@ fun PhaseScreen(
                 showClearCompletedDialog = false
             },
             onDismiss = { showClearCompletedDialog = false }
+        )
+    }
+
+    // 日跨ぎスワイプ時の確認ダイアログ
+    if (showNextDaySwipeDialog) {
+        SpaceXConfirmDialog(
+            title = if (isEnglish) "ADVANCE TO NEXT DAY" else "翌日のフェーズへ進む",
+            message = if (isEnglish)
+                "Advance to the next day and start from Phase 01?"
+            else
+                "翌日に進み、最初のフェーズを開始しますか？",
+            confirmText = if (isEnglish) "ADVANCE" else "進む",
+            cancelText = if (isEnglish) "CANCEL" else "キャンセル",
+            onConfirm = {
+                showNextDaySwipeDialog = false
+                viewModel.advanceToNextDay()
+            },
+            onDismiss = { showNextDaySwipeDialog = false }
+        )
+    }
+
+    if (showPrevDaySwipeDialog) {
+        val today = java.time.LocalDate.now()
+        val curDate = runCatching { java.time.LocalDate.parse(state.currentDate) }.getOrDefault(today)
+        val canGoBack = curDate.isAfter(java.time.YearMonth.from(curDate).atDay(1))
+        SpaceXConfirmDialog(
+            title = if (isEnglish) "GO TO PREVIOUS DAY" else "前日のフェーズへ戻る",
+            message = if (canGoBack) {
+                if (isEnglish) "Return to yesterday's final phase (${curDate.minusDays(1)})?" else "前日（${curDate.minusDays(1)}）の最終フェーズに戻りますか？"
+            } else {
+                if (isEnglish) "Cannot navigate prior to the current month." else "今月以前には戻れません。"
+            },
+            confirmText = if (canGoBack) (if (isEnglish) "RETURN" else "戻る") else "OK",
+            cancelText = if (canGoBack) (if (isEnglish) "CANCEL" else "キャンセル") else "",
+            onConfirm = {
+                showPrevDaySwipeDialog = false
+                if (canGoBack) {
+                    val prevDate = curDate.minusDays(1).format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE)
+                    viewModel.setDate(prevDate)
+                    viewModel.selectPhase(state.phases.size - 1)
+                }
+            },
+            onDismiss = { showPrevDaySwipeDialog = false }
         )
     }
 }

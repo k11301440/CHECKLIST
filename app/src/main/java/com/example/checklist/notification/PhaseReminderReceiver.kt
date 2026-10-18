@@ -39,6 +39,17 @@ class PhaseReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         createNotificationChannel(context)
 
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
+            try {
+                val repo = com.example.checklist.data.ChecklistRepository.getInstance(context)
+                ReqNotificationHelper.schedulePhaseReminder(context, repo.appState.value)
+                ReqNotificationHelper.updateNotification(context, repo.appState.value)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            return
+        }
+
         val phaseName = intent.getStringExtra(EXTRA_PHASE_NAME) ?: "Current Phase"
         val minutesLeft = intent.getIntExtra(EXTRA_MINUTES_LEFT, 30)
         val isEnglish = intent.getBooleanExtra(EXTRA_IS_ENGLISH, true)

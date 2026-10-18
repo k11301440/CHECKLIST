@@ -35,7 +35,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            ChecklistTheme(themeMode = state.settings.themeMode) {
+            ChecklistTheme(
+                darkThemeConfig = state.settings.darkThemeConfig,
+                accentTheme = state.settings.accentTheme
+            ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
