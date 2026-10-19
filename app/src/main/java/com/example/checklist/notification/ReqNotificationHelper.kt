@@ -47,8 +47,9 @@ object ReqNotificationHelper {
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
+        val mode = state.settings.notificationMode
         // 通知設定がOFFの場合は通知をキャンセルして終了
-        if (!state.settings.showReqNotification) {
+        if (mode == com.example.checklist.data.NotificationDisplayMode.OFF || !state.settings.showReqNotification) {
             notificationManager.cancel(NOTIFICATION_ID)
             return
         }
@@ -102,6 +103,16 @@ object ReqNotificationHelper {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(pendingIntent)
+
+        if (mode == com.example.checklist.data.NotificationDisplayMode.COUNT_AND_TITLE) {
+            val taskListSummary = activeReqItems.joinToString("\n") { "• ${it.title}" }
+            builder.setContentText(activeReqItems.firstOrNull()?.let { "• ${it.title}" } ?: "")
+            builder.setStyle(
+                NotificationCompat.BigTextStyle()
+                    .setBigContentTitle(title)
+                    .bigText(taskListSummary)
+            )
+        }
 
         notificationManager.notify(NOTIFICATION_ID, builder.build())
     }

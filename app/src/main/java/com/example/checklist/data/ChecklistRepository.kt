@@ -11,6 +11,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.util.concurrent.atomic.AtomicLong
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -32,10 +33,20 @@ class ChecklistRepository(private val context: Context) {
     private val backupFile: File
         get() = File(context.filesDir, "checklist_state.json.bak")
 
+    // ファイル書き込みは単一並列度のディスパッチャで直列化 (書き込み順序の逆転・tmpファイル競合を防止)
+    private val writeDispatcher = Dispatchers.IO.limitedParallelism(1)
+    private val writeVersion = AtomicLong(0)
+
+    // 初期読み込み時にマイグレーション等で保存が必要になったか (_appState 初期化前に persist を呼ばないためのフラグ)
+    private var initialStateNeedsSave = false
+
     private val _appState = MutableStateFlow(loadInitialState())
     val appState: StateFlow<AppState> = _appState.asStateFlow()
 
     init {
+        if (initialStateNeedsSave) {
+            persist(_appState.value)
+        }
         try {
             ReqNotificationHelper.createNotificationChannel(context)
             ReqNotificationHelper.updateNotification(context, _appState.value)
@@ -79,7 +90,6 @@ class ChecklistRepository(private val context: Context) {
                 ThemeMode.ANA_BLUE -> loaded.settings.copy(darkThemeConfig = DarkThemeConfig.DARK, accentTheme = AccentTheme.ANA)
                 ThemeMode.JAL_RED -> loaded.settings.copy(darkThemeConfig = DarkThemeConfig.DARK, accentTheme = AccentTheme.JAL)
                 ThemeMode.SYSTEM -> loaded.settings.copy(darkThemeConfig = DarkThemeConfig.SYSTEM, accentTheme = AccentTheme.MONOCHROME)
-                else -> loaded.settings
             }
         } else {
             loaded.settings
@@ -92,19 +102,24 @@ class ChecklistRepository(private val context: Context) {
         }).copy(settings = migratedSettings)
 
         // フェーズが空、または旧来の「日中」が含まれる場合のみマイグレーション (3フェーズや5フェーズのカスタムは保護)
-        return if (stateWithDate.phases.isEmpty() || stateWithDate.phases.any { it.name == "日中" }) {
-            val migrated = createDefaultState().copy(
+        val base = if (stateWithDate.phases.isEmpty() || stateWithDate.phases.any { it.name == "日中" }) {
+            initialStateNeedsSave = true
+            createDefaultState().copy(
                 currentDate = today,
                 templates = if (stateWithDate.templates.isNotEmpty()) stateWithDate.templates else createDefaultState().templates,
                 reviewLogs = stateWithDate.reviewLogs,
                 dailyRecords = stateWithDate.dailyRecords,
-                settings = stateWithDate.settings
+                settings = stateWithDate.settings,
+                scheduledItems = stateWithDate.scheduledItems
             )
-            persist(migrated)
-            migrated
         } else {
             stateWithDate
         }
+
+        // 読み込み時にも整合エンジンを適用 (旧バージョンで保存された未来日付タスクは予約リストへ移行)
+        val migrated = TaskSync.extractFutureScheduled(base)
+        if (migrated !== base) initialStateNeedsSave = true
+        return TaskSync.reconcile(TaskSync.releaseDueScheduled(migrated, migrated.currentDate))
     }
 
     companion object {
@@ -176,11 +191,19 @@ class ChecklistRepository(private val context: Context) {
         )
     }
 
+    // 全フェーズを横断して同一タスクの状態を自動整合するエンジン (Single Source of Truth 保証)
+    // 同一タスクの判定は ID のみ (詳細は TaskSync.reconcile を参照)
+    private fun reconcileTaskStates(state: AppState): AppState = TaskSync.reconcile(state)
+
     private fun persist(newState: AppState) {
-        _appState.value = newState
-        scope.launch {
+        val reconciled = reconcileTaskStates(newState)
+        _appState.value = reconciled
+        val version = writeVersion.incrementAndGet()
+        scope.launch(writeDispatcher) {
+            // より新しい状態の書き込みが既にキューにある場合は古いスナップショットを書かない
+            if (version != writeVersion.get()) return@launch
             try {
-                val jsonString = json.encodeToString(newState)
+                val jsonString = json.encodeToString(reconciled)
                 // 1. 一時ファイルに完全に書き込み
                 tempFile.writeText(jsonString)
                 // 2. メインファイルが存在する場合はバックアップを更新
@@ -196,9 +219,9 @@ class ChecklistRepository(private val context: Context) {
                 e.printStackTrace()
             }
             try {
-                ReqNotificationHelper.updateNotification(context, newState)
-                ReqNotificationHelper.schedulePhaseReminder(context, newState)
-                com.example.checklist.widget.WidgetUpdateHelper.updateAllWidgets(context, newState)
+                ReqNotificationHelper.updateNotification(context, reconciled)
+                ReqNotificationHelper.schedulePhaseReminder(context, reconciled)
+                com.example.checklist.widget.WidgetUpdateHelper.updateAllWidgetsSync(context, reconciled)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -212,11 +235,10 @@ class ChecklistRepository(private val context: Context) {
         }
     }
 
-    // 同一タスク（同一IDまたはキャリーオーバー関係の同一タイトル）を判定するヘルパー
-    private fun isSameOrCarryoverTask(item: ChecklistItem, targetItem: ChecklistItem): Boolean {
-        return item.id == targetItem.id ||
-                (item.title.trim() == targetItem.title.trim() && (item.isCarryover || targetItem.isCarryover))
-    }
+    // 同一タスク判定ヘルパー。キャリーオーバーは ID を保持してコピーされるため ID 一致のみで判定する。
+    // (旧実装はタイトル一致でも同期しており、意図的に作った同名の独立タスクが連動するバグがあった)
+    private fun isSameOrCarryoverTask(item: ChecklistItem, targetItem: ChecklistItem): Boolean =
+        item.id == targetItem.id
 
     private fun findItemAcrossPhases(itemId: String): ChecklistItem? {
         val current = _appState.value
@@ -264,28 +286,34 @@ class ChecklistRepository(private val context: Context) {
         val trimmed = title.trim()
         if (trimmed.isEmpty()) return
         val current = _appState.value
+        val phaseIdx = current.phases.indexOfFirst { it.id == phaseId }.coerceAtLeast(0)
         val newItem = ChecklistItem(
             title = trimmed,
             priority = priority,
+            originPhaseIndex = phaseIdx,
             scheduledDate = scheduledDate
         )
+        // 未来日付のタスクは指定日まで予約リストに保持 (今日のフェーズには表示しない)
+        val today = current.currentDate.ifEmpty { getTodayDateString() }
+        if (scheduledDate != null && scheduledDate > today) {
+            val targetPhaseId = current.phases.getOrNull(phaseIdx)?.id ?: phaseId
+            persist(current.copy(scheduledItems = current.scheduledItems + ScheduledTask(targetPhaseId, newItem)))
+            return
+        }
         val updatedPhases = current.phases.map { phase ->
             if (phase.id == phaseId) {
                 val currentItems = phase.items.toMutableList()
                 val insertIndex = if (priority == Priority.REQUIRED) {
-                    // 未完了のNORMタスクの先頭を探す
                     val firstActiveNormIndex = currentItems.indexOfFirst {
                         !it.isCompleted && !it.isDeleted && it.priority == Priority.NORMAL
                     }
                     if (firstActiveNormIndex != -1) {
                         firstActiveNormIndex
                     } else {
-                        // 未完了NORMがなければ、最初の非アクティブ（完了または削除）アイテムの手前、なければ末尾
                         val firstInactiveIndex = currentItems.indexOfFirst { it.isCompleted || it.isDeleted }
                         if (firstInactiveIndex != -1) firstInactiveIndex else currentItems.size
                     }
                 } else {
-                    // NORMの場合：未完了タスクの末尾（＝最初の非アクティブアイテムの手前、なければ末尾）
                     val firstInactiveIndex = currentItems.indexOfFirst { it.isCompleted || it.isDeleted }
                     if (firstInactiveIndex != -1) firstInactiveIndex else currentItems.size
                 }
@@ -360,12 +388,16 @@ class ChecklistRepository(private val context: Context) {
         persist(current.copy(phases = updatedPhases))
     }
 
+    // 完了タスクの消去 (対象フェーズおよびキャリーオーバー関係にあるタスクを全フェーズから完全に整理)
     fun clearCompletedItems(phaseId: String) {
         val current = _appState.value
+        val targetPhase = current.phases.find { it.id == phaseId } ?: return
+        val clearedIds = targetPhase.items.filter { it.isCompleted || it.isDeleted }.map { it.id }.toSet()
+        if (clearedIds.isEmpty()) return
+
+        // ID 一致のインスタンス (キャリーオーバー元・先) のみ除去。同名の独立タスクには影響させない
         val updatedPhases = current.phases.map { phase ->
-            if (phase.id == phaseId) {
-                phase.copy(items = phase.items.filterNot { it.isCompleted || it.isDeleted })
-            } else phase
+            phase.copy(items = phase.items.filterNot { it.id in clearedIds })
         }
         persist(current.copy(phases = updatedPhases))
     }
@@ -458,54 +490,34 @@ class ChecklistRepository(private val context: Context) {
             set(targetPhaseIndex, updatedPhase)
         }
 
-        // 未完了タスクの引き継ぎリスト（REQ / NORM）
-        val uncompletedItems = mutableListOf<ChecklistItem>()
-        if (current.settings.carryoverUnfinishedReq) {
-            uncompletedItems.addAll(
-                targetPhase.items.filter { it.priority == Priority.REQUIRED && !it.isCompleted && !it.isDeleted }.map {
-                    it.copy(isCarryover = true, sourcePhaseName = targetPhase.name)
-                }
-            )
-        }
-        if (current.settings.carryoverUnfinishedNorm) {
-            uncompletedItems.addAll(
-                targetPhase.items.filter { it.priority == Priority.NORMAL && !it.isCompleted && !it.isDeleted }.map {
-                    it.copy(isCarryover = true, sourcePhaseName = targetPhase.name)
-                }
-            )
-        }
-
-        // 同一日・同一フェーズの既存ログを重複排除して最新1件に更新
+        // 同一日・同一フェーズの既存ログを重複排除して最新1件に更新 (上限件数でGC保護)
         val cleanedLogs = current.reviewLogs.filterNot {
             it.dateString == today && it.phaseName == targetPhase.name
         }
-        val updatedReviewLogs = listOf(newLog) + cleanedLogs
+        val updatedReviewLogs = (listOf(newLog) + cleanedLogs).take(TaskSync.MAX_REVIEW_LOGS)
 
         // 最後のフェーズ（夜）かどうか
         val isLastPhase = targetPhaseIndex >= current.phases.size - 1
 
         if (isLastPhase) {
-            // 夜セクション完了 -> 本日の日別レコードを保存し、翌日の朝へ進む (統合ヘルパー呼び出し)
+            // 夜セクション完了 -> 全フェーズの未完了持越対象を集約し、本日の日別レコードを保存して翌日の朝へ進む
+            val dayCarryoverItems = TaskSync.collectDayCarryover(phasesAfterTargetCompletion, current.settings)
             val nextDayState = buildNextDayState(
                 current = current,
                 basePhases = phasesAfterTargetCompletion,
-                uncompletedItems = uncompletedItems,
+                uncompletedItems = dayCarryoverItems,
                 today = today,
                 updatedReviewLogs = updatedReviewLogs
             )
             persist(nextDayState)
         } else {
             // 通常のフェーズ完了 -> 次のフェーズへ進み、未完了タスクを次のフェーズへキャリーオーバー（優先度高いため上部に表示）
+            val uncompletedItems = TaskSync.selectCarryover(targetPhase.items, targetPhase.name, current.settings)
             val nextIndex = targetPhaseIndex + 1
             val nextPhase = phasesAfterTargetCompletion[nextIndex]
 
-            val nextPhaseItems = if (uncompletedItems.isNotEmpty()) {
-                val existingTitles = nextPhase.items.map { it.title }.toSet()
-                val itemsToAdd = uncompletedItems.filter { it.title !in existingTitles }
-                itemsToAdd + nextPhase.items
-            } else {
-                nextPhase.items
-            }
+            // 冪等: 同一IDが既に存在 (完了・破棄済み含む)、または同一タイトルの未完了タスクがある場合は二重追加しない
+            val nextPhaseItems = TaskSync.mergeCarryover(nextPhase.items, uncompletedItems)
 
             phasesAfterTargetCompletion[nextIndex] = nextPhase.copy(items = nextPhaseItems)
 
@@ -519,20 +531,8 @@ class ChecklistRepository(private val context: Context) {
         }
     }
 
-    fun isTemplateApplicable(template: PhaseTemplate, date: LocalDate): Boolean {
-        // 曜日チェック (1:月曜 .. 7:日曜)。空なら全曜日
-        if (template.targetDaysOfWeek.isNotEmpty() && date.dayOfWeek.value !in template.targetDaysOfWeek) {
-            return false
-        }
-        val dateStr = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
-        if (template.startDate != null && dateStr < template.startDate) {
-            return false
-        }
-        if (template.endDate != null && dateStr > template.endDate) {
-            return false
-        }
-        return true
-    }
+    fun isTemplateApplicable(template: PhaseTemplate, date: LocalDate): Boolean =
+        TaskSync.isTemplateApplicable(template, date)
 
     private fun buildNextDayState(
         current: AppState,
@@ -540,79 +540,7 @@ class ChecklistRepository(private val context: Context) {
         uncompletedItems: List<ChecklistItem>,
         today: String,
         updatedReviewLogs: List<ReviewLog>? = null
-    ): AppState {
-        val dailyRecord = createDailyRecord(today, basePhases)
-        val updatedDailyRecords = current.dailyRecords + (today to dailyRecord)
-
-        val baseDate = runCatching { LocalDate.parse(today) }.getOrElse { LocalDate.now() }
-        val tomorrowDate = baseDate.plusDays(1)
-        val tomorrow = tomorrowDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
-
-        val resetPhases = basePhases.mapIndexed { index, p ->
-            // 明日の日付・曜日に合致するテンプレートを選定
-            val templateForPhase = current.templates.find { t ->
-                val isPhaseMatch = (current.templates.indexOf(t) == index) || (t.name.contains(p.name))
-                isPhaseMatch && isTemplateApplicable(t, tomorrowDate)
-            } ?: current.templates.getOrNull(index)?.takeIf { isTemplateApplicable(it, tomorrowDate) }
-
-            val baseItems = if (templateForPhase != null && templateForPhase.items.isNotEmpty()) {
-                templateForPhase.items.map { ChecklistItem(title = it.title, priority = it.priority) }
-            } else {
-                p.items.filterNot { it.isDeleted }.map { it.copy(isCompleted = false, completedAt = null) }
-            }
-
-            // 翌日指定タスク
-            val scheduledForTomorrow = p.items.filter { it.scheduledDate == tomorrow && !it.isDeleted }
-
-            val mergedItems = if (index == 0 && uncompletedItems.isNotEmpty()) {
-                val existingTitles = (scheduledForTomorrow + baseItems).map { it.title }.toSet()
-                val toAdd = uncompletedItems.filter { it.title !in existingTitles }
-                toAdd + scheduledForTomorrow + baseItems
-            } else {
-                scheduledForTomorrow + baseItems
-            }
-            p.copy(
-                items = mergedItems,
-                isCompleted = false,
-                completedAt = null,
-                reviewNote = null
-            )
-        }
-
-        return current.copy(
-            currentDate = tomorrow,
-            phases = resetPhases,
-            selectedPhaseIndex = 0,
-            reviewLogs = updatedReviewLogs ?: current.reviewLogs,
-            dailyRecords = updatedDailyRecords
-        )
-    }
-
-    private fun createDailyRecord(date: String, phases: List<Phase>): DailyRecord {
-        val totalItems = phases.sumOf { it.totalValidCount }
-        val completedItems = phases.sumOf { it.totalDoneCount }
-        val reqPending = phases.sumOf { it.requiredPendingCount }
-
-        val summaries = phases.map { p ->
-            PhaseDailySummary(
-                phaseName = p.name,
-                isCompleted = p.isCompleted,
-                completedCount = p.totalDoneCount,
-                totalCount = p.totalValidCount,
-                reviewNote = p.reviewNote,
-                hadIssue = p.reviewNote != null
-            )
-        }
-
-        return DailyRecord(
-            dateString = date,
-            completedAt = System.currentTimeMillis(),
-            totalItems = totalItems,
-            completedItems = completedItems,
-            requiredPendingItems = reqPending,
-            phaseSummaries = summaries
-        )
-    }
+    ): AppState = TaskSync.buildNextDayState(current, basePhases, uncompletedItems, today, updatedReviewLogs)
 
     // 時間ベースのフェーズ判定・自動進行
     fun checkAndAdvanceByTime() {
@@ -641,26 +569,8 @@ class ChecklistRepository(private val context: Context) {
         val current = _appState.value
         val today = current.currentDate.ifEmpty { getTodayDateString() }
 
-        // 未完了タスクを取得（REQ / NORM）
-        val uncompletedItems = mutableListOf<ChecklistItem>()
-        if (current.settings.carryoverUnfinishedReq) {
-            uncompletedItems.addAll(
-                current.phases.flatMap { p ->
-                    p.items.filter { it.priority == Priority.REQUIRED && !it.isCompleted && !it.isDeleted }.map {
-                        it.copy(isCarryover = true, sourcePhaseName = p.name)
-                    }
-                }
-            )
-        }
-        if (current.settings.carryoverUnfinishedNorm) {
-            uncompletedItems.addAll(
-                current.phases.flatMap { p ->
-                    p.items.filter { it.priority == Priority.NORMAL && !it.isCompleted && !it.isDeleted }.map {
-                        it.copy(isCarryover = true, sourcePhaseName = p.name)
-                    }
-                }
-            )
-        }
+        // 未完了タスクを取得（REQ / NORM）。キャリーオーバーで複数フェーズにある同一タスクは1件に集約
+        val uncompletedItems = TaskSync.collectDayCarryover(current.phases, current.settings)
 
         val nextDayState = buildNextDayState(
             current = current,
@@ -673,6 +583,10 @@ class ChecklistRepository(private val context: Context) {
 
     fun resetPhase(phaseId: String) {
         val current = _appState.value
+        val target = current.phases.find { it.id == phaseId } ?: return
+        // 対象フェーズのタスクと同一IDのインスタンス (キャリーオーバー元・先) も未完了に戻す。
+        // 片側だけ戻すと整合エンジンの完了OR合成で即座に完了へ巻き戻るため。
+        val resetIds = target.items.filterNot { it.isDeleted }.map { it.id }.toSet()
         val updatedPhases = current.phases.map { phase ->
             if (phase.id == phaseId) {
                 phase.copy(
@@ -681,6 +595,10 @@ class ChecklistRepository(private val context: Context) {
                     reviewNote = null,
                     items = phase.items.filterNot { it.isDeleted }.map { it.copy(isCompleted = false, completedAt = null) }
                 )
+            } else if (phase.items.any { it.id in resetIds }) {
+                phase.copy(items = phase.items.map {
+                    if (it.id in resetIds) it.copy(isCompleted = false, completedAt = null) else it
+                })
             } else phase
         }
         persist(current.copy(phases = updatedPhases))
@@ -779,20 +697,32 @@ class ChecklistRepository(private val context: Context) {
         val today = getTodayDateString()
         val current = _appState.value
         if (current.currentDate != today) {
-            persist(current.copy(currentDate = today))
+            persist(TaskSync.releaseDueScheduled(current.copy(currentDate = today), today))
         }
     }
 
     fun setDate(dateString: String) {
         val current = _appState.value
         if (current.currentDate != dateString) {
-            persist(current.copy(currentDate = dateString))
+            persist(TaskSync.releaseDueScheduled(current.copy(currentDate = dateString), dateString))
         }
     }
 
     fun setShowReqNotification(enabled: Boolean) {
         val current = _appState.value
-        persist(current.copy(settings = current.settings.copy(showReqNotification = enabled)))
+        val mode = if (enabled) NotificationDisplayMode.COUNT_ONLY else NotificationDisplayMode.OFF
+        persist(current.copy(settings = current.settings.copy(showReqNotification = enabled, notificationMode = mode)))
+    }
+
+    fun setNotificationMode(mode: NotificationDisplayMode) {
+        val current = _appState.value
+        val enabled = mode != NotificationDisplayMode.OFF
+        persist(current.copy(settings = current.settings.copy(notificationMode = mode, showReqNotification = enabled)))
+    }
+
+    fun setUseLargeButtons(enabled: Boolean) {
+        val current = _appState.value
+        persist(current.copy(settings = current.settings.copy(useLargeButtons = enabled)))
     }
 
     // 設定更新

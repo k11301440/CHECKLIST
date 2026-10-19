@@ -39,11 +39,15 @@ class MainActivity : ComponentActivity() {
                 darkThemeConfig = state.settings.darkThemeConfig,
                 accentTheme = state.settings.accentTheme
             ) {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
+                androidx.compose.runtime.CompositionLocalProvider(
+                    com.example.checklist.ui.components.LocalLargeButtonMode provides state.settings.useLargeButtons
                 ) {
-                    MainNavigation(viewModel = viewModel)
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background
+                    ) {
+                        MainNavigation(viewModel = viewModel)
+                    }
                 }
             }
         }

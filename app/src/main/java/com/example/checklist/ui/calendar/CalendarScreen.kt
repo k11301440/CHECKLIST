@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,11 +32,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -73,6 +77,33 @@ fun CalendarScreen(
 
     val selectedDateString = selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
     val dailyRecord = state.dailyRecords[selectedDateString]
+
+    val canGoPrevMonth = currentYearMonth > YearMonth.now()
+    var swipeCalendarDragX by remember { mutableFloatStateOf(0f) }
+    val swipeThresholdPx = with(LocalDensity.current) { 60.dp.toPx() }
+
+    val swipeCalendarModifier = Modifier.pointerInput(currentYearMonth, canGoPrevMonth) {
+        detectHorizontalDragGestures(
+            onDragEnd = {
+                if (swipeCalendarDragX < -swipeThresholdPx) {
+                    // Swiped Left -> Next Month
+                    currentYearMonth = currentYearMonth.plusMonths(1)
+                } else if (swipeCalendarDragX > swipeThresholdPx) {
+                    // Swiped Right -> Prev Month (今月以前には戻れない)
+                    if (canGoPrevMonth) {
+                        currentYearMonth = currentYearMonth.minusMonths(1)
+                    }
+                }
+                swipeCalendarDragX = 0f
+            },
+            onDragCancel = {
+                swipeCalendarDragX = 0f
+            },
+            onHorizontalDrag = { _, dragAmount ->
+                swipeCalendarDragX += dragAmount
+            }
+        )
+    }
 
     // 今日の振り返りログから該当日のログを抽出
     val matchingLogs = state.reviewLogs.filter { log ->
@@ -128,6 +159,7 @@ fun CalendarScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 20.dp)
+                .then(swipeCalendarModifier)
         ) {
             item {
                 Spacer(modifier = Modifier.height(16.dp))
@@ -465,9 +497,10 @@ fun CalendarScreen(
                             )
                             Spacer(modifier = Modifier.height(10.dp))
 
-                            val totalItems = state.phases.sumOf { it.totalValidCount }
-                            val completedItems = state.phases.sumOf { it.totalDoneCount }
-                            val reqPending = state.phases.sumOf { it.requiredPendingCount }
+                            val liveRecord = TaskSync.createDailyRecord(selectedDateString, state.phases)
+                            val totalItems = liveRecord.totalItems
+                            val completedItems = liveRecord.completedItems
+                            val reqPending = liveRecord.requiredPendingItems
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),

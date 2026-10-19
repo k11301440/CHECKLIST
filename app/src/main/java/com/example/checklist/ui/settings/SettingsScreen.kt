@@ -1,8 +1,14 @@
 package com.example.checklist.ui.settings
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
@@ -343,30 +349,42 @@ fun SettingsScreen(
 
                     SpaceXDivider()
 
-                    // 未完了REQタスク通知トグル (オプトイン)
-                    SettingToggleRow(
-                        title = AppStrings.reqNotification(lang),
-                        description = AppStrings.reqNotificationDesc(lang),
-                        enabled = state.settings.showReqNotification,
+                    // 未完了タスク通知トグル (3段階: オフ -> 未完了件数 -> 件数+タスク名 -> オフ)
+                    val currentNotifMode = state.settings.notificationMode
+                    val notifStatusText = when (currentNotifMode) {
+                        com.example.checklist.data.NotificationDisplayMode.COUNT_ONLY -> if (isEnglish) "COUNT" else "件数のみ"
+                        com.example.checklist.data.NotificationDisplayMode.COUNT_AND_TITLE -> if (isEnglish) "COUNT+TITLE" else "件数＋名前"
+                        com.example.checklist.data.NotificationDisplayMode.OFF -> "OFF"
+                    }
+                    val notifDesc = if (isEnglish) {
+                        "Display pending tasks in status bar (Cycle: OFF -> Count Only -> Count & Titles)"
+                    } else {
+                        "未完了タスクがある場合に常駐通知を表示します（押すごとに OFF → 件数のみ → 件数＋タスク名 と循環切替）"
+                    }
+
+                    SettingTriToggleRow(
+                        title = if (isEnglish) "Task Status Notification" else "未完了タスクの常駐通知",
+                        description = notifDesc,
+                        statusText = notifStatusText,
+                        isActive = currentNotifMode != com.example.checklist.data.NotificationDisplayMode.OFF,
                         onToggle = {
-                            val targetState = !state.settings.showReqNotification
-                            if (targetState) {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                    val hasPermission = ContextCompat.checkSelfPermission(
-                                        context,
-                                        Manifest.permission.POST_NOTIFICATIONS
-                                    ) == PackageManager.PERMISSION_GRANTED
-                                    if (!hasPermission) {
-                                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                    } else {
-                                        viewModel.setShowReqNotification(true)
+                            val nextMode = when (currentNotifMode) {
+                                com.example.checklist.data.NotificationDisplayMode.OFF -> {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        val hasPermission = ContextCompat.checkSelfPermission(
+                                            context,
+                                            Manifest.permission.POST_NOTIFICATIONS
+                                        ) == PackageManager.PERMISSION_GRANTED
+                                        if (!hasPermission) {
+                                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                        }
                                     }
-                                } else {
-                                    viewModel.setShowReqNotification(true)
+                                    com.example.checklist.data.NotificationDisplayMode.COUNT_ONLY
                                 }
-                            } else {
-                                viewModel.setShowReqNotification(false)
+                                com.example.checklist.data.NotificationDisplayMode.COUNT_ONLY -> com.example.checklist.data.NotificationDisplayMode.COUNT_AND_TITLE
+                                com.example.checklist.data.NotificationDisplayMode.COUNT_AND_TITLE -> com.example.checklist.data.NotificationDisplayMode.OFF
                             }
+                            viewModel.setNotificationMode(nextMode)
                         }
                     )
 
@@ -451,6 +469,19 @@ fun SettingsScreen(
                             "タスク画面を左右にスワイプしてフェーズを切り替えます。日をまたぐ際は確認ダイアログを表示します。",
                         enabled = state.settings.enableSwipePhase,
                         onToggle = { viewModel.setEnableSwipePhase(!state.settings.enableSwipePhase) }
+                    )
+
+                    SpaceXDivider()
+
+                    // 大きなボタン表示トグル (画面サイズ適応 & 押し間違い防止)
+                    SettingToggleRow(
+                        title = if (isEnglish) "Large Button Mode" else "大きなボタン表示",
+                        description = if (isEnglish)
+                            "Enlarge buttons and touch targets to improve accessibility and prevent mis-taps on various screen sizes."
+                        else
+                            "ボタンの縦幅とタッチ領域を拡大し、押し間違いを防止します（画面サイズの異なる端末に最適化）。",
+                        enabled = state.settings.useLargeButtons,
+                        onToggle = { viewModel.setUseLargeButtons(!state.settings.useLargeButtons) }
                     )
                 }
             }
@@ -720,6 +751,85 @@ fun SettingsScreen(
                             }
                         )
                     }
+                }
+            }
+            // 4.8. BETA FEEDBACK & CONTACT (テスター用 問い合わせ・フィードバック)
+            item {
+                SettingsSectionHeader(if (isEnglish) "BETA TEST FEEDBACK & SUPPORT" else "ベータ版 お問い合わせ・フィードバック")
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, BorderSubtle, SpaceXShape)
+                        .background(SurfaceDark, shape = SpaceXShape)
+                        .padding(14.dp)
+                ) {
+                    Text(
+                        text = if (isEnglish) "TESTER SUPPORT & BUG REPORTS" else "テスター専用サポート / 不具合報告",
+                        color = TextPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (isEnglish)
+                            "Please report any bugs, feedback, or suggestions during the beta test via Email or Discord below."
+                        else
+                            "クローズドベータテスト期間中の不具合報告やご要望は、下記メールまたはDiscordまでお気軽にお寄せください。",
+                        color = TextSecondary,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
+                        letterSpacing = 0.2.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // メール送信ボタン
+                        SpaceXButton(
+                            text = if (isEnglish) "EMAIL SUPPORT" else "メールで報告",
+                            onClick = {
+                                val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
+                                    data = Uri.parse("mailto:k11301440+checklist@gmail.com")
+                                    putExtra(Intent.EXTRA_SUBJECT, "[CHECKLIST Beta] フィードバック・不具合報告")
+                                    putExtra(Intent.EXTRA_TEXT, "【端末情報】\nAndroid SDK: ${Build.VERSION.SDK_INT}\nアプリ版: v0.9.1-beta\n\n【内容】\n")
+                                }
+                                try {
+                                    context.startActivity(Intent.createChooser(emailIntent, "Send feedback via..."))
+                                } catch (e: Exception) {
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    clipboard.setPrimaryClip(ClipData.newPlainText("Feedback Email", "k11301440+checklist@gmail.com"))
+                                    Toast.makeText(context, "メールアドレスをコピーしました (k11301440+checklist@gmail.com)", Toast.LENGTH_LONG).show()
+                                }
+                            },
+                            prominent = true,
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        // Discord ボタン
+                        SpaceXButton(
+                            text = "DISCORD",
+                            onClick = {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                clipboard.setPrimaryClip(ClipData.newPlainText("Discord ID", "wattanave"))
+                                Toast.makeText(context, "Discord ID「wattanave」をコピーしました", Toast.LENGTH_LONG).show()
+                            },
+                            prominent = false,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "EMAIL: k11301440+checklist@gmail.com / DISCORD: tomy (wattanave)",
+                        color = TextTertiary,
+                        fontSize = 10.sp,
+                        letterSpacing = 0.5.sp
+                    )
                 }
             }
 
@@ -1112,43 +1222,99 @@ private fun SettingToggleRow(
     enabled: Boolean,
     onToggle: () -> Unit
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onToggle)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 14.dp, vertical = 12.dp)
     ) {
-        Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(
                 text = title,
                 color = TextPrimary,
                 fontSize = 13.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f).padding(end = 8.dp)
             )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = description,
-                color = TextSecondary,
-                fontSize = 11.sp,
-                lineHeight = 15.sp,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Box(
+                modifier = Modifier
+                    .border(1.dp, if (enabled) com.example.checklist.theme.SpaceXAccent else BorderSubtle, SpaceXSmallShape)
+                    .background(if (enabled) SurfaceElevated else SpaceBlack, shape = SpaceXSmallShape)
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = if (enabled) "ON" else "OFF",
+                    color = if (enabled) TextPrimary else TextTertiary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
-        Box(
-            modifier = Modifier
-                .border(1.dp, if (enabled) com.example.checklist.theme.SpaceXAccent else BorderSubtle, SpaceXSmallShape)
-                .background(if (enabled) SurfaceElevated else SpaceBlack, shape = SpaceXSmallShape)
-                .padding(horizontal = 10.dp, vertical = 4.dp)
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = description,
+            color = TextSecondary,
+            fontSize = 11.sp,
+            lineHeight = 15.sp,
+            letterSpacing = 0.2.sp,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@Composable
+private fun SettingTriToggleRow(
+    title: String,
+    description: String,
+    statusText: String,
+    isActive: Boolean,
+    onToggle: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+            .padding(horizontal = 14.dp, vertical = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = if (enabled) "ON" else "OFF",
-                color = if (enabled) TextPrimary else TextTertiary,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold
+                text = title,
+                color = TextPrimary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f).padding(end = 8.dp)
             )
+            Box(
+                modifier = Modifier
+                    .border(1.dp, if (isActive) com.example.checklist.theme.SpaceXAccent else BorderSubtle, SpaceXSmallShape)
+                    .background(if (isActive) SurfaceElevated else SpaceBlack, shape = SpaceXSmallShape)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = statusText,
+                    color = if (isActive) TextPrimary else TextTertiary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = description,
+            color = TextSecondary,
+            fontSize = 11.sp,
+            lineHeight = 15.sp,
+            letterSpacing = 0.2.sp,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 

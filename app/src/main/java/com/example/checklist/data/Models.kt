@@ -52,6 +52,7 @@ data class ChecklistItem(
     val completedAt: Long? = null,
     val isCarryover: Boolean = false,
     val sourcePhaseName: String? = null,
+    val originPhaseIndex: Int = 0,
     val isDeleted: Boolean = false,
     val scheduledDate: String? = null
 )
@@ -114,6 +115,13 @@ data class PhaseDailySummary(
 )
 
 @Serializable
+enum class NotificationDisplayMode {
+    OFF,
+    COUNT_ONLY,
+    COUNT_AND_TITLE
+}
+
+@Serializable
 data class PhaseSchedule(
     val phaseIndex: Int,
     val phaseName: String,
@@ -131,15 +139,24 @@ data class AppSettings(
     val autoAdvanceByTime: Boolean = true,
     val carryoverUnfinishedReq: Boolean = true,
     val carryoverUnfinishedNorm: Boolean = false,
-    val confirmReviewOnAdvance: Boolean = true,
+    val confirmReviewOnAdvance: Boolean = false,
     val showReqNotification: Boolean = false,
+    val notificationMode: NotificationDisplayMode = NotificationDisplayMode.OFF,
     val phaseEndReminderMinutes: Int = 0,
+    val useLargeButtons: Boolean = false,
     val phaseSchedules: List<PhaseSchedule> = listOf(
         PhaseSchedule(0, "朝", 6, 0),
         PhaseSchedule(1, "午前", 9, 0),
         PhaseSchedule(2, "午後", 12, 0),
         PhaseSchedule(3, "夜", 18, 0)
     )
+)
+
+// 未来日付で予約されたタスク (指定日になるまでフェーズには表示しない)
+@Serializable
+data class ScheduledTask(
+    val phaseId: String,
+    val item: ChecklistItem
 )
 
 @Serializable
@@ -150,7 +167,8 @@ data class AppState(
     val templates: List<PhaseTemplate> = emptyList(),
     val reviewLogs: List<ReviewLog> = emptyList(),
     val dailyRecords: Map<String, DailyRecord> = emptyMap(),
-    val settings: AppSettings = AppSettings()
+    val settings: AppSettings = AppSettings(),
+    val scheduledItems: List<ScheduledTask> = emptyList()
 )
 
 val Phase.validItems: List<ChecklistItem>

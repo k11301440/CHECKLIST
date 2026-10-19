@@ -179,6 +179,14 @@ class ChecklistViewModel(application: Application) : AndroidViewModel(applicatio
         repository.setShowReqNotification(enabled)
     }
 
+    fun setNotificationMode(mode: com.example.checklist.data.NotificationDisplayMode) {
+        repository.setNotificationMode(mode)
+    }
+
+    fun setUseLargeButtons(enabled: Boolean) {
+        repository.setUseLargeButtons(enabled)
+    }
+
     fun applyPresetTemplates() {
         repository.applyPresetTemplates()
     }

@@ -127,13 +127,13 @@ object WidgetUpdateHelper {
         val currentIdx = state.selectedPhaseIndex.coerceIn(0, (activePhases.size - 1).coerceAtLeast(0))
         val currentPhase = activePhases.getOrNull(currentIdx)
 
-        // Collect pending tasks (current phase first, then other phases)
-        val pendingTasks = mutableListOf<com.example.checklist.data.ChecklistItem>()
+        // Collect pending tasks (current phase first, then other phases, deduplicated by ID)
+        val rawPendingTasks = mutableListOf<com.example.checklist.data.ChecklistItem>()
         currentPhase?.items?.filter { !it.isCompleted && !it.isDeleted }?.let { items ->
             if (isCriticalOnly) {
-                pendingTasks.addAll(items.filter { it.priority == Priority.REQUIRED })
+                rawPendingTasks.addAll(items.filter { it.priority == Priority.REQUIRED })
             } else {
-                pendingTasks.addAll(items)
+                rawPendingTasks.addAll(items)
             }
         }
         // If critical only, also add uncompleted required from other phases
@@ -141,10 +141,11 @@ object WidgetUpdateHelper {
             activePhases.forEachIndexed { idx, p ->
                 if (idx != currentIdx) {
                     val otherReqs = p.items.filter { it.priority == Priority.REQUIRED && !it.isCompleted && !it.isDeleted }
-                    pendingTasks.addAll(otherReqs)
+                    rawPendingTasks.addAll(otherReqs)
                 }
             }
         }
+        val pendingTasks = rawPendingTasks.distinctBy { it.id }
 
         val totalCount = pendingTasks.size
         views.setTextViewText(R.id.widget_count_badge, "$totalCount")

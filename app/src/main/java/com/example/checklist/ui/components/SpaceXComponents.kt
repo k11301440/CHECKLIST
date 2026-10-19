@@ -45,6 +45,8 @@ val SpaceXShape = RoundedCornerShape(SpaceXCornerRadius)
 val SpaceXDialogShape = RoundedCornerShape(10.dp)
 val SpaceXSmallShape = RoundedCornerShape(4.dp)
 
+val LocalLargeButtonMode = androidx.compose.runtime.compositionLocalOf { false }
+
 // SpaceX Minimal Outline Button
 @Composable
 fun SpaceXButton(
@@ -57,6 +59,7 @@ fun SpaceXButton(
     leadingIcon: ImageVector? = null,
     shape: Shape = SpaceXShape
 ) {
+    val isLarge = LocalLargeButtonMode.current
     val borderColor = if (enabled) {
         if (inverted) TextPrimary else if (prominent) TextPrimary else BorderProminent
     } else BorderSubtle
@@ -65,10 +68,18 @@ fun SpaceXButton(
     } else TextTertiary
     val containerBg = if (enabled && inverted) TextPrimary else SpaceBlack
 
+    val buttonHeight = if (isLarge) 56.dp else 48.dp
+    val fontSize = if (isLarge) 14.5.sp else 13.sp
+    val contentPadding = if (isLarge) {
+        PaddingValues(horizontal = 24.dp, vertical = 14.dp)
+    } else {
+        PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+    }
+
     OutlinedButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.height(48.dp),
+        modifier = modifier.height(buttonHeight),
         shape = shape,
         border = BorderStroke(1.dp, borderColor),
         colors = ButtonDefaults.outlinedButtonColors(
@@ -76,14 +87,14 @@ fun SpaceXButton(
             contentColor = textColor,
             disabledContentColor = TextTertiary
         ),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+        contentPadding = contentPadding
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (leadingIcon != null) {
                 Icon(
                     imageVector = leadingIcon,
                     contentDescription = null,
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(if (isLarge) 18.dp else 16.dp),
                     tint = textColor
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -91,7 +102,7 @@ fun SpaceXButton(
             Text(
                 text = text,
                 color = textColor,
-                fontSize = 13.sp,
+                fontSize = fontSize,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 1.2.sp
             )
@@ -280,22 +291,31 @@ fun SpaceXDangerButton(
     modifier: Modifier = Modifier,
     shape: Shape = SpaceXShape
 ) {
+    val isLarge = LocalLargeButtonMode.current
     val dangerColor = Color(0xFFFF453A)
+    val buttonHeight = if (isLarge) 56.dp else 48.dp
+    val fontSize = if (isLarge) 14.5.sp else 13.sp
+    val contentPadding = if (isLarge) {
+        PaddingValues(horizontal = 24.dp, vertical = 14.dp)
+    } else {
+        PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+    }
+
     OutlinedButton(
         onClick = onClick,
-        modifier = modifier.height(48.dp),
+        modifier = modifier.height(buttonHeight),
         shape = shape,
         border = BorderStroke(1.dp, dangerColor),
         colors = ButtonDefaults.outlinedButtonColors(
             containerColor = SpaceBlack,
             contentColor = dangerColor
         ),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+        contentPadding = contentPadding
     ) {
         Text(
             text = text,
             color = dangerColor,
-            fontSize = 13.sp,
+            fontSize = fontSize,
             fontWeight = FontWeight.Bold,
             letterSpacing = 1.2.sp
         )

@@ -111,9 +111,9 @@ object AppStrings {
 
     // Dialogs & Review
     fun reviewTitle(lang: AppLanguage, phase: String) = if (lang == AppLanguage.EN) "PHASE REVIEW // ${phase.uppercase()}" else "振り返り // $phase"
-    fun reviewQuestion(lang: AppLanguage) = if (lang == AppLanguage.EN) "ALL SYSTEMS NOMINAL?" else "問題ありませんでしたか？"
-    fun reviewYes(lang: AppLanguage) = if (lang == AppLanguage.EN) "YES (NOMINAL)" else "はい (問題なし)"
-    fun reviewNo(lang: AppLanguage) = if (lang == AppLanguage.EN) "NO (ISSUE)" else "いいえ (課題あり)"
+    fun reviewQuestion(lang: AppLanguage) = if (lang == AppLanguage.EN) "WAS THE PHASE COMPLETED NORMALLY?" else "フェーズは正常に終了しましたか？"
+    fun reviewYes(lang: AppLanguage) = if (lang == AppLanguage.EN) "YES" else "はい"
+    fun reviewNo(lang: AppLanguage) = if (lang == AppLanguage.EN) "NO" else "いいえ"
     fun reviewNoteTitle(lang: AppLanguage) = if (lang == AppLanguage.EN) "REVIEW NOTE (OPTIONAL)" else "振り返りメモ (任意)"
     fun reviewNoteHint(lang: AppLanguage) = if (lang == AppLanguage.EN) "Enter blockers, learnings, or notes..." else "気づきや課題、ブロッカーを入力..."
     fun recordAndComplete(lang: AppLanguage) = if (lang == AppLanguage.EN) "RECORD & COMPLETE" else "記録して完了"

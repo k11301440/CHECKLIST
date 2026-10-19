@@ -1,7 +1,13 @@
 package com.example.checklist.ui.phase
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -219,26 +225,25 @@ fun PhaseScreen(
     val itemHeightPx = with(LocalDensity.current) { 60.dp.toPx() }
     val currentAppState by rememberUpdatedState(state)
 
-    // 現在時刻に基づくフェーズの判定（タスク作成時のデフォルトフェーズ用）
-    val currentPhaseIndexByTime = remember(state.phases, state.settings.phaseSchedules) {
+    // 現在時刻に基づくフェーズの動的判定
+    val currentPhaseIndexByTime = remember(state.phases, state.settings.phaseSchedules, selectedIndex) {
         val now = LocalTime.now()
         val currentMinutes = now.hour * 60 + now.minute
         val schedules = state.settings.phaseSchedules
         if (schedules.isNotEmpty() && schedules.size == state.phases.size) {
             val sorted = schedules.sortedBy { it.startHour * 60 + it.startMinute }
-            var targetIdx = sorted.last().phaseIndex
-            for (i in sorted.indices.reversed()) {
-                val sMinutes = sorted[i].startHour * 60 + sorted[i].startMinute
-                if (currentMinutes >= sMinutes) {
-                    targetIdx = sorted[i].phaseIndex
-                    break
+            var targetIdx = sorted.first().phaseIndex
+            for (schedule in sorted) {
+                val sMinutes = schedule.startHour * 60 + schedule.startMinute
+                if (currentMinutes >= sMinutes && schedule.phaseIndex in state.phases.indices) {
+                    targetIdx = schedule.phaseIndex
                 }
             }
             targetIdx.coerceIn(0, state.phases.size - 1)
         } else {
             when {
                 currentMinutes < 9 * 60 -> 0
-                currentMinutes < 13 * 60 -> 1
+                currentMinutes < 12 * 60 -> 1
                 currentMinutes < 18 * 60 -> 2
                 else -> 3
             }.coerceIn(0, state.phases.size - 1)
@@ -456,28 +461,59 @@ fun PhaseScreen(
             }
         }
 
+        // 現時刻のフェーズでない場合に表示する「現時刻のフェーズに戻る」ボタン (先取り完了を除く)
+        val timePhase = state.phases.getOrNull(currentPhaseIndexByTime)
+        val isTimePhaseFullyCleared = timePhase != null && (
+            timePhase.isCompleted || (timePhase.items.filterNot { it.isDeleted }.isNotEmpty() && timePhase.items.none { !it.isCompleted && !it.isDeleted })
+        )
+        val isAheadDueToCleared = selectedIndex > currentPhaseIndexByTime && isTimePhaseFullyCleared
+        val showReturnToTimePhase = selectedIndex != currentPhaseIndexByTime && !isAheadDueToCleared
+
         // PHASE STATUS HEADER
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
+                verticalAlignment = Alignment.Top
             ) {
                 Text(
                     text = "$todayStr // PHASE 0${selectedIndex + 1}",
                     color = TextSecondary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.2.sp
+                    letterSpacing = 1.2.sp,
+                    modifier = Modifier.padding(top = 8.dp)
                 )
-                Text(
-                    text = currentPhase.name.uppercase(),
-                    color = TextPrimary,
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.sp,
-                    lineHeight = 36.sp
-                )
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = currentPhase.name.uppercase(),
+                        color = TextPrimary,
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 2.sp,
+                        lineHeight = 36.sp
+                    )
+                    // フェーズ名の下に「現時刻のフェーズに戻る」ボタン
+                    if (showReturnToTimePhase && timePhase != null) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier
+                                .border(1.dp, com.example.checklist.theme.SpaceXAccent, SpaceXSmallShape)
+                                .background(SurfaceDark, shape = SpaceXSmallShape)
+                                .clickable { viewModel.selectPhase(currentPhaseIndexByTime) }
+                                .padding(horizontal = 8.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = if (isEnglish) "← CURRENT (${timePhase.name})" else "← 現時刻のフェーズに戻る (${timePhase.name})",
+                                color = com.example.checklist.theme.SpaceXAccent,
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
+                    }
+                }
             }
             Spacer(modifier = Modifier.height(4.dp))
 
@@ -513,17 +549,25 @@ fun PhaseScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        // CHECKLIST ITEMS (フェーズ遷移時は軽やかなクロスフェードアニメーション)
-        Crossfade(
+        // CHECKLIST ITEMS (フェーズ遷移時は軽やかな横スライド＋フェードアニメーション)
+        AnimatedContent(
             targetState = selectedIndex,
-            animationSpec = androidx.compose.animation.core.tween(180),
+            transitionSpec = {
+                if (targetState > initialState) {
+                    (slideInHorizontally { width -> (width * 0.25f).toInt() } + fadeIn(androidx.compose.animation.core.tween(180)))
+                        .togetherWith(slideOutHorizontally { width -> (-width * 0.25f).toInt() } + fadeOut(androidx.compose.animation.core.tween(180)))
+                } else {
+                    (slideInHorizontally { width -> (-width * 0.25f).toInt() } + fadeIn(androidx.compose.animation.core.tween(180)))
+                        .togetherWith(slideOutHorizontally { width -> (width * 0.25f).toInt() } + fadeOut(androidx.compose.animation.core.tween(180)))
+                }
+            },
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
                 .then(swipePhaseModifier),
-            label = "PhaseCrossfade"
+            label = "PhaseSlide"
         ) { targetIdx ->
             val phaseForList = state.phases.getOrNull(targetIdx) ?: currentPhase
             val activeForList = phaseForList.items.filter { !it.isCompleted && !it.isDeleted }
