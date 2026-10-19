@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -474,7 +475,7 @@ fun PhaseScreen(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.Bottom
             ) {
                 Text(
                     text = "$todayStr // PHASE 0${selectedIndex + 1}",
@@ -482,44 +483,24 @@ fun PhaseScreen(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.2.sp,
-                    modifier = Modifier.padding(top = 8.dp)
+                    modifier = Modifier.padding(bottom = 2.dp)
                 )
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = currentPhase.name.uppercase(),
-                        color = TextPrimary,
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 2.sp,
-                        lineHeight = 36.sp
-                    )
-                    // フェーズ名の下に「現時刻のフェーズに戻る」ボタン
-                    if (showReturnToTimePhase && timePhase != null) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(
-                            modifier = Modifier
-                                .border(1.dp, com.example.checklist.theme.SpaceXAccent, SpaceXSmallShape)
-                                .background(SurfaceDark, shape = SpaceXSmallShape)
-                                .clickable { viewModel.selectPhase(currentPhaseIndexByTime) }
-                                .padding(horizontal = 8.dp, vertical = 3.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = if (isEnglish) "← CURRENT (${timePhase.name})" else "← 現時刻のフェーズに戻る (${timePhase.name})",
-                                color = com.example.checklist.theme.SpaceXAccent,
-                                fontSize = 10.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
-                            )
-                        }
-                    }
-                }
+                Text(
+                    text = currentPhase.name.uppercase(),
+                    color = TextPrimary,
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp,
+                    lineHeight = 36.sp
+                )
             }
             Spacer(modifier = Modifier.height(4.dp))
 
-            // STATUS TEXT & CLEAR DONE BUTTON (完全に同じ横一列で垂直中央揃え)
+            // STATUS TEXT & ACTION BUTTONS (完全に同じ横一列で垂直中央揃え・下限を統一)
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 24.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -538,13 +519,39 @@ fun PhaseScreen(
                     letterSpacing = 1.2.sp
                 )
 
-                // 完了済み単発タスクのクリアボタン（誤破棄防止の確認ダイアログ付き）
-                if (completedTotalCount > 0) {
-                    SpaceXTextButton(
-                        text = if (isEnglish) "CLEAR DONE ($completedTotalCount)" else "完了タスクの消去 ($completedTotalCount)",
-                        onClick = { showClearCompletedDialog = true },
-                        prominent = false
-                    )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // 完了済み単発タスクのクリアボタン（誤破棄防止の確認ダイアログ付き）
+                    if (completedTotalCount > 0) {
+                        SpaceXTextButton(
+                            text = if (isEnglish) "CLEAR DONE ($completedTotalCount)" else "完了タスクの消去 ($completedTotalCount)",
+                            onClick = { showClearCompletedDialog = true },
+                            prominent = false
+                        )
+                    }
+
+                    // フェーズ名のすぐ下に納まるコンパクトな「現在のフェーズに戻る」ボタン
+                    if (showReturnToTimePhase && timePhase != null) {
+                        Box(
+                            modifier = Modifier
+                                .border(1.dp, com.example.checklist.theme.SpaceXAccent, SpaceXSmallShape)
+                                .background(SurfaceDark, shape = SpaceXSmallShape)
+                                .clickable { viewModel.selectPhase(currentPhaseIndexByTime) }
+                                .padding(horizontal = 7.dp, vertical = 2.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (isEnglish) "CURRENT PHASE" else "現在のフェーズに戻る",
+                                color = com.example.checklist.theme.SpaceXAccent,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp,
+                                lineHeight = 12.sp
+                            )
+                        }
+                    }
                 }
             }
         }
