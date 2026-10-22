@@ -5,8 +5,8 @@ CHECKLIST Google Play ストア掲載情報 & リリース準備仕様書
 [1] アプリ基本情報
 アプリ名: CHECKLIST
 パッケージ名: com.k11301440.checklist
-バージョン名: 1.0.1
-バージョンコード: 13
+バージョン名: 1.0.2
+バージョンコード: 14
 ビルド形式: Android App Bundle (.aab)
 署名方式: Release Keystore (V1, V2, V3 署名対応)
 minSdk: 26 (Android 8.0 Oreo 以上対応)
