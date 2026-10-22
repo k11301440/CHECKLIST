@@ -24,6 +24,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputScope
 import kotlinx.coroutines.withTimeoutOrNull
 import com.example.checklist.ui.components.SpaceXConfirmDialog
+import com.example.checklist.ui.components.LocalLargeButtonMode
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -96,6 +97,7 @@ import com.example.checklist.data.AppState
 import com.example.checklist.data.ChecklistItem
 import com.example.checklist.data.Phase
 import com.example.checklist.data.Priority
+import com.example.checklist.data.TaskSync
 import com.example.checklist.ui.common.AppStrings
 import com.example.checklist.theme.BorderProminent
 import com.example.checklist.theme.BorderSubtle
@@ -112,6 +114,7 @@ import com.example.checklist.ui.ChecklistViewModel
 import com.example.checklist.ui.components.SpaceXButton
 import com.example.checklist.ui.components.SpaceXCheckbox
 import com.example.checklist.ui.components.SpaceXConfirmDialog
+import com.example.checklist.ui.components.LocalLargeButtonMode
 import com.example.checklist.ui.components.SpaceXDivider
 import com.example.checklist.ui.components.SpaceXShape
 import com.example.checklist.ui.components.SpaceXSmallShape
@@ -219,42 +222,33 @@ fun PhaseScreen(
 
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    val isLarge = LocalLargeButtonMode.current
 
     // ドラッグ＆ドロップ並び替え用ステート
     var draggingItemId by remember { mutableStateOf<String?>(null) }
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
-    val itemHeightPx = with(LocalDensity.current) { 60.dp.toPx() }
+    val itemHeightPx = with(LocalDensity.current) { (if (isLarge) 76.dp else 60.dp).toPx() }
     val currentAppState by rememberUpdatedState(state)
 
-    // 現在時刻に基づくフェーズの動的判定
-    val currentPhaseIndexByTime = remember(state.phases, state.settings.phaseSchedules, selectedIndex) {
-        val now = LocalTime.now()
-        val currentMinutes = now.hour * 60 + now.minute
-        val schedules = state.settings.phaseSchedules
-        if (schedules.isNotEmpty() && schedules.size == state.phases.size) {
-            val sorted = schedules.sortedBy { it.startHour * 60 + it.startMinute }
-            var targetIdx = sorted.first().phaseIndex
-            for (schedule in sorted) {
-                val sMinutes = schedule.startHour * 60 + schedule.startMinute
-                if (currentMinutes >= sMinutes && schedule.phaseIndex in state.phases.indices) {
-                    targetIdx = schedule.phaseIndex
-                }
-            }
-            targetIdx.coerceIn(0, state.phases.size - 1)
-        } else {
-            when {
-                currentMinutes < 9 * 60 -> 0
-                currentMinutes < 12 * 60 -> 1
-                currentMinutes < 18 * 60 -> 2
-                else -> 3
-            }.coerceIn(0, state.phases.size - 1)
+    // 現在時刻に基づくフェーズの動的判定 (定期チェックで画面を開いたままでも時刻変化に追従)
+    var timeTick by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(0L) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(15_000L)
+            timeTick = System.currentTimeMillis()
+            viewModel.checkAndAdvanceByTime()
         }
     }
 
+    val currentPhaseIndexByTime = remember(state.phases, state.settings.phaseSchedules, selectedIndex, state.currentDate, timeTick) {
+        TaskSync.computeCurrentPhaseIndexByTime(state, LocalTime.now())
+    }
+
     // 常時入力用のステート（ダイアログなしでいつでも直接入力可能）
+    // 表示中のフェーズ (selectedIndex) に追従させ、フェーズ移動後にタスク追加した際に別フェーズへ入らないようにする
     var quickInputTitle by remember { mutableStateOf("") }
     var quickInputPriority by remember { mutableStateOf(Priority.NORMAL) }
-    var quickTargetPhaseIndex by remember { mutableStateOf(currentPhaseIndexByTime) }
+    var quickTargetPhaseIndex by remember(selectedIndex) { mutableStateOf(selectedIndex) }
     var quickTargetDayOffset by remember { mutableStateOf(0) } // 0: 今日, 1: 明日, 2: 明後日
     var showQuickOptions by remember { mutableStateOf(false) }
 
@@ -279,52 +273,55 @@ fun PhaseScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                val navButtonSize = if (isLarge) 42.dp else 34.dp
+                val navIconSize = if (isLarge) 22.dp else 18.dp
+
                 IconButton(
                     onClick = onNavigateCalendar,
-                    modifier = Modifier.size(34.dp)
+                    modifier = Modifier.size(navButtonSize)
                 ) {
                     Icon(
                         imageVector = Icons.Default.DateRange,
                         contentDescription = "Flight Calendar",
                         tint = TextSecondary,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(navIconSize)
                     )
                 }
 
                 IconButton(
                     onClick = onNavigateHome,
-                    modifier = Modifier.size(34.dp)
+                    modifier = Modifier.size(navButtonSize)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Home,
                         contentDescription = "Home Overview",
                         tint = TextSecondary,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(navIconSize)
                     )
                 }
 
                 IconButton(
                     onClick = onNavigateSettings,
-                    modifier = Modifier.size(34.dp)
+                    modifier = Modifier.size(navButtonSize)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Settings,
                         contentDescription = "Settings",
                         tint = TextSecondary,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(navIconSize)
                     )
                 }
 
                 Box {
                     IconButton(
                         onClick = { showMenu = true },
-                        modifier = Modifier.size(34.dp)
+                        modifier = Modifier.size(navButtonSize)
                     ) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
                             contentDescription = "Menu",
                             tint = TextSecondary,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(navIconSize)
                         )
                     }
 
@@ -410,13 +407,13 @@ fun PhaseScreen(
                         )
                         .background(if (isSelected) SurfaceElevated else SpaceBlack, shape = SpaceXShape)
                         .clickable { viewModel.selectPhase(index) }
-                        .padding(vertical = 7.dp),
+                        .padding(vertical = if (isLarge) 11.dp else 7.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = label,
                         color = if (isSelected) TextPrimary else TextSecondary,
-                        fontSize = 11.5.sp,
+                        fontSize = if (isLarge) 13.sp else 11.5.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         letterSpacing = 0.5.sp
                     )
@@ -462,13 +459,18 @@ fun PhaseScreen(
             }
         }
 
-        // 現時刻のフェーズでない場合に表示する「現時刻のフェーズに戻る」ボタン (先取り完了を除く)
+        // 現時刻のフェーズまたは今日の日付でない場合に表示する「現在のフェーズに戻る」ボタン (同日の先取り完了を除く)
+        val actualTodayStr = remember(state.currentDate, selectedIndex, currentPhaseIndexByTime, timeTick) {
+            LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+        }
+        val isActualToday = state.currentDate.isEmpty() || state.currentDate == actualTodayStr
         val timePhase = state.phases.getOrNull(currentPhaseIndexByTime)
-        val isTimePhaseFullyCleared = timePhase != null && (
-            timePhase.isCompleted || (timePhase.items.filterNot { it.isDeleted }.isNotEmpty() && timePhase.items.none { !it.isCompleted && !it.isDeleted })
+        val isAheadDueToCleared = isActualToday && TaskSync.isAheadBecauseCompleted(
+            phases = state.phases,
+            selectedPhaseIndex = selectedIndex,
+            currentPhaseIndexByTime = currentPhaseIndexByTime
         )
-        val isAheadDueToCleared = selectedIndex > currentPhaseIndexByTime && isTimePhaseFullyCleared
-        val showReturnToTimePhase = selectedIndex != currentPhaseIndexByTime && !isAheadDueToCleared
+        val showReturnToTimePhase = (!isActualToday || selectedIndex != currentPhaseIndexByTime) && !isAheadDueToCleared
 
         // PHASE STATUS HEADER
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -496,7 +498,7 @@ fun PhaseScreen(
             }
             Spacer(modifier = Modifier.height(4.dp))
 
-            // STATUS TEXT & ACTION BUTTONS (完全に同じ横一列で垂直中央揃え・下限を統一)
+            // STATUS TEXT & ACTION BUTTON (完全に同じ横一列で垂直中央揃え・1行コンパクト表示)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -516,41 +518,31 @@ fun PhaseScreen(
                     color = if (remainingRequiredCount > 0) com.example.checklist.theme.SpaceXAccent else TextTertiary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
-                    letterSpacing = 1.2.sp
+                    letterSpacing = 1.2.sp,
+                    maxLines = 1,
+                    softWrap = false
                 )
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // 完了済み単発タスクのクリアボタン（誤破棄防止の確認ダイアログ付き）
-                    if (completedTotalCount > 0) {
-                        SpaceXTextButton(
-                            text = if (isEnglish) "CLEAR DONE ($completedTotalCount)" else "完了タスクの消去 ($completedTotalCount)",
-                            onClick = { showClearCompletedDialog = true },
-                            prominent = false
+                // フェーズ名のすぐ下に1行でコンパクトに納まる「現在のフェーズに戻る」ボタン (日付・時刻ともに現在へジャンプ)
+                if (showReturnToTimePhase && timePhase != null) {
+                    Box(
+                        modifier = Modifier
+                            .border(1.dp, com.example.checklist.theme.SpaceXAccent, SpaceXSmallShape)
+                            .background(SurfaceDark, shape = SpaceXSmallShape)
+                            .clickable { viewModel.returnToCurrentPhase() }
+                            .padding(horizontal = if (isLarge) 12.dp else 8.dp, vertical = if (isLarge) 6.dp else 3.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (isEnglish) "CURRENT PHASE" else "現在のフェーズに戻る",
+                            color = com.example.checklist.theme.SpaceXAccent,
+                            fontSize = if (isLarge) 11.5.sp else 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.4.sp,
+                            lineHeight = if (isLarge) 14.sp else 12.sp,
+                            maxLines = 1,
+                            softWrap = false
                         )
-                    }
-
-                    // フェーズ名のすぐ下に納まるコンパクトな「現在のフェーズに戻る」ボタン
-                    if (showReturnToTimePhase && timePhase != null) {
-                        Box(
-                            modifier = Modifier
-                                .border(1.dp, com.example.checklist.theme.SpaceXAccent, SpaceXSmallShape)
-                                .background(SurfaceDark, shape = SpaceXSmallShape)
-                                .clickable { viewModel.selectPhase(currentPhaseIndexByTime) }
-                                .padding(horizontal = 7.dp, vertical = 2.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = if (isEnglish) "CURRENT PHASE" else "現在のフェーズに戻る",
-                                color = com.example.checklist.theme.SpaceXAccent,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp,
-                                lineHeight = 12.sp
-                            )
-                        }
                     }
                 }
             }
@@ -614,11 +606,12 @@ fun PhaseScreen(
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = "下部の入力バーから新しいタスクを追加するか、\n右上の設定 > テンプレートからプリセットを読み込んでください。",
+                                    text = "下部の入力バーから新しいタスクを追加するか、右上の設定 > テンプレートからプリセットを読み込んでください。",
                                     color = TextTertiary,
                                     fontSize = 11.sp,
                                     lineHeight = 16.sp,
-                                    textAlign = TextAlign.Center
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth()
                                 )
                             }
                         }
@@ -684,45 +677,64 @@ fun PhaseScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .combinedClickable(onClick = { isCompletedExpanded = !isCompletedExpanded })
                                 .padding(vertical = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = AppStrings.completedAndDiscarded(state.settings.appLanguage),
-                                color = TextTertiary,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.2.sp
-                            )
-                            Icon(
-                                imageVector = if (isCompletedExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                contentDescription = if (isCompletedExpanded) "Collapse" else "Expand",
-                                tint = TextTertiary,
-                                modifier = Modifier.size(16.dp)
-                            )
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .combinedClickable(onClick = { isCompletedExpanded = !isCompletedExpanded })
+                                    .padding(vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = AppStrings.completedAndDiscarded(state.settings.appLanguage),
+                                    color = TextTertiary,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.2.sp
+                                )
+                                Icon(
+                                    imageVector = if (isCompletedExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = if (isCompletedExpanded) "Collapse" else "Expand",
+                                    tint = TextTertiary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+
+                            // 完了済み・破棄タスクの一括消去ボタンを「完了・破棄されたタスク」見出しの横に配置
+                            val archiveTotalCount = completedForList.size + discardedForList.size
+                            if (archiveTotalCount > 0) {
+                                SpaceXTextButton(
+                                    text = if (isEnglish) "CLEAR (${archiveTotalCount})" else "履歴消去 (${archiveTotalCount})",
+                                    onClick = { showClearCompletedDialog = true },
+                                    prominent = false
+                                )
+                            }
                         }
                     }
 
                     if (isCompletedExpanded) {
-                        // 完了タスク
+                        // 完了タスク (チェックボックスをタップで即座に復活可能)
                         items(completedForList, key = { it.id }) { item ->
                             ChecklistItemRow(
                                 item = item,
                                 isCritical = item.priority == Priority.REQUIRED,
-                                onTap = { /* 完了済み */ },
+                                onTap = { viewModel.undoItem(phaseForList.id, item.id) },
                                 onLongPress = { viewModel.undoItem(phaseForList.id, item.id) },
                                 onEdit = { editingItem = item },
                                 onDelete = { viewModel.removeItem(phaseForList.id, item.id) }
                             )
                         }
 
-                        // 破棄タスク（誤破棄防止のため保管・ワンタップ復元可能）
+                        // 破棄タスク（ワンタップ復元、または完全消去可能）
                         items(discardedForList, key = { it.id }) { item ->
                             DiscardedItemRow(
                                 item = item,
-                                onRestore = { viewModel.restoreItem(phaseForList.id, item.id) }
+                                onRestore = { viewModel.restoreItem(phaseForList.id, item.id) },
+                                onPermanentDelete = { viewModel.permanentlyDeleteItem(phaseForList.id, item.id) }
                             )
                         }
                     }
@@ -742,13 +754,19 @@ fun PhaseScreen(
         ) {
             val submitQuickTask = {
                 if (quickInputTitle.isNotBlank()) {
-                    val targetPhase = state.phases.getOrNull(quickTargetPhaseIndex) ?: currentPhase
+                    // スケジュールオプションを開いて選んでいない限り、確実に「今開いているフェーズ」に追加
+                    val targetIdx = if (showQuickOptions) quickTargetPhaseIndex else selectedIndex
+                    val targetPhase = state.phases.getOrNull(targetIdx) ?: currentPhase
+                    val base = runCatching { LocalDate.parse(state.currentDate) }.getOrElse { LocalDate.now() }
                     val targetDate = if (quickTargetDayOffset > 0) {
-                        val base = runCatching { LocalDate.parse(state.currentDate) }.getOrElse { LocalDate.now() }
                         base.plusDays(quickTargetDayOffset.toLong()).format(DateTimeFormatter.ISO_LOCAL_DATE)
-                    } else null
+                    } else {
+                        state.currentDate.ifEmpty { base.format(DateTimeFormatter.ISO_LOCAL_DATE) }
+                    }
                     viewModel.addItem(targetPhase.id, quickInputTitle, quickInputPriority, scheduledDate = targetDate)
                     quickInputTitle = ""
+                    quickTargetDayOffset = 0
+                    quickTargetPhaseIndex = selectedIndex
                     showQuickOptions = false
                     focusManager.clearFocus()
                     keyboardController?.hide()
@@ -771,7 +789,7 @@ fun PhaseScreen(
                 }
                 Box(
                     modifier = Modifier
-                        .width(46.dp)
+                        .width(if (isLarge) 58.dp else 46.dp)
                         .border(
                             width = 1.dp,
                             color = if (quickInputPriority == Priority.REQUIRED) com.example.checklist.theme.SpaceXAccent else BorderSubtle,
@@ -781,13 +799,13 @@ fun PhaseScreen(
                         .combinedClickable(onClick = {
                             quickInputPriority = if (quickInputPriority == Priority.REQUIRED) Priority.NORMAL else Priority.REQUIRED
                         })
-                        .padding(vertical = 4.dp),
+                        .padding(vertical = if (isLarge) 7.dp else 4.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = priorityLabel,
                         color = if (quickInputPriority == Priority.REQUIRED) com.example.checklist.theme.SpaceXAccent else TextSecondary,
-                        fontSize = 10.sp,
+                        fontSize = if (isLarge) 11.5.sp else 10.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 0.5.sp
                     )
@@ -795,7 +813,7 @@ fun PhaseScreen(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                // Text field
+                // Text field (デフォルトは現在見ているフェーズにタスクを追加)
                 Box(
                     modifier = Modifier.weight(1f),
                     contentAlignment = Alignment.CenterStart
@@ -804,11 +822,10 @@ fun PhaseScreen(
                         value = quickInputTitle,
                         onValueChange = {
                             quickInputTitle = it
-                            if (it.isNotEmpty()) showQuickOptions = true
                         },
                         textStyle = TextStyle(
                             color = TextPrimary,
-                            fontSize = 13.sp,
+                            fontSize = if (isLarge) 15.sp else 13.sp,
                             fontFamily = FontFamily.SansSerif
                         ),
                         cursorBrush = SolidColor(TextPrimary),
@@ -819,37 +836,43 @@ fun PhaseScreen(
                     )
                     if (quickInputTitle.isEmpty()) {
                         Text(
-                            text = if (isEnglish) "Enter new task..." else "新しいタスクを入力...",
+                            text = if (isEnglish) "Add task to ${currentPhase.name}..." else "「${currentPhase.name}」にタスクを追加...",
                             color = TextTertiary,
-                            fontSize = 12.sp
+                            fontSize = if (isLarge) 14.sp else 12.sp
                         )
                     }
                 }
 
-                // Options toggle (いつのタスクか選択を展開)
+                // Options toggle (いつ・どこに追加するか変更したい時のみ展開)
                 IconButton(
-                    onClick = { showQuickOptions = !showQuickOptions },
-                    modifier = Modifier.size(30.dp)
+                    onClick = {
+                        showQuickOptions = !showQuickOptions
+                        if (showQuickOptions) {
+                            quickTargetPhaseIndex = selectedIndex
+                            quickTargetDayOffset = 0
+                        }
+                    },
+                    modifier = Modifier.size(if (isLarge) 38.dp else 30.dp)
                 ) {
                     Icon(
                         imageVector = if (showQuickOptions) Icons.Default.ExpandLess else Icons.Default.DateRange,
                         contentDescription = "Schedule",
-                        tint = if (quickTargetDayOffset > 0) TextPrimary else TextTertiary,
-                        modifier = Modifier.size(16.dp)
+                        tint = if (showQuickOptions || quickTargetDayOffset > 0 || quickTargetPhaseIndex != selectedIndex) com.example.checklist.theme.SpaceXAccent else TextTertiary,
+                        modifier = Modifier.size(if (isLarge) 20.dp else 16.dp)
                     )
                 }
 
                 // Add button: 紙飛行機アイコン (Send)
                 IconButton(
                     onClick = { submitQuickTask() },
-                    modifier = Modifier.size(32.dp),
+                    modifier = Modifier.size(if (isLarge) 40.dp else 32.dp),
                     enabled = quickInputTitle.isNotBlank()
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Send,
                         contentDescription = "Add Task",
                         tint = if (quickInputTitle.isNotBlank()) TextPrimary else TextTertiary,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(if (isLarge) 20.dp else 16.dp)
                     )
                 }
             }
@@ -1044,11 +1067,11 @@ fun PhaseScreen(
     // CLEAR COMPLETED CONFIRMATION (不可逆操作防止ダイアログ)
     if (showClearCompletedDialog) {
         SpaceXConfirmDialog(
-            title = if (isEnglish) "CLEAR COMPLETED: ${currentPhase.name.uppercase()}" else "完了タスクの消去: ${currentPhase.name}",
+            title = if (isEnglish) "CLEAR ARCHIVE: ${currentPhase.name.uppercase()}" else "履歴消去: ${currentPhase.name}",
             message = if (isEnglish) 
-                "Delete all completed tasks in this phase?"
+                "Permanently delete all completed and discarded tasks in this phase?"
             else 
-                "このフェーズ内の完了済みタスクを一括削除しますか？",
+                "このフェーズ内の完了済みタスクおよび破棄されたタスクを完全に消去しますか？",
             confirmText = if (isEnglish) "CLEAR" else "消去",
             onConfirm = {
                 viewModel.clearCompletedItems(currentPhase.id)
@@ -1079,13 +1102,13 @@ fun PhaseScreen(
     if (showPrevDaySwipeDialog) {
         val today = java.time.LocalDate.now()
         val curDate = runCatching { java.time.LocalDate.parse(state.currentDate) }.getOrDefault(today)
-        val canGoBack = curDate.isAfter(java.time.YearMonth.from(curDate).atDay(1))
+        val canGoBack = curDate.isAfter(today)
         SpaceXConfirmDialog(
             title = if (isEnglish) "GO TO PREVIOUS DAY" else "前日のフェーズへ戻る",
             message = if (canGoBack) {
                 if (isEnglish) "Return to yesterday's final phase (${curDate.minusDays(1)})?" else "前日（${curDate.minusDays(1)}）の最終フェーズに戻りますか？"
             } else {
-                if (isEnglish) "Cannot navigate prior to the current month." else "今月以前には戻れません。"
+                if (isEnglish) "Cannot navigate prior to today. View past records in Calendar." else "本日より前には戻れません。過去の記録はカレンダーから確認できます。"
             },
             confirmText = if (canGoBack) (if (isEnglish) "RETURN" else "戻る") else "OK",
             cancelText = if (canGoBack) (if (isEnglish) "CANCEL" else "キャンセル") else "",
@@ -1093,8 +1116,7 @@ fun PhaseScreen(
                 showPrevDaySwipeDialog = false
                 if (canGoBack) {
                     val prevDate = curDate.minusDays(1).format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE)
-                    viewModel.setDate(prevDate)
-                    viewModel.selectPhase(state.phases.size - 1)
+                    viewModel.returnToPreviousDay(prevDate)
                 }
             },
             onDismiss = { showPrevDaySwipeDialog = false }
@@ -1102,53 +1124,31 @@ fun PhaseScreen(
     }
 }
 
-// CHECKLIST ITEM ROW (編集・長押しドラッグ並び替え対応)
+// CHECKLIST ITEM ROW (編集・ドラッグ並び替え対応)
 /**
- * タスク並び替え用の長押しドラッグジェスチャー検出
- * 250msの長押しでカードをハイライトし、親のスクロールに奪われず確実にドラッグ可能にする
+ * タスク並び替え用のドラッグジェスチャー検出
+ * ドラッグハンドル「≡」専用。触れて動かした瞬間に即座に親のスクロールを抑制し、スムーズな並び替えを実現する
  */
-private suspend fun PointerInputScope.detectTaskDragAfterLongPress(
+private suspend fun PointerInputScope.detectTaskHandleDrag(
     onDragStart: () -> Unit,
     onDragDelta: (Float) -> Unit,
     onDragEnd: () -> Unit
 ) {
-    awaitEachGesture {
-        val down = awaitFirstDown(requireUnconsumed = false)
-        val longPressTimeout = 220L
-        val longPressCancelled = withTimeoutOrNull(longPressTimeout) {
-            while (true) {
-                val event = awaitPointerEvent(PointerEventPass.Main)
-                val change = event.changes.firstOrNull { it.id == down.id }
-                if (change == null || !change.pressed) {
-                    return@withTimeoutOrNull true
-                }
-                val distance = (change.position - down.position).getDistance()
-                if (distance > 40f) {
-                    return@withTimeoutOrNull true
-                }
-            }
-            @Suppress("UNREACHABLE_CODE")
-            false
-        }
-
-        // タイムアウトした（= 220ms間、微小なブレ内で指が置かれた）場合、長押し成立！
-        if (longPressCancelled == null) {
-            down.consume()
+    detectDragGestures(
+        onDragStart = {
             onDragStart()
-
-            while (true) {
-                val event = awaitPointerEvent(PointerEventPass.Main)
-                val change = event.changes.firstOrNull { it.id == down.id }
-                if (change == null || !change.pressed) {
-                    onDragEnd()
-                    break
-                }
-                val deltaY = change.position.y - change.previousPosition.y
-                change.consume()
-                onDragDelta(deltaY)
-            }
+        },
+        onDrag = { change, dragAmount ->
+            change.consume()
+            onDragDelta(dragAmount.y)
+        },
+        onDragEnd = {
+            onDragEnd()
+        },
+        onDragCancel = {
+            onDragEnd()
         }
-    }
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -1167,11 +1167,13 @@ fun ChecklistItemRow(
     onDragDelta: ((Float) -> Unit)? = null,
     onDragEnd: (() -> Unit)? = null
 ) {
+    val isLarge = LocalLargeButtonMode.current
     val isCompleted = item.isCompleted
     val currentOnDragStart by rememberUpdatedState(onDragStart)
     val currentOnDragDelta by rememberUpdatedState(onDragDelta)
     val currentOnDragEnd by rememberUpdatedState(onDragEnd)
 
+    val cardVerticalPadding = if (isLarge) 9.dp else 6.dp
     val boxModifier = if (isDragging) {
         modifier
             .fillMaxWidth()
@@ -1184,13 +1186,13 @@ fun ChecklistItemRow(
             }
             .border(2.dp, com.example.checklist.theme.SpaceXAccent, SpaceXShape)
             .background(SurfaceElevated, shape = SpaceXShape)
-            .padding(horizontal = 6.dp, vertical = 6.dp)
+            .padding(horizontal = 6.dp, vertical = cardVerticalPadding)
     } else if (isCompleted) {
         // 完了済みカード: 枠を消して行だけの軽い表示にし、未完了タスクを際立たせる
         modifier
             .fillMaxWidth()
             .background(androidx.compose.ui.graphics.Color.Transparent)
-            .padding(horizontal = 6.dp, vertical = 4.dp)
+            .padding(horizontal = 6.dp, vertical = if (isLarge) 6.dp else 4.dp)
     } else {
         // 未完了カード: REQならばテーマアクセント枠(SpaceXAccent: 白/赤/緑)、NORMならば現行(BorderSubtle)
         modifier
@@ -1204,7 +1206,7 @@ fun ChecklistItemRow(
                 if (isCritical) SurfaceElevated else SpaceBlack,
                 shape = SpaceXShape
             )
-            .padding(horizontal = 6.dp, vertical = 6.dp)
+            .padding(horizontal = 6.dp, vertical = cardVerticalPadding)
     }
 
     Box(modifier = boxModifier) {
@@ -1212,13 +1214,13 @@ fun ChecklistItemRow(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Reorder controls: 左端の長押しドラッグハンドル（クリックイベントと完全分離）
+            // Reorder controls: 左端のドラッグハンドル「≡」（触れて動かすだけで即座に並び替え）
             if (onDragStart != null) {
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(if (isLarge) 44.dp else 36.dp)
                         .pointerInput(item.id) {
-                            detectTaskDragAfterLongPress(
+                            detectTaskHandleDrag(
                                 onDragStart = { currentOnDragStart?.invoke() },
                                 onDragDelta = { deltaY -> currentOnDragDelta?.invoke(deltaY) },
                                 onDragEnd = { currentOnDragEnd?.invoke() }
@@ -1228,9 +1230,9 @@ fun ChecklistItemRow(
                 ) {
                     Icon(
                         imageVector = Icons.Default.DragHandle,
-                        contentDescription = "長押しして並び替え",
+                        contentDescription = "ドラッグして並び替え",
                         tint = if (isDragging) com.example.checklist.theme.SpaceXAccent else TextSecondary,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(if (isLarge) 24.dp else 20.dp)
                     )
                 }
                 Spacer(modifier = Modifier.width(4.dp))
@@ -1248,13 +1250,13 @@ fun ChecklistItemRow(
                 // SpaceX Wireframe Checkbox (チェックボックス部分タップでのみ完了トグル: 航空の厳格チェック思想)
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(if (isLarge) 44.dp else 32.dp)
                         .clickable(onClick = onTap),
                     contentAlignment = Alignment.Center
                 ) {
                     SpaceXCheckbox(
                         checked = isCompleted,
-                        size = 24.dp
+                        size = if (isLarge) 28.dp else 24.dp
                     )
                 }
 
@@ -1270,7 +1272,7 @@ fun ChecklistItemRow(
                         Text(
                             text = "CARRYOVER // ${item.sourcePhaseName ?: "PREVIOUS"}",
                             color = TextSecondary,
-                            fontSize = 8.5.sp,
+                            fontSize = if (isLarge) 10.sp else 8.5.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.8.sp
                         )
@@ -1282,7 +1284,7 @@ fun ChecklistItemRow(
                             isCritical -> TextPrimary
                             else -> TextPrimary
                         },
-                        fontSize = if (isCritical) 14.sp else 13.5.sp,
+                        fontSize = if (isCritical) (if (isLarge) 16.sp else 14.sp) else (if (isLarge) 15.sp else 13.5.sp),
                         fontWeight = if (isCritical) FontWeight.Bold else FontWeight.Normal,
                         textDecoration = if (isCompleted) TextDecoration.LineThrough else null,
                         letterSpacing = 0.3.sp,
@@ -1294,30 +1296,32 @@ fun ChecklistItemRow(
             // Delete action (テキストタップで編集可能なため鉛筆アイコンは廃止し、右端に安全なタッチ領域で削除ボタンを配置)
             IconButton(
                 onClick = onDelete,
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(if (isLarge) 40.dp else 32.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Delete item",
                     tint = TextTertiary,
-                    modifier = Modifier.size(15.dp)
+                    modifier = Modifier.size(if (isLarge) 18.dp else 15.dp)
                 )
             }
         }
     }
 }
 
-// DISCARDED ITEM ROW (破棄されたタスクの保管と復元)
+// DISCARDED ITEM ROW (破棄されたタスクの保管・復元・完全消去)
 @Composable
 fun DiscardedItemRow(
     item: ChecklistItem,
-    onRestore: () -> Unit
+    onRestore: () -> Unit,
+    onPermanentDelete: () -> Unit
 ) {
+    val isLarge = LocalLargeButtonMode.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .background(androidx.compose.ui.graphics.Color.Transparent)
-            .padding(horizontal = 6.dp, vertical = 4.dp)
+            .padding(horizontal = 6.dp, vertical = if (isLarge) 6.dp else 4.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1326,7 +1330,7 @@ fun DiscardedItemRow(
             Text(
                 text = "TRASH",
                 color = TextDisabled,
-                fontSize = 9.sp,
+                fontSize = if (isLarge) 10.5.sp else 9.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp
             )
@@ -1336,7 +1340,7 @@ fun DiscardedItemRow(
             Text(
                 text = formatTaskText(item.title),
                 color = TextDisabled,
-                fontSize = 12.sp,
+                fontSize = if (isLarge) 14.sp else 12.sp,
                 textDecoration = TextDecoration.LineThrough,
                 modifier = Modifier.weight(1f),
                 style = TextStyle(lineBreak = SpaceXLineBreak)
@@ -1345,6 +1349,14 @@ fun DiscardedItemRow(
             SpaceXTextButton(
                 text = "RESTORE",
                 onClick = onRestore
+            )
+
+            Spacer(modifier = Modifier.width(6.dp))
+
+            // 完全に破棄（見えなくさせる・永久削除）
+            SpaceXTextButton(
+                text = "DELETE",
+                onClick = onPermanentDelete
             )
         }
     }

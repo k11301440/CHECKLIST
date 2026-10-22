@@ -231,7 +231,8 @@ class ChecklistRepository(private val context: Context) {
     fun selectPhase(index: Int) {
         val current = _appState.value
         if (index in current.phases.indices) {
-            persist(current.copy(selectedPhaseIndex = index))
+            val updatedPhases = TaskSync.propagateCarryoverUpTo(current.phases, index, current.settings)
+            persist(current.copy(phases = updatedPhases, selectedPhaseIndex = index))
         }
     }
 
@@ -251,18 +252,9 @@ class ChecklistRepository(private val context: Context) {
 
     fun completeItem(phaseId: String, itemId: String) {
         val current = _appState.value
-        val targetItem = findItemAcrossPhases(itemId) ?: return
+        findItemAcrossPhases(itemId) ?: return
         val now = System.currentTimeMillis()
-
-        // キャリーオーバー元・先含め、同一実体のタスクを全フェーズで完了同期
-        val updatedPhases = current.phases.map { phase ->
-            val updatedItems = phase.items.map { item ->
-                if (isSameOrCarryoverTask(item, targetItem)) {
-                    item.copy(isCompleted = true, completedAt = now)
-                } else item
-            }
-            phase.copy(items = updatedItems)
-        }
+        val updatedPhases = TaskSync.completeItemInPhase(current.phases, phaseId, itemId, now)
         persist(current.copy(phases = updatedPhases))
     }
 
@@ -271,7 +263,7 @@ class ChecklistRepository(private val context: Context) {
         val targetItem = findItemAcrossPhases(itemId) ?: return
 
         // キャリーオーバー元・先含め、同一実体のタスクを全フェーズで未完了に戻す
-        val updatedPhases = current.phases.map { phase ->
+        val undonePhases = current.phases.map { phase ->
             val updatedItems = phase.items.map { item ->
                 if (isSameOrCarryoverTask(item, targetItem)) {
                     item.copy(isCompleted = false, completedAt = null)
@@ -279,6 +271,7 @@ class ChecklistRepository(private val context: Context) {
             }
             phase.copy(items = updatedItems)
         }
+        val updatedPhases = TaskSync.propagateCarryoverUpTo(undonePhases, current.selectedPhaseIndex, current.settings)
         persist(current.copy(phases = updatedPhases))
     }
 
@@ -321,7 +314,8 @@ class ChecklistRepository(private val context: Context) {
                 phase.copy(items = currentItems)
             } else phase
         }
-        persist(current.copy(phases = updatedPhases))
+        val propagated = TaskSync.propagateCarryoverUpTo(updatedPhases, current.selectedPhaseIndex, current.settings)
+        persist(current.copy(phases = propagated))
     }
 
     fun updateItem(phaseId: String, itemId: String, newTitle: String, newPriority: Priority) {
@@ -338,22 +332,15 @@ class ChecklistRepository(private val context: Context) {
             }
             phase.copy(items = updatedItems)
         }
-        persist(current.copy(phases = updatedPhases))
+        val propagated = TaskSync.propagateCarryoverUpTo(updatedPhases, current.selectedPhaseIndex, current.settings)
+        persist(current.copy(phases = propagated))
     }
 
     // 誤破棄防止のため即時削除ではなく保管（isDeleted = true）- 全フェーズで同期
     fun removeItem(phaseId: String, itemId: String) {
         val current = _appState.value
-        val targetItem = findItemAcrossPhases(itemId) ?: return
-
-        val updatedPhases = current.phases.map { phase ->
-            val updatedItems = phase.items.map { item ->
-                if (isSameOrCarryoverTask(item, targetItem)) {
-                    item.copy(isDeleted = true)
-                } else item
-            }
-            phase.copy(items = updatedItems)
-        }
+        findItemAcrossPhases(itemId) ?: return
+        val updatedPhases = TaskSync.removeItemInPhase(current.phases, phaseId, itemId)
         persist(current.copy(phases = updatedPhases))
     }
 
@@ -362,7 +349,7 @@ class ChecklistRepository(private val context: Context) {
         val current = _appState.value
         val targetItem = findItemAcrossPhases(itemId) ?: return
 
-        val updatedPhases = current.phases.map { phase ->
+        val restoredPhases = current.phases.map { phase ->
             val updatedItems = phase.items.map { item ->
                 if (isSameOrCarryoverTask(item, targetItem)) {
                     item.copy(isDeleted = false)
@@ -370,6 +357,7 @@ class ChecklistRepository(private val context: Context) {
             }
             phase.copy(items = updatedItems)
         }
+        val updatedPhases = TaskSync.propagateCarryoverUpTo(restoredPhases, current.selectedPhaseIndex, current.settings)
         persist(current.copy(phases = updatedPhases))
     }
 
@@ -398,6 +386,15 @@ class ChecklistRepository(private val context: Context) {
         // ID 一致のインスタンス (キャリーオーバー元・先) のみ除去。同名の独立タスクには影響させない
         val updatedPhases = current.phases.map { phase ->
             phase.copy(items = phase.items.filterNot { it.id in clearedIds })
+        }
+        persist(current.copy(phases = updatedPhases))
+    }
+
+    // 破棄されたタスクの完全抹消 (ゴミ箱からの完全削除・全フェーズから永久除去)
+    fun permanentlyDeleteItem(phaseId: String, itemId: String) {
+        val current = _appState.value
+        val updatedPhases = current.phases.map { phase ->
+            phase.copy(items = phase.items.filterNot { it.id == itemId })
         }
         persist(current.copy(phases = updatedPhases))
     }
@@ -434,7 +431,10 @@ class ChecklistRepository(private val context: Context) {
         if (targetIndex < 0) return false
 
         val updatedPhases = current.phases.filterNot { it.id == phaseId }
-        val newIndex = current.selectedPhaseIndex.coerceAtMost(updatedPhases.size - 1)
+        val newIndex = when {
+            targetIndex < current.selectedPhaseIndex -> (current.selectedPhaseIndex - 1).coerceAtLeast(0)
+            else -> current.selectedPhaseIndex.coerceAtMost(updatedPhases.size - 1)
+        }
 
         val updatedSchedules = updatedPhases.mapIndexed { idx, p ->
             val oldSchedule = current.settings.phaseSchedules.find { it.phaseIndex == (if (idx >= targetIndex) idx + 1 else idx) }
@@ -455,10 +455,28 @@ class ChecklistRepository(private val context: Context) {
         val trimmed = newName.trim()
         if (trimmed.isEmpty()) return
         val current = _appState.value
+        val targetIndex = current.phases.indexOfFirst { it.id == phaseId }
+        if (targetIndex < 0) return
+        val oldName = current.phases[targetIndex].name
+
         val updatedPhases = current.phases.map { phase ->
-            if (phase.id == phaseId) phase.copy(name = trimmed) else phase
+            val renamedPhase = if (phase.id == phaseId) phase.copy(name = trimmed) else phase
+            val updatedItems = renamedPhase.items.map { item ->
+                if (item.isCarryover && item.sourcePhaseName == oldName) {
+                    item.copy(sourcePhaseName = trimmed)
+                } else item
+            }
+            renamedPhase.copy(items = updatedItems)
         }
-        persist(current.copy(phases = updatedPhases))
+        val updatedSchedules = current.settings.phaseSchedules.map { s ->
+            if (s.phaseIndex == targetIndex) s.copy(phaseName = trimmed) else s
+        }
+        persist(
+            current.copy(
+                phases = updatedPhases,
+                settings = current.settings.copy(phaseSchedules = updatedSchedules)
+            )
+        )
     }
 
     // 振り返りとフェーズ完了
@@ -512,18 +530,16 @@ class ChecklistRepository(private val context: Context) {
             persist(nextDayState)
         } else {
             // 通常のフェーズ完了 -> 次のフェーズへ進み、未完了タスクを次のフェーズへキャリーオーバー（優先度高いため上部に表示）
-            val uncompletedItems = TaskSync.selectCarryover(targetPhase.items, targetPhase.name, current.settings)
             val nextIndex = targetPhaseIndex + 1
-            val nextPhase = phasesAfterTargetCompletion[nextIndex]
-
-            // 冪等: 同一IDが既に存在 (完了・破棄済み含む)、または同一タイトルの未完了タスクがある場合は二重追加しない
-            val nextPhaseItems = TaskSync.mergeCarryover(nextPhase.items, uncompletedItems)
-
-            phasesAfterTargetCompletion[nextIndex] = nextPhase.copy(items = nextPhaseItems)
+            val propagatedPhases = TaskSync.propagateCarryoverUpTo(
+                phases = phasesAfterTargetCompletion,
+                targetIndex = nextIndex,
+                settings = current.settings
+            )
 
             persist(
                 current.copy(
-                    phases = phasesAfterTargetCompletion,
+                    phases = propagatedPhases,
                     selectedPhaseIndex = nextIndex,
                     reviewLogs = updatedReviewLogs
                 )
@@ -542,27 +558,64 @@ class ChecklistRepository(private val context: Context) {
         updatedReviewLogs: List<ReviewLog>? = null
     ): AppState = TaskSync.buildNextDayState(current, basePhases, uncompletedItems, today, updatedReviewLogs)
 
+    // 直近の時刻判定で観測した時間帯フェーズIndex (-1 = 未初期化/初回起動時)
+    // 手動で過去・未来フェーズを閲覧中に定期チェックやON_RESUMEが走っても、
+    // 実時刻が次のフェーズ境界を跨ぐまでは勝手に引き戻さないために保持する
+    @Volatile
+    private var lastObservedTimePhaseIndex: Int = -1
+
+    fun computeCurrentPhaseIndexByTime(
+        state: AppState = _appState.value,
+        now: LocalTime = LocalTime.now()
+    ): Int = TaskSync.computeCurrentPhaseIndexByTime(state, now)
+
     // 時間ベースのフェーズ判定・自動進行
-    fun checkAndAdvanceByTime() {
+    fun checkAndAdvanceByTime(forceSync: Boolean = false) {
         val current = _appState.value
+        if (current.phases.isEmpty()) return
+
+        val today = getTodayDateString()
+        val matchedIndex = computeCurrentPhaseIndexByTime(current)
+        val previousObservedIndex = lastObservedTimePhaseIndex
+        lastObservedTimePhaseIndex = matchedIndex
+
+        if (current.currentDate.isNotEmpty() && current.currentDate < today) {
+            // 日付をまたいだ場合は、自動進行設定のON/OFFに関わらず新しい日へロールオーバーする
+            // (自動進行ONなら現在時刻のフェーズへ、OFFなら朝(Phase 0)へ進める)
+            val targetIndex = if (current.settings.autoAdvanceByTime) matchedIndex else 0
+            persist(TaskSync.advanceToDateAndPhase(current, today, targetIndex))
+            return
+        }
+
         if (!current.settings.autoAdvanceByTime) return
 
-        val now = LocalTime.now()
-        val schedules = current.settings.phaseSchedules.sortedBy { it.startHour * 60 + it.startMinute }
-        if (schedules.isEmpty()) return
+        // すでに翌日以降へ手動で進んでいる場合は、当日の時刻で勝手にフェーズを変更しない
+        if (current.currentDate.isNotEmpty() && current.currentDate > today) return
 
-        val currentMinutes = now.hour * 60 + now.minute
-        var matchedIndex = 0
-        for (schedule in schedules) {
-            val schedMinutes = schedule.startHour * 60 + schedule.startMinute
-            if (currentMinutes >= schedMinutes && schedule.phaseIndex in current.phases.indices) {
-                matchedIndex = schedule.phaseIndex
-            }
-        }
+        // 初回起動時(previousObservedIndex == -1)、明示的な強制同期(forceSync)、
+        // または実時刻がフェーズ境界を跨いで時間帯が変化した場合のみ自動遷移する。
+        // (ユーザーが手動で別フェーズを見ている最中に同じ時間帯の定期チェックで引き戻されるのを防ぐ)
+        val timeBoundaryCrossed = forceSync || previousObservedIndex == -1 || matchedIndex != previousObservedIndex
+        if (!timeBoundaryCrossed) return
 
-        if (matchedIndex != current.selectedPhaseIndex && matchedIndex in current.phases.indices) {
+        // 現在時刻のフェーズ〜選択中フェーズの直前までが全て完了済み（先取り進行中）の場合は引き戻さない
+        val isAhead = TaskSync.isAheadBecauseCompleted(
+            phases = current.phases,
+            selectedPhaseIndex = current.selectedPhaseIndex,
+            currentPhaseIndexByTime = matchedIndex
+        )
+        if (matchedIndex != current.selectedPhaseIndex && !isAhead && matchedIndex in current.phases.indices) {
             selectPhase(matchedIndex)
         }
+    }
+
+    /** 「現在のフェーズに戻る」: 日付(今日)と時間帯(現在時刻のフェーズ)の両方を現在に合わせ、未完了持越も伝播する */
+    fun returnToCurrentPhase() {
+        val current = _appState.value
+        if (current.phases.isEmpty()) return
+        val today = getTodayDateString()
+        val matchedIndex = computeCurrentPhaseIndexByTime(current)
+        persist(TaskSync.advanceToDateAndPhase(current, today, matchedIndex))
     }
 
     fun advanceToNextDay() {
@@ -601,7 +654,8 @@ class ChecklistRepository(private val context: Context) {
                 })
             } else phase
         }
-        persist(current.copy(phases = updatedPhases))
+        val propagated = TaskSync.propagateCarryoverUpTo(updatedPhases, current.selectedPhaseIndex, current.settings)
+        persist(current.copy(phases = propagated))
     }
 
     fun resetAllPhases() {
@@ -624,13 +678,19 @@ class ChecklistRepository(private val context: Context) {
     fun applyTemplate(phaseId: String, templateId: String, replace: Boolean = false) {
         val current = _appState.value
         val template = current.templates.find { it.id == templateId } ?: return
+        val phaseIdx = current.phases.indexOfFirst { it.id == phaseId }.coerceAtLeast(0)
         val newItems = template.items.map {
-            ChecklistItem(title = it.title, priority = it.priority)
+            ChecklistItem(title = it.title, priority = it.priority, originPhaseIndex = phaseIdx)
         }
 
         val updatedPhases = current.phases.map { phase ->
             if (phase.id == phaseId) {
-                val combined = if (replace) newItems else phase.items + newItems
+                val combined = if (replace) {
+                    newItems
+                } else {
+                    val existingTitles = phase.items.filterNot { it.isDeleted }.map { it.title }.toSet()
+                    phase.items + newItems.filter { it.title !in existingTitles }
+                }
                 phase.copy(items = combined)
             } else phase
         }
@@ -660,8 +720,10 @@ class ChecklistRepository(private val context: Context) {
         }
 
         val templateIndex = updatedTemplates.indexOfFirst { it.id == template.id }
+        val activeDate = runCatching { LocalDate.parse(current.currentDate) }.getOrElse { LocalDate.now() }
+        val applicableToday = isTemplateApplicable(template, activeDate)
 
-        // テンプレートを編集したら即座に現在いるフェーズ以降に反映
+        // テンプレートを編集したら、当日の適用条件に合致する場合のみ現在いるフェーズ以降に反映 (既存アイテムのIDは維持)
         val updatedPhases = current.phases.mapIndexed { pIdx, phase ->
             val isMatching = (pIdx == templateIndex) ||
                     (phase.name.contains("朝") && template.name.contains("朝")) ||
@@ -669,16 +731,20 @@ class ChecklistRepository(private val context: Context) {
                     (phase.name.contains("午後") && template.name.contains("午後")) ||
                     (phase.name.contains("夜") && template.name.contains("夜"))
 
-            if (isMatching && pIdx >= current.selectedPhaseIndex && !phase.isCompleted) {
-                val completedOrSpecial = phase.items.filter { it.isCompleted || it.isCarryover || it.scheduledDate != null }
+            if (applicableToday && isMatching && pIdx >= current.selectedPhaseIndex && !phase.isCompleted) {
+                val existingValid = phase.items.filterNot { it.isDeleted }
                 val newTemplateItems = template.items.map { tItem ->
-                    completedOrSpecial.find { it.title == tItem.title } ?: ChecklistItem(
+                    val existing = existingValid.find { it.title == tItem.title }
+                    existing?.copy(priority = tItem.priority) ?: ChecklistItem(
                         title = tItem.title,
-                        priority = tItem.priority
+                        priority = tItem.priority,
+                        originPhaseIndex = pIdx
                     )
                 }
                 val templateTitles = template.items.map { it.title }.toSet()
-                val extraItems = phase.items.filter { it.title !in templateTitles && (it.isCompleted || it.isCarryover || it.scheduledDate != null) }
+                val extraItems = phase.items.filter {
+                    it.title !in templateTitles && (it.isCompleted || it.isCarryover || it.scheduledDate != null)
+                }
                 phase.copy(items = (newTemplateItems + extraItems).distinctBy { it.id })
             } else {
                 phase
@@ -697,15 +763,26 @@ class ChecklistRepository(private val context: Context) {
         val today = getTodayDateString()
         val current = _appState.value
         if (current.currentDate != today) {
-            persist(TaskSync.releaseDueScheduled(current.copy(currentDate = today), today))
+            val targetIndex = if (current.settings.autoAdvanceByTime) {
+                computeCurrentPhaseIndexByTime(current)
+            } else {
+                current.selectedPhaseIndex
+            }
+            persist(TaskSync.advanceToDateAndPhase(current, today, targetIndex))
         }
     }
 
     fun setDate(dateString: String) {
         val current = _appState.value
         if (current.currentDate != dateString) {
-            persist(TaskSync.releaseDueScheduled(current.copy(currentDate = dateString), dateString))
+            persist(TaskSync.advanceToDateAndPhase(current, dateString, current.selectedPhaseIndex))
         }
+    }
+
+    fun returnToPreviousDay(dateString: String) {
+        val current = _appState.value
+        if (current.phases.isEmpty()) return
+        persist(TaskSync.advanceToDateAndPhase(current, dateString, current.phases.lastIndex))
     }
 
     fun setShowReqNotification(enabled: Boolean) {
@@ -775,16 +852,23 @@ class ChecklistRepository(private val context: Context) {
     fun setAutoAdvanceByTime(enabled: Boolean) {
         val current = _appState.value
         persist(current.copy(settings = current.settings.copy(autoAdvanceByTime = enabled)))
+        if (enabled) {
+            checkAndAdvanceByTime(forceSync = true)
+        }
     }
 
     fun setCarryoverUnfinishedReq(enabled: Boolean) {
         val current = _appState.value
-        persist(current.copy(settings = current.settings.copy(carryoverUnfinishedReq = enabled)))
+        val newSettings = current.settings.copy(carryoverUnfinishedReq = enabled)
+        val updatedPhases = TaskSync.propagateCarryoverUpTo(current.phases, current.selectedPhaseIndex, newSettings)
+        persist(current.copy(phases = updatedPhases, settings = newSettings))
     }
 
     fun setCarryoverUnfinishedNorm(enabled: Boolean) {
         val current = _appState.value
-        persist(current.copy(settings = current.settings.copy(carryoverUnfinishedNorm = enabled)))
+        val newSettings = current.settings.copy(carryoverUnfinishedNorm = enabled)
+        val updatedPhases = TaskSync.propagateCarryoverUpTo(current.phases, current.selectedPhaseIndex, newSettings)
+        persist(current.copy(phases = updatedPhases, settings = newSettings))
     }
 
     fun setConfirmReviewOnAdvance(enabled: Boolean) {
@@ -795,6 +879,7 @@ class ChecklistRepository(private val context: Context) {
     fun updatePhaseSchedules(schedules: List<PhaseSchedule>) {
         val current = _appState.value
         persist(current.copy(settings = current.settings.copy(phaseSchedules = schedules)))
+        checkAndAdvanceByTime(forceSync = true)
     }
 
     fun updatePhaseScheduleTime(phaseIndex: Int, startHour: Int, startMinute: Int) {
@@ -803,6 +888,7 @@ class ChecklistRepository(private val context: Context) {
             if (s.phaseIndex == phaseIndex) s.copy(startHour = startHour, startMinute = startMinute) else s
         }
         persist(current.copy(settings = current.settings.copy(phaseSchedules = updated)))
+        checkAndAdvanceByTime(forceSync = true)
     }
 
     fun applyPresetTemplates() {

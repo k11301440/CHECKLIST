@@ -82,6 +82,10 @@ class ChecklistViewModel(application: Application) : AndroidViewModel(applicatio
         repository.checkAndAdvanceByTime()
     }
 
+    fun returnToCurrentPhase() {
+        repository.returnToCurrentPhase()
+    }
+
     fun resetPhase(phaseId: String) {
         repository.resetPhase(phaseId)
     }
@@ -108,6 +112,10 @@ class ChecklistViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun clearCompletedItems(phaseId: String) {
         repository.clearCompletedItems(phaseId)
+    }
+
+    fun permanentlyDeleteItem(phaseId: String, itemId: String) {
+        repository.permanentlyDeleteItem(phaseId, itemId)
     }
 
     fun restoreDefaultFourPhases() {
@@ -173,6 +181,10 @@ class ChecklistViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun setDate(dateString: String) {
         repository.setDate(dateString)
+    }
+
+    fun returnToPreviousDay(dateString: String) {
+        repository.returnToPreviousDay(dateString)
     }
 
     fun setShowReqNotification(enabled: Boolean) {

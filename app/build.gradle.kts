@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.compose.compiler)
@@ -15,20 +17,32 @@ android {
         versionName = "1.0.1"
     }
 
+    val keystorePropertiesFile = rootProject.file("keystore.properties")
+    val keystoreProperties = Properties().apply {
+        if (keystorePropertiesFile.exists()) {
+            load(keystorePropertiesFile.inputStream())
+        }
+    }
+
     signingConfigs {
         create("release") {
-            val keystoreFile = rootProject.file("checklist-release-key.jks")
-            if (keystoreFile.exists()) {
-                storeFile = keystoreFile
-                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "checklist2026"
-                keyAlias = System.getenv("KEY_ALIAS") ?: "checklist-release-key"
-                keyPassword = System.getenv("KEY_PASSWORD") ?: "checklist2026"
+            val keyPath = System.getenv("KEYSTORE_PATH")
+                ?: keystoreProperties.getProperty("storeFile")
+                ?: "checklist-release-key.jks"
+            val keyFile = rootProject.file(keyPath)
+            val storePass = System.getenv("KEYSTORE_PASSWORD") ?: keystoreProperties.getProperty("storePassword")
+            val keyUser = System.getenv("KEY_ALIAS") ?: keystoreProperties.getProperty("keyAlias")
+            val keyPass = System.getenv("KEY_PASSWORD") ?: keystoreProperties.getProperty("keyPassword")
+
+            if (keyFile.exists() && !storePass.isNullOrEmpty() && !keyUser.isNullOrEmpty() && !keyPass.isNullOrEmpty()) {
+                storeFile = keyFile
+                storePassword = storePass
+                keyAlias = keyUser
+                keyPassword = keyPass
             } else {
-                val debugKeystore = signingConfigs.getByName("debug")
-                storeFile = debugKeystore.storeFile
-                storePassword = debugKeystore.storePassword
-                keyAlias = debugKeystore.keyAlias
-                keyPassword = debugKeystore.keyPassword
+                // キーストアまたはパスワード未設定時:
+                // デバッグ鍵で誤ってリリース署名される事故を防ぐため、デバッグ鍵へのフォールバックは行わない
+                logger.warn("WARNING: Release keystore or passwords not configured. Release build will NOT be signed with release key.")
             }
         }
     }
@@ -38,7 +52,10 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("release")
+            val releaseSigning = signingConfigs.getByName("release")
+            if (releaseSigning.storeFile != null && releaseSigning.storeFile!!.exists()) {
+                signingConfig = releaseSigning
+            }
         }
     }
     compileOptions {

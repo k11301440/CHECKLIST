@@ -101,7 +101,8 @@ data class DailyRecord(
     val totalItems: Int = 0,
     val completedItems: Int = 0,
     val requiredPendingItems: Int = 0,
-    val phaseSummaries: List<PhaseDailySummary> = emptyList()
+    val phaseSummaries: List<PhaseDailySummary> = emptyList(),
+    val phasesSnapshot: List<Phase> = emptyList()
 )
 
 @Serializable
@@ -138,7 +139,7 @@ data class AppSettings(
     val enableSwipePhase: Boolean = true,
     val autoAdvanceByTime: Boolean = true,
     val carryoverUnfinishedReq: Boolean = true,
-    val carryoverUnfinishedNorm: Boolean = false,
+    val carryoverUnfinishedNorm: Boolean = true,
     val confirmReviewOnAdvance: Boolean = false,
     val showReqNotification: Boolean = false,
     val notificationMode: NotificationDisplayMode = NotificationDisplayMode.OFF,

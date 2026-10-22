@@ -2,6 +2,7 @@ package com.example.checklist.data
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -230,5 +231,212 @@ class TaskSyncTest {
         assertEquals(TaskSync.MAX_DAILY_RECORDS, next.dailyRecords.size)
         assertTrue(next.dailyRecords.containsKey("2026-10-19"))
         assertEquals(TaskSync.MAX_REVIEW_LOGS, next.reviewLogs.size)
+    }
+
+    // タブ・スワイプ・時間進行で直接先のフェーズへ移動しても未完了タスクが伝播する
+    @Test
+    fun propagateCarryoverUpTo_carriesAcrossSkippedPhases() {
+        val mTask = ChecklistItem(id = "M1", title = "朝タスク", priority = Priority.REQUIRED, originPhaseIndex = 0)
+        val aTask = ChecklistItem(id = "A1", title = "午前タスク", priority = Priority.NORMAL, originPhaseIndex = 1)
+        val phases = fourPhases(listOf(mTask), listOf(aTask))
+
+        // 朝(0)から午後(2)へ直接移動した場合でも、朝と午前の未完了タスクが午後まで引き継がれる (デフォルト設定: REQ/NORM 両方持越)
+        val propagated = TaskSync.propagateCarryoverUpTo(phases, targetIndex = 2, settings = AppSettings())
+        val pmItems = propagated[2].items
+        assertEquals(listOf("M1", "A1"), pmItems.map { it.id })
+        assertEquals("朝", pmItems.first { it.id == "M1" }.sourcePhaseName)
+        assertEquals("午前", pmItems.first { it.id == "A1" }.sourcePhaseName)
+    }
+
+    // 「現在のフェーズに戻る」/日付またぎ自動進行で、日付と時間帯フェーズが同時に現在へ飛び未完了も引き継がれる
+    @Test
+    fun advanceToDateAndPhase_jumpsDateAndTimeWithCarryover() {
+        val pmTask = ChecklistItem(id = "PM1", title = "前日午後タスク", priority = Priority.REQUIRED, originPhaseIndex = 2)
+        val yesterdayState = state(fourPhases(emptyList(), emptyList(), listOf(pmTask)), date = "2026-10-19")
+
+        // 翌日 (2026-10-20) の午後 (index=2) へジャンプ
+        val jumped = TaskSync.reconcile(
+            TaskSync.advanceToDateAndPhase(yesterdayState, targetDate = "2026-10-20", targetPhaseIndex = 2)
+        )
+        assertEquals("2026-10-20", jumped.currentDate)
+        assertEquals(2, jumped.selectedPhaseIndex)
+        // 前日午後の未完了タスクが翌朝(0)→午前(1)→午後(2)まで伝播している
+        assertTrue(jumped.phases[2].items.any { it.id == "PM1" && !it.isCompleted && it.sourcePhaseName == "午後" })
+    }
+
+    // 先のフェーズを覗き見してから元のフェーズに戻った場合、未来フェーズの未完了持越コピーは整理される
+    // 一方、先のフェーズで「完了」にした持越コピーは戻って進んでも完了のまま維持される (フィードバック⑩-1, ⑩-6)
+    @Test
+    fun peekFuturePhaseAndReturn_trimsUnfinishedButKeepsCompletedCarryover() {
+        val t1 = ChecklistItem(id = "T1", title = "未完了タスク", priority = Priority.REQUIRED, originPhaseIndex = 0)
+        val t2 = ChecklistItem(id = "T2", title = "午前で完了するタスク", priority = Priority.NORMAL, originPhaseIndex = 0)
+        val allCarrySettings = AppSettings(carryoverUnfinishedReq = true, carryoverUnfinishedNorm = true)
+        var phases = fourPhases(listOf(t1, t2))
+
+        // 1. 朝(0) -> 午後(2) まで移動: T1, T2 が午前(1)と午後(2)へ伝播
+        phases = TaskSync.propagateCarryoverUpTo(phases, targetIndex = 2, settings = allCarrySettings)
+        assertEquals(2, phases[1].items.size)
+        assertEquals(2, phases[2].items.size)
+
+        // 2. 午前(1)に戻り、T2 を午前(1)で完了にする
+        phases = TaskSync.propagateCarryoverUpTo(phases, targetIndex = 1, settings = allCarrySettings)
+        // 午後(2)にあった未完了の持越コピーは整理されている
+        assertTrue(phases[2].items.isEmpty())
+
+        phases = TaskSync.completeItemInPhase(phases, phaseId = "p1", itemId = "T2", now = 123L)
+        phases = TaskSync.reconcile(state(phases)).phases
+
+        // 3. 朝(0)へ戻る: T1の午前(1)未完了コピーは整理されるが、午前(1)で完了済みのT2は保持される
+        phases = TaskSync.propagateCarryoverUpTo(phases, targetIndex = 0, settings = allCarrySettings)
+        assertEquals(listOf("T2"), phases[1].items.map { it.id })
+        assertTrue(phases[1].items.single().isCompleted)
+
+        // 4. 再び午前(1)へ進む: T2は完了のまま、未完了のT1が再度キャリーオーバーされる
+        phases = TaskSync.propagateCarryoverUpTo(phases, targetIndex = 1, settings = allCarrySettings)
+        assertEquals(setOf("T1", "T2"), phases[1].items.map { it.id }.toSet())
+        assertTrue(phases[1].items.first { it.id == "T2" }.isCompleted)
+        assertFalse(phases[1].items.first { it.id == "T1" }.isCompleted)
+    }
+
+    // 発生元フェーズ(朝)でタスクを完了にした場合、後続フェーズのキャリーオーバーコピーは除去され件数が重複しない
+    @Test
+    fun completeInOriginPhase_removesLaterCarryoverCopies() {
+        val a = ChecklistItem(id = "A", title = "朝タスク", priority = Priority.REQUIRED, originPhaseIndex = 0)
+        val allCarrySettings = AppSettings(carryoverUnfinishedReq = true, carryoverUnfinishedNorm = true)
+        var phases = fourPhases(listOf(a))
+
+        // 午前(1)へ進みキャリーオーバー発生
+        phases = TaskSync.propagateCarryoverUpTo(phases, targetIndex = 1, settings = allCarrySettings)
+        assertEquals(1, phases[1].items.size)
+
+        // 朝(0)側で完了にする -> 朝(0)は完了になり、午前(1)のキャリーオーバーコピーは消える
+        phases = TaskSync.completeItemInPhase(phases, phaseId = "p0", itemId = "A", now = 500L)
+        assertTrue(phases[0].items.single().isCompleted)
+        assertTrue(phases[1].items.isEmpty())
+    }
+
+    // 翌日に手動で進んだ後、「現在のフェーズに戻る」等で当日に戻った場合、当日の完了状態と翌日予約タスクが正しく復元される
+    @Test
+    fun advanceToNextDayAndReturnToToday_restoresSnapshotAndScheduledTasks() {
+        val doneTask = ChecklistItem(id = "D1", title = "朝完了タスク", priority = Priority.REQUIRED, isCompleted = true, completedAt = 10L)
+        val pendingTask = ChecklistItem(id = "P1", title = "午前未完了タスク", priority = Priority.NORMAL, originPhaseIndex = 1)
+        val tomorrowScheduled = ChecklistItem(id = "S1", title = "明日予約タスク", priority = Priority.REQUIRED, scheduledDate = "2026-10-20", originPhaseIndex = 0)
+
+        val todayState = AppState(
+            currentDate = "2026-10-19",
+            phases = fourPhases(listOf(doneTask), listOf(pendingTask)),
+            selectedPhaseIndex = 1,
+            settings = AppSettings(),
+            scheduledItems = listOf(ScheduledTask("p0", tomorrowScheduled))
+        )
+
+        // 1. 翌日 (2026-10-20) へ進める -> 明日予約タスク S1 がフェーズ0に放出され、D1 は未完了にリセットされる
+        val dayCarry = TaskSync.collectDayCarryover(todayState.phases, todayState.settings)
+        val tomorrowState = TaskSync.buildNextDayState(todayState, todayState.phases, dayCarry, "2026-10-19")
+        assertEquals("2026-10-20", tomorrowState.currentDate)
+        assertTrue(tomorrowState.scheduledItems.isEmpty())
+        assertTrue(tomorrowState.phases[0].items.any { it.id == "S1" })
+        assertFalse(tomorrowState.phases[0].items.first { it.id == "D1" }.isCompleted)
+
+        // 2. 当日 (2026-10-19) の午前 (index=1) に戻る -> D1 は完了状態に復元され、S1 は予約リストに戻る
+        val returnedState = TaskSync.advanceToDateAndPhase(tomorrowState, targetDate = "2026-10-19", targetPhaseIndex = 1)
+        assertEquals("2026-10-19", returnedState.currentDate)
+        assertEquals(1, returnedState.selectedPhaseIndex)
+        assertTrue(returnedState.phases[0].items.first { it.id == "D1" }.isCompleted)
+        assertEquals(listOf("S1"), returnedState.scheduledItems.map { it.item.id })
+        assertFalse(returnedState.phases.flatMap { it.items }.any { it.id == "S1" })
+    }
+
+    // 単発の日付指定タスクが当日未完了だった場合、翌日はキャリーオーバーとして引き継がれ、完了した翌々日には消える
+    @Test
+    fun uncompletedScheduledTask_carriesOverOnceThenDisappearsAfterCompletion() {
+        val sched = ChecklistItem(id = "SCH1", title = "当日単発タスク", priority = Priority.REQUIRED, scheduledDate = "2026-10-19", originPhaseIndex = 0)
+        val day1 = AppState(
+            currentDate = "2026-10-19",
+            phases = fourPhases(listOf(sched)),
+            settings = AppSettings()
+        )
+
+        // Day 1 で未完了のまま Day 2 へ -> Day 2 の朝に isCarryover = true として引き継がれる
+        val carry1 = TaskSync.collectDayCarryover(day1.phases, day1.settings)
+        val day2 = TaskSync.buildNextDayState(day1, day1.phases, carry1, "2026-10-19")
+        val day2Item = day2.phases[0].items.single()
+        assertEquals("SCH1", day2Item.id)
+        assertTrue(day2Item.isCarryover)
+
+        // Day 2 で完了にして Day 3 へ -> 単発タスクなので Day 3 には残らない
+        val day2DonePhases = TaskSync.completeItemInPhase(day2.phases, "p0", "SCH1", 999L)
+        val day2Done = day2.copy(phases = day2DonePhases)
+        val carry2 = TaskSync.collectDayCarryover(day2Done.phases, day2Done.settings)
+        val day3 = TaskSync.buildNextDayState(day2Done, day2Done.phases, carry2, "2026-10-20")
+        assertTrue(day3.phases.all { it.items.isEmpty() })
+    }
+
+    // 時間帯からのフェーズ判定と先取り完了判定の検証
+    @Test
+    fun computeCurrentPhaseIndexByTime_and_isAheadBecauseCompleted() {
+        val s = AppState(phases = fourPhases(), settings = AppSettings())
+        assertEquals(0, TaskSync.computeCurrentPhaseIndexByTime(s, java.time.LocalTime.of(1, 30)))
+        assertEquals(0, TaskSync.computeCurrentPhaseIndexByTime(s, java.time.LocalTime.of(6, 0)))
+        assertEquals(0, TaskSync.computeCurrentPhaseIndexByTime(s, java.time.LocalTime.of(8, 59)))
+        assertEquals(1, TaskSync.computeCurrentPhaseIndexByTime(s, java.time.LocalTime.of(9, 0)))
+        assertEquals(2, TaskSync.computeCurrentPhaseIndexByTime(s, java.time.LocalTime.of(12, 0)))
+        assertEquals(3, TaskSync.computeCurrentPhaseIndexByTime(s, java.time.LocalTime.of(18, 0)))
+        assertEquals(3, TaskSync.computeCurrentPhaseIndexByTime(s, java.time.LocalTime.of(23, 59)))
+
+        val phasesWith0Done = fourPhases().toMutableList().apply {
+            set(0, get(0).copy(isCompleted = true))
+        }
+        // 現在時刻が朝(0)で、朝(0)が完了済みのため午前(1)にいる場合は先取り進行と判定される
+        assertTrue(TaskSync.isAheadBecauseCompleted(phasesWith0Done, selectedPhaseIndex = 1, currentPhaseIndexByTime = 0))
+        // 午前(1)が未完了なのに午後(2)にいる場合は先取り進行ではない (「現在のフェーズに戻る」を表示すべき状態)
+        assertFalse(TaskSync.isAheadBecauseCompleted(phasesWith0Done, selectedPhaseIndex = 2, currentPhaseIndexByTime = 0))
+    }
+
+    // 履歴消去（完了タスク＋ゴミ箱タスクの一括整理）の検証
+    @Test
+    fun clearArchive_removesBothCompletedAndDiscardedTasks() {
+        val activeItem = ChecklistItem(id = "A1", title = "アクティブ")
+        val doneItem = ChecklistItem(id = "D1", title = "完了済み", isCompleted = true)
+        val trashedItem = ChecklistItem(id = "T1", title = "ゴミ箱", isDeleted = true)
+
+        val initialPhases = fourPhases(listOf(activeItem, doneItem, trashedItem))
+        val targetPhase = initialPhases[0]
+        val clearedIds = targetPhase.items.filter { it.isCompleted || it.isDeleted }.map { it.id }.toSet()
+
+        val updatedPhases = initialPhases.map { phase ->
+            phase.copy(items = phase.items.filterNot { it.id in clearedIds })
+        }
+
+        assertEquals(listOf("A1"), updatedPhases[0].items.map { it.id })
+    }
+
+    // 日付付き単発タスクの完了が日跨ぎでチェック外れ復活せず、Snapshotに記録されることの検証
+    @Test
+    fun adHocTaskWithScheduledDate_savedInSnapshot_and_notRevivedNextDay() {
+        val today = "2026-10-22"
+        val adHocDone = ChecklistItem(id = "ADHOC1", title = "本日限りの仕事", scheduledDate = today, isCompleted = true)
+        val routineTask = ChecklistItem(id = "ROUTINE1", title = "毎日の確認", isCompleted = false)
+
+        val stateToday = AppState(
+            currentDate = today,
+            phases = fourPhases(listOf(adHocDone, routineTask)),
+            settings = AppSettings()
+        )
+
+        val dayCarry = TaskSync.collectDayCarryover(stateToday.phases, stateToday.settings)
+        val nextDayState = TaskSync.buildNextDayState(stateToday, stateToday.phases, dayCarry, today)
+
+        // 翌日フェーズには単発完了タスク ADHOC1 は残らず、ROUTINE1 のみが残る
+        val nextPhase0Items = nextDayState.phases[0].items
+        assertFalse(nextPhase0Items.any { it.id == "ADHOC1" })
+        assertTrue(nextPhase0Items.any { it.id == "ROUTINE1" })
+
+        // 当日の Snapshot には完了した ADHOC1 が記録されている
+        val record = nextDayState.dailyRecords[today]
+        assertNotNull(record)
+        val snapItem = record?.phasesSnapshot?.get(0)?.items?.find { it.id == "ADHOC1" }
+        assertNotNull(snapItem)
+        assertTrue(snapItem?.isCompleted == true)
     }
 }

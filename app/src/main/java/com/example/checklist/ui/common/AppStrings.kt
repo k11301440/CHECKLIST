@@ -38,9 +38,9 @@ object AppStrings {
     fun restore(lang: AppLanguage) = if (lang == AppLanguage.EN) "RESTORE" else "復元"
     fun noTasks(lang: AppLanguage) = if (lang == AppLanguage.EN) "NO TASKS IN THIS PHASE" else "このフェーズにはタスクがありません"
     fun noTasksHint(lang: AppLanguage) = if (lang == AppLanguage.EN) 
-        "Add a new task using the input bar below,\nor load presets from Settings > Templates."
+        "Add a new task using the input bar below, or load presets from Settings > Templates."
     else 
-        "下部の入力バーから新しいタスクを追加するか、\n右上の設定 > テンプレートからプリセットを読み込んでください。"
+        "下部の入力バーから新しいタスクを追加するか、右上の設定 > テンプレートからプリセットを読み込んでください。"
 
     // Settings Screen
     fun sectionLanguage(lang: AppLanguage) = if (lang == AppLanguage.EN) "LANGUAGE" else "言語設定"

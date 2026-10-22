@@ -134,61 +134,47 @@ object ReqNotificationHelper {
             return
         }
 
-        val schedules = state.settings.phaseSchedules.sortedBy { it.phaseIndex }
-        val now = LocalTime.now()
-        val nowMinutes = now.hour * 60 + now.minute
+        val schedules = state.settings.phaseSchedules
+            .filter { it.phaseIndex in state.phases.indices }
+            .sortedBy { it.startHour * 60 + it.startMinute }
+        if (schedules.isEmpty()) {
+            alarmManager.cancel(pendingIntent)
+            return
+        }
 
-        // 現在のフェーズの終了時刻＝次のフェーズの開始時刻（夜フェーズなら翌日の最初のフェーズまたは24:00）
-        var targetEndMinutes: Int = -1
-        var targetPhaseName = ""
+        val nowDateTime = LocalDateTime.now()
+        val today = nowDateTime.toLocalDate()
 
-        for (i in schedules.indices) {
-            val sched = schedules[i]
-            val schedMinutes = sched.startHour * 60 + sched.startMinute
-            val nextSched = schedules.getOrNull(i + 1) ?: schedules.first()
-            val nextSchedMinutes = if (i + 1 < schedules.size) {
-                nextSched.startHour * 60 + nextSched.startMinute
-            } else {
-                // 最後のフェーズの終了は翌日の第1フェーズ開始 (または 24:00)
-                (nextSched.startHour * 60 + nextSched.startMinute) + 24 * 60
-            }
+        // 各フェーズの終了時刻 (= 次フェーズの開始時刻) から reminderMinutes を引いた候補時刻を生成し、
+        // 現在時刻より未来の最も近いリマインダー時刻を選択する
+        data class ReminderCandidate(val triggerDateTime: LocalDateTime, val phaseName: String)
+        val candidates = mutableListOf<ReminderCandidate>()
 
-            val isInThisPhase = if (i + 1 < schedules.size) {
-                nowMinutes >= schedMinutes && nowMinutes < nextSchedMinutes
-            } else {
-                nowMinutes >= schedMinutes || nowMinutes < (schedules.first().startHour * 60 + schedules.first().startMinute)
-            }
-
-            if (isInThisPhase) {
-                targetPhaseName = sched.phaseName
-                targetEndMinutes = nextSchedMinutes
-                break
+        for (dayOffset in 0L..1L) {
+            val baseDate = today.plusDays(dayOffset)
+            for (i in schedules.indices) {
+                val sched = schedules[i]
+                val nextSched = schedules[(i + 1) % schedules.size]
+                val schedMinutes = sched.startHour * 60 + sched.startMinute
+                val nextMinutes = nextSched.startHour * 60 + nextSched.startMinute
+                val endDate = if (nextMinutes <= schedMinutes) baseDate.plusDays(1) else baseDate
+                val endDateTime = endDate.atTime(
+                    nextSched.startHour.coerceIn(0, 23),
+                    nextSched.startMinute.coerceIn(0, 59)
+                )
+                val triggerDateTime = endDateTime.minusMinutes(reminderMinutes.toLong())
+                val phaseName = state.phases.getOrNull(sched.phaseIndex)?.name ?: sched.phaseName
+                candidates += ReminderCandidate(triggerDateTime, phaseName)
             }
         }
 
-        if (targetEndMinutes == -1) {
-            targetEndMinutes = (schedules.first().startHour * 60 + schedules.first().startMinute) + 24 * 60
-            targetPhaseName = schedules.lastOrNull()?.phaseName ?: "Current Phase"
-        }
+        val nextCandidate = candidates
+            .filter { it.triggerDateTime.isAfter(nowDateTime.plusSeconds(5)) }
+            .minByOrNull { it.triggerDateTime }
+            ?: return
 
-        // リマインダー通知時刻（終了の reminderMinutes 前）
-        var triggerMinutes = targetEndMinutes - reminderMinutes
-        val today = LocalDate.now()
-        var targetDateTime: LocalDateTime
-
-        if (triggerMinutes > nowMinutes) {
-            val hour = (triggerMinutes % (24 * 60)) / 60
-            val minute = triggerMinutes % 60
-            val daysToAdd = (triggerMinutes / (24 * 60)).toLong()
-            targetDateTime = today.plusDays(daysToAdd).atTime(hour, minute)
-        } else {
-            // すでに今のフェーズのリマインダー時刻を過ぎている場合は、次のフェーズ終了前リマインダーをセット
-            val nextEndMinutes = targetEndMinutes + (3 * 60) // 概算次フェーズ
-            val hour = (nextEndMinutes % (24 * 60)) / 60
-            val minute = nextEndMinutes % 60
-            val daysToAdd = (nextEndMinutes / (24 * 60)).toLong()
-            targetDateTime = today.plusDays(daysToAdd).atTime(hour, minute)
-        }
+        val targetDateTime = nextCandidate.triggerDateTime
+        val targetPhaseName = nextCandidate.phaseName
 
         val triggerEpochMillis = targetDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -119,17 +120,19 @@ fun SpaceXTextButton(
     prominent: Boolean = false,
     shape: Shape = SpaceXShape
 ) {
+    val isLarge = LocalLargeButtonMode.current
     TextButton(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.heightIn(min = if (isLarge) 44.dp else 32.dp),
         shape = shape,
         colors = ButtonDefaults.textButtonColors(
             contentColor = if (prominent) TextPrimary else TextSecondary
-        )
+        ),
+        contentPadding = if (isLarge) PaddingValues(horizontal = 14.dp, vertical = 8.dp) else ButtonDefaults.TextButtonContentPadding
     ) {
         Text(
             text = text,
-            fontSize = 12.sp,
+            fontSize = if (isLarge) 13.5.sp else 12.sp,
             fontWeight = FontWeight.Medium,
             letterSpacing = 1.0.sp
         )
@@ -143,9 +146,11 @@ fun SpaceXCheckbox(
     modifier: Modifier = Modifier,
     size: Dp = 20.dp
 ) {
+    val isLarge = LocalLargeButtonMode.current
+    val effectiveSize = if (isLarge && size == 20.dp) 26.dp else size
     Box(
         modifier = modifier
-            .size(size)
+            .size(effectiveSize)
             .border(
                 width = 1.dp,
                 color = if (checked) TextSecondary else TextPrimary,
@@ -158,7 +163,7 @@ fun SpaceXCheckbox(
             Icon(
                 imageVector = Icons.Default.Check,
                 contentDescription = "Checked",
-                modifier = Modifier.size(size - 4.dp),
+                modifier = Modifier.size(effectiveSize - 4.dp),
                 tint = TextPrimary
             )
         }

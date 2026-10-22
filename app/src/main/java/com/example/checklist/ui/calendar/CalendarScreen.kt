@@ -58,6 +58,7 @@ import com.example.checklist.ui.ChecklistViewModel
 import com.example.checklist.ui.components.SpaceXShape
 import com.example.checklist.ui.components.SpaceXSmallShape
 import com.example.checklist.ui.components.SpaceXTopBar
+import com.example.checklist.ui.components.LocalLargeButtonMode
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -188,11 +189,13 @@ fun CalendarScreen(
                     }
 
                     Row {
+                        val isLarge = LocalLargeButtonMode.current
+                        val monthBtnSize = if (isLarge) 44.dp else 36.dp
                         val canGoPrev = currentYearMonth > YearMonth.now()
                         IconButton(
                             onClick = { if (canGoPrev) currentYearMonth = currentYearMonth.minusMonths(1) },
                             enabled = canGoPrev,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(monthBtnSize)
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
@@ -202,7 +205,7 @@ fun CalendarScreen(
                         }
                         IconButton(
                             onClick = { currentYearMonth = currentYearMonth.plusMonths(1) },
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(monthBtnSize)
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
@@ -297,8 +300,12 @@ fun CalendarScreen(
                                             .combinedClickable(
                                                 onClick = { selectedDate = date },
                                                 onDoubleClick = {
-                                                    viewModel.setDate(dateStr)
-                                                    onBack()
+                                                    if (date == today) {
+                                                        viewModel.returnToCurrentPhase()
+                                                        onBack()
+                                                    } else {
+                                                        selectedDate = date
+                                                    }
                                                 }
                                             ),
                                         contentAlignment = Alignment.Center
@@ -472,6 +479,71 @@ fun CalendarScreen(
                                         fontSize = 11.sp,
                                         modifier = Modifier.padding(start = 16.dp, top = 2.dp, bottom = 4.dp)
                                     )
+                                }
+                            }
+
+                            // 日別スナップショット（過去のタスクとチェック状態の一覧詳細）
+                            if (dailyRecord.phasesSnapshot.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(14.dp))
+                                Text(
+                                    text = if (state.settings.appLanguage == AppLanguage.EN) "TASK ARCHIVE (COMPLETION STATUS)" else "タスク記録（チェック実績）",
+                                    color = TextSecondary,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.sp
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                for (snapPhase in dailyRecord.phasesSnapshot) {
+                                    val validItems = snapPhase.items.filterNot { it.isDeleted }
+                                    if (validItems.isNotEmpty()) {
+                                        Text(
+                                            text = snapPhase.name,
+                                            color = com.example.checklist.theme.SpaceXAccent,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                                        )
+                                        for (item in validItems) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(vertical = 3.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(16.dp)
+                                                        .border(
+                                                            width = 1.dp,
+                                                            color = if (item.isCompleted) com.example.checklist.theme.SpaceXAccent else TextDisabled,
+                                                            shape = SpaceXSmallShape
+                                                        )
+                                                        .background(
+                                                            color = if (item.isCompleted) com.example.checklist.theme.SpaceXAccent else androidx.compose.ui.graphics.Color.Transparent,
+                                                            shape = SpaceXSmallShape
+                                                        ),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    if (item.isCompleted) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Check,
+                                                            contentDescription = "Done",
+                                                            tint = SpaceBlack,
+                                                            modifier = Modifier.size(12.dp)
+                                                        )
+                                                    }
+                                                }
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    text = item.title,
+                                                    color = if (item.isCompleted) TextPrimary else TextSecondary,
+                                                    fontSize = 12.5.sp,
+                                                    textDecoration = if (item.isCompleted) androidx.compose.ui.text.style.TextDecoration.LineThrough else null
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

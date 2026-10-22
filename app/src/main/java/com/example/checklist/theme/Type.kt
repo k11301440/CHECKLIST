@@ -8,11 +8,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.unit.sp
 
-// 日本語の文節改行・孤立文字防止（widow防止・バランス段組み）ルール
+// 右端まで自然に文字を詰めてから折り返す改行ルール (文節改行やBalancedによる途中の不自然な空白・早期改行を防止)
 val SpaceXLineBreak = LineBreak(
-    strategy = LineBreak.Strategy.Balanced,
-    strictness = LineBreak.Strictness.Strict,
-    wordBreak = LineBreak.WordBreak.Phrase
+    strategy = LineBreak.Strategy.Simple,
+    strictness = LineBreak.Strictness.Loose,
+    wordBreak = LineBreak.WordBreak.Default
 )
 
 // タスク名などで末尾1文字だけが次の段に落ちる現象（孤立文字）を防ぐユーティリティ

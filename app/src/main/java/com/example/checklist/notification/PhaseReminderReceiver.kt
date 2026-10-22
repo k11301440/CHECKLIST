@@ -88,5 +88,13 @@ class PhaseReminderReceiver : BroadcastReceiver() {
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(NOTIFICATION_ID, builder.build())
+
+        // 次フェーズのリマインダーも自動スケジュールする
+        try {
+            val repo = com.example.checklist.data.ChecklistRepository.getInstance(context)
+            ReqNotificationHelper.schedulePhaseReminder(context, repo.appState.value)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }

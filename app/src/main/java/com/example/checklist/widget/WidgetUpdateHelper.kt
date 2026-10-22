@@ -241,8 +241,9 @@ object WidgetUpdateHelper {
 
         // Calculate time remaining until next phase
         val schedules = state.settings.phaseSchedules
-        val timeRemainingStr = if (schedules.isNotEmpty()) {
-            val nextSchedule = schedules.find { it.phaseIndex == (currentIdx + 1) % schedules.size } ?: schedules.first()
+        val timeRemainingStr = if (schedules.isNotEmpty() && activePhases.isNotEmpty()) {
+            val nextPhaseIdx = (currentIdx + 1) % activePhases.size
+            val nextSchedule = schedules.find { it.phaseIndex == nextPhaseIdx } ?: schedules.first()
             val now = LocalTime.now()
             val currentMinutes = now.hour * 60 + now.minute
             val nextMinutes = nextSchedule.startHour * 60 + nextSchedule.startMinute

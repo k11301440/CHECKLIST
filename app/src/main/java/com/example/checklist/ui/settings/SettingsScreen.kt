@@ -78,6 +78,7 @@ import com.example.checklist.theme.TextSecondary
 import com.example.checklist.theme.TextTertiary
 import com.example.checklist.ui.ChecklistViewModel
 import com.example.checklist.ui.components.SpaceXButton
+import com.example.checklist.ui.components.LocalLargeButtonMode
 import com.example.checklist.ui.components.SpaceXConfirmDialog
 import com.example.checklist.ui.components.SpaceXDangerButton
 import com.example.checklist.ui.components.SpaceXDivider
@@ -1185,6 +1186,7 @@ private fun ThemeOptionButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isLarge = LocalLargeButtonMode.current
     Box(
         modifier = modifier
             .border(
@@ -1194,14 +1196,14 @@ private fun ThemeOptionButton(
             )
             .background(if (isSelected) SurfaceElevated else SurfaceDark, shape = SpaceXShape)
             .clickable(onClick = onClick)
-            .padding(vertical = 8.dp, horizontal = 6.dp),
+            .padding(vertical = if (isLarge) 12.dp else 8.dp, horizontal = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = text,
                 color = if (isSelected) com.example.checklist.theme.SpaceXAccent else TextSecondary,
-                fontSize = 11.sp,
+                fontSize = if (isLarge) 12.5.sp else 11.sp,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                 letterSpacing = 0.8.sp
             )
@@ -1209,7 +1211,7 @@ private fun ThemeOptionButton(
             Text(
                 text = subtext,
                 color = TextTertiary,
-                fontSize = 9.5.sp
+                fontSize = if (isLarge) 10.5.sp else 9.5.sp
             )
         }
     }
@@ -1222,11 +1224,12 @@ private fun SettingToggleRow(
     enabled: Boolean,
     onToggle: () -> Unit
 ) {
+    val isLarge = LocalLargeButtonMode.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onToggle)
-            .padding(horizontal = 14.dp, vertical = 12.dp)
+            .padding(horizontal = 14.dp, vertical = if (isLarge) 16.dp else 12.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1236,7 +1239,7 @@ private fun SettingToggleRow(
             Text(
                 text = title,
                 color = TextPrimary,
-                fontSize = 13.sp,
+                fontSize = if (isLarge) 14.5.sp else 13.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f).padding(end = 8.dp)
             )
@@ -1244,12 +1247,12 @@ private fun SettingToggleRow(
                 modifier = Modifier
                     .border(1.dp, if (enabled) com.example.checklist.theme.SpaceXAccent else BorderSubtle, SpaceXSmallShape)
                     .background(if (enabled) SurfaceElevated else SpaceBlack, shape = SpaceXSmallShape)
-                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                    .padding(horizontal = if (isLarge) 14.dp else 10.dp, vertical = if (isLarge) 7.dp else 4.dp)
             ) {
                 Text(
                     text = if (enabled) "ON" else "OFF",
                     color = if (enabled) TextPrimary else TextTertiary,
-                    fontSize = 11.sp,
+                    fontSize = if (isLarge) 12.5.sp else 11.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -1258,10 +1261,8 @@ private fun SettingToggleRow(
         Text(
             text = description,
             color = TextSecondary,
-            fontSize = 11.sp,
-            lineHeight = 15.sp,
-            letterSpacing = 0.2.sp,
-            modifier = Modifier.fillMaxWidth()
+            fontSize = if (isLarge) 12.5.sp else 11.sp,
+            lineHeight = if (isLarge) 18.sp else 16.sp
         )
     }
 }
@@ -1530,7 +1531,8 @@ fun ReleaseNotesDialog(
                     text = notesV090,
                     color = TextSecondary,
                     fontSize = 11.5.sp,
-                    lineHeight = 18.sp
+                    lineHeight = 18.sp,
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 Spacer(modifier = Modifier.height(14.dp))
@@ -1570,7 +1572,8 @@ fun ReleaseNotesDialog(
                     text = notesV080,
                     color = TextSecondary,
                     fontSize = 11.5.sp,
-                    lineHeight = 18.sp
+                    lineHeight = 18.sp,
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 Spacer(modifier = Modifier.height(14.dp))
@@ -1606,7 +1609,8 @@ fun ReleaseNotesDialog(
                     text = notesV070,
                     color = TextSecondary,
                     fontSize = 11.5.sp,
-                    lineHeight = 18.sp
+                    lineHeight = 18.sp,
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 Spacer(modifier = Modifier.height(14.dp))
@@ -1652,7 +1656,8 @@ fun ReleaseNotesDialog(
                     text = notesV060,
                     color = TextSecondary,
                     fontSize = 11.5.sp,
-                    lineHeight = 18.sp
+                    lineHeight = 18.sp,
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 Spacer(modifier = Modifier.height(14.dp))
@@ -1676,7 +1681,8 @@ fun ReleaseNotesDialog(
                     text = notesV050,
                     color = TextTertiary,
                     fontSize = 11.sp,
-                    lineHeight = 16.sp
+                    lineHeight = 16.sp,
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 Spacer(modifier = Modifier.height(18.dp))

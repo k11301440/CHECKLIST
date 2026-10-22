@@ -1,6 +1,7 @@
 package com.example.checklist.data
 
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
 /**
@@ -26,8 +27,116 @@ object TaskSync {
         else phase.copy(items = phase.items.map { if (it.id == itemId) transform(it) else it })
     }
 
+    /**
+     * 指定フェーズ (phaseId) でタスクを完了にした際の更新処理。
+     * - 完了操作を行ったフェーズ以前 (または全フェーズ) に存在する同一 ID のインスタンスを完了にする
+     * - 完了操作を行ったフェーズより後のフェーズにある未完了キャリーオーバーコピーは不要になるため除去する
+     *   (先のフェーズを覗き見した後に元フェーズで完了にした場合、先のフェーズに完了済みコピーが残留して件数が膨らむのを防止)
+     */
+    fun completeItemInPhase(
+        phases: List<Phase>,
+        phaseId: String,
+        itemId: String,
+        now: Long = System.currentTimeMillis()
+    ): List<Phase> {
+        val completedPhaseIdx = phases.indexOfFirst { it.id == phaseId }
+        return phases.mapIndexed { idx, phase ->
+            if (phase.items.none { it.id == itemId }) {
+                phase
+            } else if (completedPhaseIdx >= 0 && idx > completedPhaseIdx) {
+                phase.copy(
+                    items = phase.items.mapNotNull { item ->
+                        if (item.id == itemId) {
+                            if (item.isCarryover) null else item.copy(isCompleted = true, completedAt = now)
+                        } else item
+                    }
+                )
+            } else {
+                phase.copy(
+                    items = phase.items.map { item ->
+                        if (item.id == itemId) item.copy(isCompleted = true, completedAt = now) else item
+                    }
+                )
+            }
+        }
+    }
+
+    /**
+     * 指定フェーズ (phaseId) でタスクを破棄 (isDeleted = true) にした際の更新処理。
+     * - 操作フェーズおよび発生元 (非キャリーオーバー) インスタンスを isDeleted = true にし、
+     *   他フェーズに散らばったキャリーオーバーコピーは除去してゴミ箱の重複表示を防ぐ
+     */
+    fun removeItemInPhase(
+        phases: List<Phase>,
+        phaseId: String,
+        itemId: String
+    ): List<Phase> {
+        val removedPhaseIdx = phases.indexOfFirst { it.id == phaseId }
+        return phases.mapIndexed { idx, phase ->
+            if (phase.items.none { it.id == itemId }) {
+                phase
+            } else {
+                phase.copy(
+                    items = phase.items.mapNotNull { item ->
+                        if (item.id == itemId) {
+                            if (!item.isCarryover || idx == removedPhaseIdx || removedPhaseIdx < 0) {
+                                item.copy(isDeleted = true)
+                            } else {
+                                null
+                            }
+                        } else item
+                    }
+                )
+            }
+        }
+    }
+
     fun containsItem(phases: List<Phase>, itemId: String): Boolean =
         phases.any { p -> p.items.any { it.id == itemId } }
+
+    /**
+     * 現在時刻 (now) とスケジュール設定から、現在時刻に対応するフェーズインデックスを算出する。
+     */
+    fun computeCurrentPhaseIndexByTime(
+        state: AppState,
+        now: LocalTime = LocalTime.now()
+    ): Int {
+        if (state.phases.isEmpty()) return 0
+        val validSchedules = state.settings.phaseSchedules
+            .filter { it.phaseIndex in state.phases.indices }
+            .sortedBy { it.startHour * 60 + it.startMinute }
+        if (validSchedules.isEmpty()) return state.selectedPhaseIndex.coerceIn(0, state.phases.lastIndex)
+
+        val currentMinutes = now.hour * 60 + now.minute
+        var matchedIndex = validSchedules.first().phaseIndex
+        for (schedule in validSchedules) {
+            val schedMinutes = schedule.startHour * 60 + schedule.startMinute
+            if (currentMinutes >= schedMinutes) {
+                matchedIndex = schedule.phaseIndex
+            }
+        }
+        return matchedIndex.coerceIn(0, state.phases.lastIndex)
+    }
+
+    fun isPhaseCleared(phase: Phase): Boolean {
+        val valid = phase.items.filterNot { it.isDeleted }
+        return phase.isCompleted || (valid.isNotEmpty() && valid.none { !it.isCompleted })
+    }
+
+    /**
+     * 現在の選択フェーズ (selectedPhaseIndex) が現在時刻のフェーズ (currentPhaseIndexByTime) より先にある場合、
+     * その間のフェーズがすべて完了（または全タスク消化済み）による先取り移行かどうかを判定する。
+     */
+    fun isAheadBecauseCompleted(
+        phases: List<Phase>,
+        selectedPhaseIndex: Int,
+        currentPhaseIndexByTime: Int
+    ): Boolean {
+        if (selectedPhaseIndex <= currentPhaseIndexByTime) return false
+        return (currentPhaseIndexByTime until selectedPhaseIndex).all { idx ->
+            phases.getOrNull(idx)?.let(::isPhaseCleared) == true
+        }
+    }
 
     private data class Status(
         val title: String,
@@ -93,6 +202,7 @@ object TaskSync {
     }
 
     const val MAX_DAILY_RECORDS = 400
+    const val MAX_SNAPSHOT_RECORDS = 14
     const val MAX_REVIEW_LOGS = 1000
 
     /**
@@ -144,7 +254,12 @@ object TaskSync {
      * 日別レコード作成。キャリーオーバーで複数フェーズに存在する同一タスクは
      * 合計値では 1 件として数える (二重計上防止)。
      */
-    fun createDailyRecord(date: String, phases: List<Phase>, now: Long = System.currentTimeMillis()): DailyRecord {
+    fun createDailyRecord(
+        date: String,
+        phases: List<Phase>,
+        now: Long = System.currentTimeMillis(),
+        includeSnapshot: Boolean = true
+    ): DailyRecord {
         val unique = phases.flatMap { it.items }.filterNot { it.isDeleted }.distinctBy { it.id }
         val summaries = phases.map { p ->
             PhaseDailySummary(
@@ -162,8 +277,161 @@ object TaskSync {
             totalItems = unique.size,
             completedItems = unique.count { it.isCompleted },
             requiredPendingItems = unique.count { it.priority == Priority.REQUIRED && !it.isCompleted },
-            phaseSummaries = summaries
+            phaseSummaries = summaries,
+            phasesSnapshot = if (includeSnapshot) phases else emptyList()
         )
+    }
+
+    /**
+     * 現在のフェーズ (currentPhaseIndex) より未来のフェーズにある「未完了のキャリーオーバーコピー」や、
+     * キャリーオーバー設定OFFの優先度の未完了キャリーオーバーコピーを整理する。
+     * これにより、未来のフェーズを覗き見してから元のフェーズに戻った際に未来フェーズへ未完了コピーが残留しない。
+     * ※ 未来のフェーズで既に「完了済み (isCompleted = true)」にしたキャリーオーバータスクは保護する。
+     */
+    fun trimFutureUnfinishedCarryover(
+        phases: List<Phase>,
+        currentPhaseIndex: Int,
+        settings: AppSettings? = null
+    ): List<Phase> {
+        if (phases.isEmpty()) return phases
+        val clamped = currentPhaseIndex.coerceIn(0, phases.lastIndex)
+        return phases.mapIndexed { idx, phase ->
+            val earlierIds = if (idx > 0) {
+                phases.subList(0, idx).flatMap { it.items }.map { it.id }.toSet()
+            } else {
+                emptySet()
+            }
+            val filtered = phase.items.filterNot { item ->
+                val isSameDayCarryover = item.isCarryover && item.id in earlierIds
+                val isUnfinished = !item.isCompleted && !item.isDeleted
+                val isAfterCurrent = idx > clamped
+                val isDisabledBySettings = settings != null && (
+                    (item.priority == Priority.REQUIRED && !settings.carryoverUnfinishedReq) ||
+                    (item.priority == Priority.NORMAL && !settings.carryoverUnfinishedNorm)
+                )
+                isSameDayCarryover && isUnfinished && (isAfterCurrent || isDisabledBySettings)
+            }
+            if (filtered.size == phase.items.size) phase else phase.copy(items = filtered)
+        }
+    }
+
+    /**
+     * フェーズ 0 から targetIndex まで順番に未完了の持越対象タスクを伝播させる。
+     * 「次のフェーズへ」ボタンを押さずにタブ・スワイプ・時間自動進行・「現在のフェーズに戻る」等で
+     * 次の時間帯へ移動した場合でも、前フェーズの未完了タスクが確実にキャリーオーバーされることを保証する。
+     * 同時に targetIndex より後のフェーズにある未完了持越コピーは整理する。
+     */
+    fun propagateCarryoverUpTo(
+        phases: List<Phase>,
+        targetIndex: Int,
+        settings: AppSettings
+    ): List<Phase> {
+        if (phases.isEmpty()) return phases
+        val end = targetIndex.coerceIn(0, phases.lastIndex)
+        val trimmed = trimFutureUnfinishedCarryover(phases, end, settings).toMutableList()
+        for (i in 0 until end) {
+            val src = trimmed[i]
+            val dst = trimmed[i + 1]
+            val carry = selectCarryover(src.items, src.name, settings)
+            if (carry.isNotEmpty()) {
+                trimmed[i + 1] = dst.copy(items = mergeCarryover(dst.items, carry))
+            }
+        }
+        return trimmed
+    }
+
+    /**
+     * 指定した日付 (targetDate) とフェーズ (targetPhaseIndex) へ状態を遷移させる。
+     * - 現在の日付が過去日の場合は日次レコードを保存し、未完了タスクを翌朝(Phase 0)へ引き継いでから targetDate へ進める
+     * - 現在の日付が未来日の場合 (手動で翌日へ進んだ後に当日へ戻る等) は、未来日付の予約タスクを予約リストへ戻し、
+     *   保存されていた targetDate のフェーズスナップショットがあれば復元する
+     * - その後、Phase 0 から targetPhaseIndex まで未完了タスクを伝播させる
+     */
+    fun advanceToDateAndPhase(
+        state: AppState,
+        targetDate: String,
+        targetPhaseIndex: Int
+    ): AppState {
+        if (state.phases.isEmpty()) return state.copy(currentDate = targetDate)
+
+        val dateAlignedState = when {
+            state.currentDate.isNotEmpty() && state.currentDate < targetDate -> {
+                val dayCarryover = collectDayCarryover(state.phases, state.settings)
+                buildNextDayState(
+                    current = state,
+                    basePhases = state.phases,
+                    uncompletedItems = dayCarryover,
+                    today = state.currentDate,
+                    targetDate = targetDate
+                )
+            }
+            state.currentDate.isNotEmpty() && state.currentDate > targetDate -> {
+                restoreOrRewindToDate(state, targetDate)
+            }
+            else -> {
+                releaseDueScheduled(state.copy(currentDate = targetDate), targetDate)
+            }
+        }
+
+        val clampedIndex = targetPhaseIndex.coerceIn(0, dateAlignedState.phases.lastIndex)
+        val propagatedPhases = propagateCarryoverUpTo(
+            phases = dateAlignedState.phases,
+            targetIndex = clampedIndex,
+            settings = dateAlignedState.settings
+        )
+        return reconcile(
+            dateAlignedState.copy(
+                phases = propagatedPhases,
+                selectedPhaseIndex = clampedIndex
+            )
+        )
+    }
+
+    /**
+     * 翌日以降 (state.currentDate > targetDate) から targetDate へ戻る際の復元処理。
+     * 1. targetDate より後の予約タスク (scheduledDate > targetDate) を scheduledItems へ戻す
+     * 2. dailyRecords[targetDate] に phasesSnapshot が保存されている場合はそれを復元し、
+     *    翌日画面で新規追加されたタスクや完了状態の変更があればマージする
+     */
+    private fun restoreOrRewindToDate(state: AppState, targetDate: String): AppState {
+        val rewound = extractFutureScheduled(state.copy(currentDate = targetDate))
+        val snapshot = rewound.dailyRecords[targetDate]?.phasesSnapshot
+        if (snapshot.isNullOrEmpty() || snapshot.size != rewound.phases.size) {
+            return releaseDueScheduled(rewound, targetDate)
+        }
+
+        val snapshotIds = snapshot.flatMap { it.items }.map { it.id }.toSet()
+        // 翌日画面で完了・破棄・タイトル変更されたタスクの状態を収集
+        val currentItemsById = rewound.phases.flatMap { it.items }.associateBy { it.id }
+
+        val restoredPhases = snapshot.mapIndexed { idx, snapPhase ->
+            val currentPhase = rewound.phases.getOrNull(idx)
+            // スナップショットに存在しなかった新規追加タスク（非キャリーオーバー）を保持
+            val newlyAdded = currentPhase?.items?.filter { item ->
+                item.id !in snapshotIds && !item.isCarryover &&
+                    (item.scheduledDate == null || item.scheduledDate <= targetDate)
+            } ?: emptyList()
+
+            val syncedSnapItems = snapPhase.items.map { item ->
+                val cur = currentItemsById[item.id]
+                if (cur != null) {
+                    // 翌日側で新たに完了または破棄された場合はその変更を反映、それ以外はスナップショットの完了状態を維持
+                    val completed = item.isCompleted || cur.isCompleted
+                    val completedAt = if (completed) (item.completedAt ?: cur.completedAt) else null
+                    item.copy(
+                        title = cur.title,
+                        priority = cur.priority,
+                        isCompleted = completed,
+                        completedAt = completedAt,
+                        isDeleted = item.isDeleted || cur.isDeleted
+                    )
+                } else item
+            }
+
+            snapPhase.copy(items = syncedSnapItems + newlyAdded)
+        }
+
+        return releaseDueScheduled(rewound.copy(phases = restoredPhases), targetDate)
     }
 
     /** 全フェーズから翌日への持越対象を ID 重複なしで抽出 (最初に現れたインスタンス = 発生元を優先) */
@@ -175,21 +443,23 @@ object TaskSync {
         basePhases: List<Phase>,
         uncompletedItems: List<ChecklistItem>,
         today: String,
-        updatedReviewLogs: List<ReviewLog>? = null
+        updatedReviewLogs: List<ReviewLog>? = null,
+        targetDate: String? = null
     ): AppState {
-        val dailyRecord = createDailyRecord(today, basePhases)
+        val dailyRecord = createDailyRecord(today, basePhases, includeSnapshot = true)
         val rawDailyRecords = current.dailyRecords + (today to dailyRecord)
-        val updatedDailyRecords = if (rawDailyRecords.size > MAX_DAILY_RECORDS) {
-            rawDailyRecords.entries
-                .sortedByDescending { it.key }
-                .take(MAX_DAILY_RECORDS)
-                .associate { it.toPair() }
-        } else {
-            rawDailyRecords
-        }
+        val sortedEntries = rawDailyRecords.entries.sortedByDescending { it.key }
+        val updatedDailyRecords = sortedEntries
+            .take(MAX_DAILY_RECORDS)
+            .mapIndexed { idx, entry ->
+                if (idx < MAX_SNAPSHOT_RECORDS) entry.key to entry.value
+                else entry.key to entry.value.copy(phasesSnapshot = emptyList())
+            }
+            .toMap()
 
         val baseDate = runCatching { LocalDate.parse(today) }.getOrElse { LocalDate.now() }
-        val tomorrowDate = baseDate.plusDays(1)
+        val tomorrowDate = targetDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+            ?: baseDate.plusDays(1)
         val tomorrow = tomorrowDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
 
         val uniqueCarryover = uncompletedItems.distinctBy { it.id }
@@ -210,8 +480,8 @@ object TaskSync {
                     // キャリーオーバー個体 (isCarryover = true) は一時的な持越データのため、翌日の基本ルーティンには残さない
                     // (未完了のものは uniqueCarryover 経由で翌朝フェーズの先頭に引き継がれる)
                     .filterNot { it.isCarryover }
-                    // 当日以前の単発日付予約タスクで完了済みのものは翌日に繰り返さない
-                    .filterNot { it.scheduledDate != null && it.scheduledDate <= today && it.isCompleted }
+                    // 当日以前の単発日付予約タスクは基本ルーティンには残さない (未完了かつ持越対象のものは uniqueCarryover で翌朝へ引き継がれる)
+                    .filterNot { it.scheduledDate != null && it.scheduledDate <= today }
                     // 翌朝(index=0)へキャリーオーバーされる未完了タスクが元フェーズ(index>0)にも残って二重化しないよう除外
                     .filterNot { index > 0 && it.id in carryoverIds }
                     .map {
