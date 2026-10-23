@@ -66,6 +66,7 @@ import com.example.checklist.data.AppState
 import com.example.checklist.data.Phase
 import com.example.checklist.data.PhaseTemplate
 import com.example.checklist.data.ThemeMode
+import com.example.checklist.data.UiSize
 import com.example.checklist.ui.common.AppStrings
 import com.example.checklist.theme.BorderProminent
 import com.example.checklist.theme.BorderSubtle
@@ -79,6 +80,10 @@ import com.example.checklist.theme.TextTertiary
 import com.example.checklist.ui.ChecklistViewModel
 import com.example.checklist.ui.components.SpaceXButton
 import com.example.checklist.ui.components.LocalLargeButtonMode
+import com.example.checklist.ui.components.LocalUiSize
+import com.example.checklist.ui.components.uiDimension
+import com.example.checklist.ui.components.uiFontSize
+import com.example.checklist.ui.components.scaledWithFont
 import com.example.checklist.ui.components.SpaceXConfirmDialog
 import com.example.checklist.ui.components.SpaceXDangerButton
 import com.example.checklist.ui.components.SpaceXDivider
@@ -120,6 +125,7 @@ fun SettingsScreen(
     var showAviationTipsDialog by remember { mutableStateOf(false) }
     val lang = state.settings.appLanguage
     val isEnglish = lang == AppLanguage.EN
+    val isLarge = LocalLargeButtonMode.current
 
     Column(
         modifier = modifier
@@ -137,23 +143,23 @@ fun SettingsScreen(
         ) {
             IconButton(
                 onClick = onBack,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(uiDimension(34.dp, 38.dp, 44.dp).scaledWithFont())
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
                     tint = TextSecondary,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(uiDimension(18.dp, 21.dp, 24.dp).scaledWithFont())
                 )
             }
             Text(
                 text = AppStrings.settings(lang),
                 color = TextPrimary,
-                fontSize = 14.sp,
+                fontSize = uiFontSize(13.sp, 14.5.sp, 16.sp),
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.2.sp
             )
-            Spacer(modifier = Modifier.size(36.dp))
+            Spacer(modifier = Modifier.size(uiDimension(34.dp, 38.dp, 44.dp)))
         }
 
         LazyColumn(
@@ -474,16 +480,56 @@ fun SettingsScreen(
 
                     SpaceXDivider()
 
-                    // 大きなボタン表示トグル (画面サイズ適応 & 押し間違い防止)
-                    SettingToggleRow(
-                        title = if (isEnglish) "Large Button Mode" else "大きなボタン表示",
-                        description = if (isEnglish)
-                            "Enlarge buttons and touch targets to improve accessibility and prevent mis-taps on various screen sizes."
-                        else
-                            "ボタンの縦幅とタッチ領域を拡大し、押し間違いを防止します（画面サイズの異なる端末に最適化）。",
-                        enabled = state.settings.useLargeButtons,
-                        onToggle = { viewModel.setUseLargeButtons(!state.settings.useLargeButtons) }
-                    )
+                    // UIサイズ設定（文字・ボタンサイズを3段階で一括調整）
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp)
+                    ) {
+                        Text(
+                            text = if (isEnglish) "DISPLAY & UI SIZE" else "表示とUIサイズ（文字・ボタン）",
+                            color = TextPrimary,
+                            fontSize = uiFontSize(13.sp, 14.sp, 15.sp),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = if (isEnglish)
+                                "Scale text and button touch areas across all screens (Default: MEDIUM)."
+                            else
+                                "文字の大きさやボタンのタッチ領域をまとめて調整します（デフォルト：中）。",
+                            color = TextSecondary,
+                            fontSize = uiFontSize(11.5.sp, 12.5.sp, 13.5.sp),
+                            lineHeight = uiFontSize(16.sp, 18.sp, 20.sp)
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            ThemeOptionButton(
+                                text = if (isEnglish) "SMALL" else "小",
+                                subtext = if (isEnglish) "Compact" else "コンパクト",
+                                isSelected = state.settings.uiSize == UiSize.SMALL,
+                                onClick = { viewModel.setUiSize(UiSize.SMALL) },
+                                modifier = Modifier.weight(1f)
+                            )
+                            ThemeOptionButton(
+                                text = if (isEnglish) "MEDIUM" else "中",
+                                subtext = if (isEnglish) "Default" else "標準 (デフォルト)",
+                                isSelected = state.settings.uiSize == UiSize.MEDIUM,
+                                onClick = { viewModel.setUiSize(UiSize.MEDIUM) },
+                                modifier = Modifier.weight(1f)
+                            )
+                            ThemeOptionButton(
+                                text = if (isEnglish) "LARGE" else "大",
+                                subtext = if (isEnglish) "Large" else "見やすい大表示",
+                                isSelected = state.settings.uiSize == UiSize.LARGE,
+                                onClick = { viewModel.setUiSize(UiSize.LARGE) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -927,7 +973,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "v0.9.0 (Closed Beta)",
+                            text = "v1.0.3",
                             color = TextPrimary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
@@ -1186,7 +1232,6 @@ private fun ThemeOptionButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isLarge = LocalLargeButtonMode.current
     Box(
         modifier = modifier
             .border(
@@ -1196,14 +1241,14 @@ private fun ThemeOptionButton(
             )
             .background(if (isSelected) SurfaceElevated else SurfaceDark, shape = SpaceXShape)
             .clickable(onClick = onClick)
-            .padding(vertical = if (isLarge) 12.dp else 8.dp, horizontal = 6.dp),
+            .padding(vertical = uiDimension(8.dp, 10.dp, 13.dp), horizontal = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = text,
                 color = if (isSelected) com.example.checklist.theme.SpaceXAccent else TextSecondary,
-                fontSize = if (isLarge) 12.5.sp else 11.sp,
+                fontSize = uiFontSize(11.sp, 12.sp, 13.sp),
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                 letterSpacing = 0.8.sp
             )
@@ -1211,7 +1256,7 @@ private fun ThemeOptionButton(
             Text(
                 text = subtext,
                 color = TextTertiary,
-                fontSize = if (isLarge) 10.5.sp else 9.5.sp
+                fontSize = uiFontSize(9.sp, 10.sp, 11.sp)
             )
         }
     }
@@ -1224,12 +1269,11 @@ private fun SettingToggleRow(
     enabled: Boolean,
     onToggle: () -> Unit
 ) {
-    val isLarge = LocalLargeButtonMode.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onToggle)
-            .padding(horizontal = 14.dp, vertical = if (isLarge) 16.dp else 12.dp)
+            .padding(horizontal = 14.dp, vertical = uiDimension(10.dp, 13.dp, 16.dp))
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1239,7 +1283,7 @@ private fun SettingToggleRow(
             Text(
                 text = title,
                 color = TextPrimary,
-                fontSize = if (isLarge) 14.5.sp else 13.sp,
+                fontSize = uiFontSize(12.5.sp, 13.5.sp, 15.sp),
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f).padding(end = 8.dp)
             )
@@ -1247,12 +1291,12 @@ private fun SettingToggleRow(
                 modifier = Modifier
                     .border(1.dp, if (enabled) com.example.checklist.theme.SpaceXAccent else BorderSubtle, SpaceXSmallShape)
                     .background(if (enabled) SurfaceElevated else SpaceBlack, shape = SpaceXSmallShape)
-                    .padding(horizontal = if (isLarge) 14.dp else 10.dp, vertical = if (isLarge) 7.dp else 4.dp)
+                    .padding(horizontal = uiDimension(10.dp, 12.dp, 15.dp), vertical = uiDimension(4.dp, 5.5.dp, 7.dp))
             ) {
                 Text(
                     text = if (enabled) "ON" else "OFF",
                     color = if (enabled) TextPrimary else TextTertiary,
-                    fontSize = if (isLarge) 12.5.sp else 11.sp,
+                    fontSize = uiFontSize(11.sp, 12.sp, 13.sp),
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -1261,8 +1305,8 @@ private fun SettingToggleRow(
         Text(
             text = description,
             color = TextSecondary,
-            fontSize = if (isLarge) 12.5.sp else 11.sp,
-            lineHeight = if (isLarge) 18.sp else 16.sp
+            fontSize = uiFontSize(11.sp, 12.sp, 13.sp),
+            lineHeight = uiFontSize(15.sp, 17.sp, 19.sp)
         )
     }
 }
@@ -1496,6 +1540,37 @@ fun ReleaseNotesDialog(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
                 )
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // v1.0.3
+                Text(
+                    text = "v1.0.3",
+                    color = TextPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                val notesV103 = if (isEnglish) {
+                    """
+                    • 3-Tier UI Scale Setting: Choose between Small (Compact), Medium (Default), and Large for both text and buttons simultaneously in Settings. Default is now Medium for optimal readability.
+                    • Streamlined Task Lifecycle: Removed the redundant '×' delete button from completed tasks (clearing completed tasks via 'CLEAR' remains the designated purge flow), while preserving '×' on active uncompleted tasks.
+                    """.trimIndent()
+                } else {
+                    """
+                    ・文字＆ボタンの3段階UIサイズ設定: 文字とボタンのサイズを「小・中・大」の3段階でまとめて切り替え可能に。見やすさを向上するため「中」をデフォルトに設定。
+                    ・タスク状態管理の洗練（未完了→完了→履歴消去）: 完了したタスクの右端「×」ボタンを撤廃し、誤操作を防止（履歴消去で完全消去）。未完了タスクの「×」は維持。
+                    """.trimIndent()
+                }
+                Text(
+                    text = notesV103,
+                    color = TextSecondary,
+                    fontSize = 11.5.sp,
+                    lineHeight = 18.sp,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+                SpaceXDivider()
                 Spacer(modifier = Modifier.height(14.dp))
 
                 // v0.9.0

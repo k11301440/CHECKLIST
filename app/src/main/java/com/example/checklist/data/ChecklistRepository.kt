@@ -79,20 +79,27 @@ class ChecklistRepository(private val context: Context) {
             ?: tryLoadFromFile(backupFile)
             ?: createDefaultState()
 
-        val migratedSettings = if (loaded.settings.darkThemeConfig == DarkThemeConfig.DARK &&
-            loaded.settings.accentTheme == AccentTheme.MONOCHROME &&
-            loaded.settings.themeMode != ThemeMode.SPACE_BLACK
-        ) {
-            when (loaded.settings.themeMode) {
-                ThemeMode.SPACE_WHITE -> loaded.settings.copy(darkThemeConfig = DarkThemeConfig.LIGHT, accentTheme = AccentTheme.MONOCHROME)
-                ThemeMode.TRON_RED -> loaded.settings.copy(darkThemeConfig = DarkThemeConfig.DARK, accentTheme = AccentTheme.TRON)
-                ThemeMode.MONSTER_GREEN -> loaded.settings.copy(darkThemeConfig = DarkThemeConfig.DARK, accentTheme = AccentTheme.MONSTER)
-                ThemeMode.ANA_BLUE -> loaded.settings.copy(darkThemeConfig = DarkThemeConfig.DARK, accentTheme = AccentTheme.ANA)
-                ThemeMode.JAL_RED -> loaded.settings.copy(darkThemeConfig = DarkThemeConfig.DARK, accentTheme = AccentTheme.JAL)
-                ThemeMode.SYSTEM -> loaded.settings.copy(darkThemeConfig = DarkThemeConfig.SYSTEM, accentTheme = AccentTheme.MONOCHROME)
+        val migratedSettings = run {
+            val base = if (loaded.settings.darkThemeConfig == DarkThemeConfig.DARK &&
+                loaded.settings.accentTheme == AccentTheme.MONOCHROME &&
+                loaded.settings.themeMode != ThemeMode.SPACE_BLACK
+            ) {
+                when (loaded.settings.themeMode) {
+                    ThemeMode.SPACE_WHITE -> loaded.settings.copy(darkThemeConfig = DarkThemeConfig.LIGHT, accentTheme = AccentTheme.MONOCHROME)
+                    ThemeMode.TRON_RED -> loaded.settings.copy(darkThemeConfig = DarkThemeConfig.DARK, accentTheme = AccentTheme.TRON)
+                    ThemeMode.MONSTER_GREEN -> loaded.settings.copy(darkThemeConfig = DarkThemeConfig.DARK, accentTheme = AccentTheme.MONSTER)
+                    ThemeMode.ANA_BLUE -> loaded.settings.copy(darkThemeConfig = DarkThemeConfig.DARK, accentTheme = AccentTheme.ANA)
+                    ThemeMode.JAL_RED -> loaded.settings.copy(darkThemeConfig = DarkThemeConfig.DARK, accentTheme = AccentTheme.JAL)
+                    ThemeMode.SYSTEM -> loaded.settings.copy(darkThemeConfig = DarkThemeConfig.SYSTEM, accentTheme = AccentTheme.MONOCHROME)
+                }
+            } else {
+                loaded.settings
             }
-        } else {
-            loaded.settings
+            if (base.useLargeButtons && base.uiSize == UiSize.MEDIUM) {
+                base.copy(uiSize = UiSize.LARGE)
+            } else {
+                base
+            }
         }
 
         val stateWithDate = (if (loaded.currentDate.isEmpty()) {
@@ -797,9 +804,13 @@ class ChecklistRepository(private val context: Context) {
         persist(current.copy(settings = current.settings.copy(notificationMode = mode, showReqNotification = enabled)))
     }
 
-    fun setUseLargeButtons(enabled: Boolean) {
+    fun setUiSize(size: UiSize) {
         val current = _appState.value
-        persist(current.copy(settings = current.settings.copy(useLargeButtons = enabled)))
+        persist(current.copy(settings = current.settings.copy(uiSize = size, useLargeButtons = (size == UiSize.LARGE))))
+    }
+
+    fun setUseLargeButtons(enabled: Boolean) {
+        setUiSize(if (enabled) UiSize.LARGE else UiSize.MEDIUM)
     }
 
     // 設定更新

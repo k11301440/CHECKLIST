@@ -116,6 +116,13 @@ data class PhaseDailySummary(
 )
 
 @Serializable
+enum class UiSize {
+    SMALL,   // 文字：小、ボタン：小
+    MEDIUM,  // 文字：中、ボタン：中 (デフォルト)
+    LARGE    // 文字：大、ボタン：大
+}
+
+@Serializable
 enum class NotificationDisplayMode {
     OFF,
     COUNT_ONLY,
@@ -144,7 +151,8 @@ data class AppSettings(
     val showReqNotification: Boolean = false,
     val notificationMode: NotificationDisplayMode = NotificationDisplayMode.OFF,
     val phaseEndReminderMinutes: Int = 0,
-    val useLargeButtons: Boolean = false,
+    val uiSize: UiSize = UiSize.MEDIUM,
+    val useLargeButtons: Boolean = false, // 既存データ互換用
     val phaseSchedules: List<PhaseSchedule> = listOf(
         PhaseSchedule(0, "朝", 6, 0),
         PhaseSchedule(1, "午前", 9, 0),

@@ -59,6 +59,9 @@ import com.example.checklist.ui.components.SpaceXShape
 import com.example.checklist.ui.components.SpaceXSmallShape
 import com.example.checklist.ui.components.SpaceXTopBar
 import com.example.checklist.ui.components.LocalLargeButtonMode
+import com.example.checklist.ui.components.uiDimension
+import com.example.checklist.ui.components.uiFontSize
+import com.example.checklist.ui.components.scaledWithFont
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -189,8 +192,8 @@ fun CalendarScreen(
                     }
 
                     Row {
-                        val isLarge = LocalLargeButtonMode.current
-                        val monthBtnSize = if (isLarge) 44.dp else 36.dp
+                        val monthBtnSize = uiDimension(34.dp, 38.dp, 44.dp).scaledWithFont()
+                        val monthIconSize = uiDimension(18.dp, 21.dp, 24.dp).scaledWithFont()
                         val canGoPrev = currentYearMonth > YearMonth.now()
                         IconButton(
                             onClick = { if (canGoPrev) currentYearMonth = currentYearMonth.minusMonths(1) },
@@ -200,7 +203,8 @@ fun CalendarScreen(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                                 contentDescription = "Prev Month",
-                                tint = if (canGoPrev) TextPrimary else TextDisabled
+                                tint = if (canGoPrev) TextPrimary else TextDisabled,
+                                modifier = Modifier.size(monthIconSize)
                             )
                         }
                         IconButton(
@@ -210,7 +214,8 @@ fun CalendarScreen(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                                 contentDescription = "Next Month",
-                                tint = TextPrimary
+                                tint = TextPrimary,
+                                modifier = Modifier.size(monthIconSize)
                             )
                         }
                     }

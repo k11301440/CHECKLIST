@@ -25,12 +25,12 @@ val DarkSpaceXPalette = SpaceXColorPalette(
     bg = Color(0xFF000000),
     surfaceDark = Color(0xFF0A0A0A),
     surfaceElevated = Color(0xFF141414),
-    borderSubtle = Color(0xFF262626),
-    borderProminent = Color(0xFF404040),
+    borderSubtle = Color(0xFF2E2E2E),
+    borderProminent = Color(0xFF555555),
     textPrimary = Color(0xFFFFFFFF),
-    textSecondary = Color(0xFF888888),
-    textTertiary = Color(0xFF555555),
-    textDisabled = Color(0xFF383838),
+    textSecondary = Color(0xFFB8B8B8),
+    textTertiary = Color(0xFF8E8E8E),
+    textDisabled = Color(0xFF606060),
     accent = Color(0xFFFFFFFF)
 )
 
@@ -57,8 +57,8 @@ val TronSpaceXPalette = SpaceXColorPalette(
     borderProminent = Color(0xFFFF1E27),
     textPrimary = Color(0xFFFF5252),
     textSecondary = Color(0xFFFF8A80),
-    textTertiary = Color(0xFFCC5555),
-    textDisabled = Color(0xFF4A2020),
+    textTertiary = Color(0xFFE57373),
+    textDisabled = Color(0xFF753030),
     accent = Color(0xFFFF1E27)
 )
 
@@ -85,8 +85,8 @@ val MonsterSpaceXPalette = SpaceXColorPalette(
     borderProminent = Color(0xFF00FF41),
     textPrimary = Color(0xFF69F0AE),
     textSecondary = Color(0xFF00E676),
-    textTertiary = Color(0xFF2E7D32),
-    textDisabled = Color(0xFF1B4021),
+    textTertiary = Color(0xFF66BB6A),
+    textDisabled = Color(0xFF388E3C),
     accent = Color(0xFF00FF41)
 )
 
@@ -113,8 +113,8 @@ val AnaSpaceXPalette = SpaceXColorPalette(
     borderProminent = Color(0xFF0066CC),
     textPrimary = Color(0xFFE1EFFF),
     textSecondary = Color(0xFF80B3FF),
-    textTertiary = Color(0xFF4A74A8),
-    textDisabled = Color(0xFF243B59),
+    textTertiary = Color(0xFF7CA6DC),
+    textDisabled = Color(0xFF3E6088),
     accent = Color(0xFF1A8CFF)
 )
 
@@ -141,8 +141,8 @@ val AirdoSpaceXPalette = SpaceXColorPalette(
     borderProminent = Color(0xFFFFD200),
     textPrimary = Color(0xFFE0F7FA),
     textSecondary = Color(0xFF80DEEA),
-    textTertiary = Color(0xFF00ACC1),
-    textDisabled = Color(0xFF264850),
+    textTertiary = Color(0xFF4DD0E1),
+    textDisabled = Color(0xFF456B75),
     accent = Color(0xFFFFD200)
 )
 
@@ -169,8 +169,8 @@ val JalSpaceXPalette = SpaceXColorPalette(
     borderProminent = Color(0xFFD6001C),
     textPrimary = Color(0xFFFFEEEE),
     textSecondary = Color(0xFFFF7A7A),
-    textTertiary = Color(0xFFA84545),
-    textDisabled = Color(0xFF4D1C1C),
+    textTertiary = Color(0xFFD36868),
+    textDisabled = Color(0xFF7A3030),
     accent = Color(0xFFE60012)
 )
 

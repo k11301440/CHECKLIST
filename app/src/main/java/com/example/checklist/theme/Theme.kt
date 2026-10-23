@@ -26,6 +26,7 @@ fun ChecklistTheme(
     darkThemeConfig: DarkThemeConfig = DarkThemeConfig.DARK,
     accentTheme: AccentTheme = AccentTheme.MONOCHROME,
     themeMode: ThemeMode? = null,
+    uiSize: com.example.checklist.data.UiSize = com.example.checklist.data.UiSize.MEDIUM,
     content: @Composable () -> Unit,
 ) {
     val effectiveConfig = if (themeMode != null) {
@@ -105,7 +106,7 @@ fun ChecklistTheme(
     CompositionLocalProvider(LocalSpaceXColors provides palette) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = Typography,
+            typography = getTypography(uiSize),
             content = content
         )
     }

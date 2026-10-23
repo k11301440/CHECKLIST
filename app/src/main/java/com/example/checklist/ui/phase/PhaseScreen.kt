@@ -25,6 +25,10 @@ import androidx.compose.ui.input.pointer.PointerInputScope
 import kotlinx.coroutines.withTimeoutOrNull
 import com.example.checklist.ui.components.SpaceXConfirmDialog
 import com.example.checklist.ui.components.LocalLargeButtonMode
+import com.example.checklist.ui.components.LocalUiSize
+import com.example.checklist.ui.components.uiDimension
+import com.example.checklist.ui.components.uiFontSize
+import com.example.checklist.ui.components.scaledWithFont
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -115,6 +119,10 @@ import com.example.checklist.ui.components.SpaceXButton
 import com.example.checklist.ui.components.SpaceXCheckbox
 import com.example.checklist.ui.components.SpaceXConfirmDialog
 import com.example.checklist.ui.components.LocalLargeButtonMode
+import com.example.checklist.ui.components.LocalUiSize
+import com.example.checklist.ui.components.uiDimension
+import com.example.checklist.ui.components.uiFontSize
+import com.example.checklist.ui.components.scaledWithFont
 import com.example.checklist.ui.components.SpaceXDivider
 import com.example.checklist.ui.components.SpaceXShape
 import com.example.checklist.ui.components.SpaceXSmallShape
@@ -227,7 +235,7 @@ fun PhaseScreen(
     // ドラッグ＆ドロップ並び替え用ステート
     var draggingItemId by remember { mutableStateOf<String?>(null) }
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
-    val itemHeightPx = with(LocalDensity.current) { (if (isLarge) 76.dp else 60.dp).toPx() }
+    val itemHeightPx = with(LocalDensity.current) { uiDimension(58.dp, 66.dp, 76.dp).toPx() }
     val currentAppState by rememberUpdatedState(state)
 
     // 現在時刻に基づくフェーズの動的判定 (定期チェックで画面を開いたままでも時刻変化に追従)
@@ -273,8 +281,8 @@ fun PhaseScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                val navButtonSize = if (isLarge) 42.dp else 34.dp
-                val navIconSize = if (isLarge) 22.dp else 18.dp
+                val navButtonSize = uiDimension(34.dp, 38.dp, 44.dp).scaledWithFont()
+                val navIconSize = uiDimension(18.dp, 20.dp, 22.dp).scaledWithFont()
 
                 IconButton(
                     onClick = onNavigateCalendar,
@@ -407,13 +415,13 @@ fun PhaseScreen(
                         )
                         .background(if (isSelected) SurfaceElevated else SpaceBlack, shape = SpaceXShape)
                         .clickable { viewModel.selectPhase(index) }
-                        .padding(vertical = if (isLarge) 11.dp else 7.dp),
+                        .padding(vertical = uiDimension(7.dp, 9.dp, 12.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = label,
                         color = if (isSelected) TextPrimary else TextSecondary,
-                        fontSize = if (isLarge) 13.sp else 11.5.sp,
+                        fontSize = uiFontSize(11.sp, 12.5.sp, 14.sp),
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         letterSpacing = 0.5.sp
                     )
@@ -530,16 +538,16 @@ fun PhaseScreen(
                             .border(1.dp, com.example.checklist.theme.SpaceXAccent, SpaceXSmallShape)
                             .background(SurfaceDark, shape = SpaceXSmallShape)
                             .clickable { viewModel.returnToCurrentPhase() }
-                            .padding(horizontal = if (isLarge) 12.dp else 8.dp, vertical = if (isLarge) 6.dp else 3.dp),
+                            .padding(horizontal = uiDimension(8.dp, 10.dp, 12.dp), vertical = uiDimension(3.dp, 4.5.dp, 6.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = if (isEnglish) "CURRENT PHASE" else "現在のフェーズに戻る",
                             color = com.example.checklist.theme.SpaceXAccent,
-                            fontSize = if (isLarge) 11.5.sp else 10.sp,
+                            fontSize = uiFontSize(9.5.sp, 10.5.sp, 12.sp),
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.4.sp,
-                            lineHeight = if (isLarge) 14.sp else 12.sp,
+                            lineHeight = uiFontSize(12.sp, 13.sp, 14.sp),
                             maxLines = 1,
                             softWrap = false
                         )
@@ -789,7 +797,7 @@ fun PhaseScreen(
                 }
                 Box(
                     modifier = Modifier
-                        .width(if (isLarge) 58.dp else 46.dp)
+                        .width(uiDimension(46.dp, 52.dp, 60.dp).scaledWithFont())
                         .border(
                             width = 1.dp,
                             color = if (quickInputPriority == Priority.REQUIRED) com.example.checklist.theme.SpaceXAccent else BorderSubtle,
@@ -799,13 +807,13 @@ fun PhaseScreen(
                         .combinedClickable(onClick = {
                             quickInputPriority = if (quickInputPriority == Priority.REQUIRED) Priority.NORMAL else Priority.REQUIRED
                         })
-                        .padding(vertical = if (isLarge) 7.dp else 4.dp),
+                        .padding(vertical = uiDimension(4.dp, 5.5.dp, 7.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = priorityLabel,
                         color = if (quickInputPriority == Priority.REQUIRED) com.example.checklist.theme.SpaceXAccent else TextSecondary,
-                        fontSize = if (isLarge) 11.5.sp else 10.sp,
+                        fontSize = uiFontSize(10.sp, 11.sp, 12.sp),
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 0.5.sp
                     )
@@ -825,7 +833,7 @@ fun PhaseScreen(
                         },
                         textStyle = TextStyle(
                             color = TextPrimary,
-                            fontSize = if (isLarge) 15.sp else 13.sp,
+                            fontSize = uiFontSize(13.sp, 14.sp, 15.5.sp),
                             fontFamily = FontFamily.SansSerif
                         ),
                         cursorBrush = SolidColor(TextPrimary),
@@ -838,12 +846,12 @@ fun PhaseScreen(
                         Text(
                             text = if (isEnglish) "Add task to ${currentPhase.name}..." else "「${currentPhase.name}」にタスクを追加...",
                             color = TextTertiary,
-                            fontSize = if (isLarge) 14.sp else 12.sp
+                            fontSize = uiFontSize(12.sp, 13.sp, 14.5.sp)
                         )
                     }
                 }
 
-                // Options toggle (いつ・どこに追加するか変更したい時のみ展開)
+                // Options toggle (いつ・どこに追加するか変更したい時のみ展開、文字サイズに連動拡大)
                 IconButton(
                     onClick = {
                         showQuickOptions = !showQuickOptions
@@ -852,27 +860,27 @@ fun PhaseScreen(
                             quickTargetDayOffset = 0
                         }
                     },
-                    modifier = Modifier.size(if (isLarge) 38.dp else 30.dp)
+                    modifier = Modifier.size(uiDimension(30.dp, 34.dp, 38.dp).scaledWithFont())
                 ) {
                     Icon(
                         imageVector = if (showQuickOptions) Icons.Default.ExpandLess else Icons.Default.DateRange,
                         contentDescription = "Schedule",
                         tint = if (showQuickOptions || quickTargetDayOffset > 0 || quickTargetPhaseIndex != selectedIndex) com.example.checklist.theme.SpaceXAccent else TextTertiary,
-                        modifier = Modifier.size(if (isLarge) 20.dp else 16.dp)
+                        modifier = Modifier.size(uiDimension(16.dp, 18.dp, 20.dp).scaledWithFont())
                     )
                 }
 
-                // Add button: 紙飛行機アイコン (Send)
+                // Add button: 紙飛行機アイコン (Send、文字サイズに連動拡大)
                 IconButton(
                     onClick = { submitQuickTask() },
-                    modifier = Modifier.size(if (isLarge) 40.dp else 32.dp),
+                    modifier = Modifier.size(uiDimension(32.dp, 36.dp, 40.dp).scaledWithFont()),
                     enabled = quickInputTitle.isNotBlank()
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Send,
                         contentDescription = "Add Task",
                         tint = if (quickInputTitle.isNotBlank()) TextPrimary else TextTertiary,
-                        modifier = Modifier.size(if (isLarge) 20.dp else 16.dp)
+                        modifier = Modifier.size(uiDimension(16.dp, 18.dp, 20.dp).scaledWithFont())
                     )
                 }
             }
@@ -1167,13 +1175,12 @@ fun ChecklistItemRow(
     onDragDelta: ((Float) -> Unit)? = null,
     onDragEnd: (() -> Unit)? = null
 ) {
-    val isLarge = LocalLargeButtonMode.current
     val isCompleted = item.isCompleted
     val currentOnDragStart by rememberUpdatedState(onDragStart)
     val currentOnDragDelta by rememberUpdatedState(onDragDelta)
     val currentOnDragEnd by rememberUpdatedState(onDragEnd)
 
-    val cardVerticalPadding = if (isLarge) 9.dp else 6.dp
+    val cardVerticalPadding = uiDimension(4.dp, 6.dp, 8.dp)
     val boxModifier = if (isDragging) {
         modifier
             .fillMaxWidth()
@@ -1192,7 +1199,7 @@ fun ChecklistItemRow(
         modifier
             .fillMaxWidth()
             .background(androidx.compose.ui.graphics.Color.Transparent)
-            .padding(horizontal = 6.dp, vertical = if (isLarge) 6.dp else 4.dp)
+            .padding(horizontal = 6.dp, vertical = uiDimension(3.dp, 5.dp, 6.dp))
     } else {
         // 未完了カード: REQならばテーマアクセント枠(SpaceXAccent: 白/赤/緑)、NORMならば現行(BorderSubtle)
         modifier
@@ -1214,11 +1221,11 @@ fun ChecklistItemRow(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Reorder controls: 左端のドラッグハンドル「≡」（触れて動かすだけで即座に並び替え）
+            // Reorder controls: 左端のドラッグハンドル「≡」（触れて動かすだけで即座に並び替え、文字サイズに連動拡大）
             if (onDragStart != null) {
                 Box(
                     modifier = Modifier
-                        .size(if (isLarge) 44.dp else 36.dp)
+                        .size(uiDimension(32.dp, 38.dp, 44.dp).scaledWithFont())
                         .pointerInput(item.id) {
                             detectTaskHandleDrag(
                                 onDragStart = { currentOnDragStart?.invoke() },
@@ -1232,7 +1239,7 @@ fun ChecklistItemRow(
                         imageVector = Icons.Default.DragHandle,
                         contentDescription = "ドラッグして並び替え",
                         tint = if (isDragging) com.example.checklist.theme.SpaceXAccent else TextSecondary,
-                        modifier = Modifier.size(if (isLarge) 24.dp else 20.dp)
+                        modifier = Modifier.size(uiDimension(18.dp, 21.dp, 24.dp).scaledWithFont())
                     )
                 }
                 Spacer(modifier = Modifier.width(4.dp))
@@ -1247,16 +1254,16 @@ fun ChecklistItemRow(
                     .padding(vertical = 4.dp, horizontal = 2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // SpaceX Wireframe Checkbox (チェックボックス部分タップでのみ完了トグル: 航空の厳格チェック思想)
+                // SpaceX Wireframe Checkbox (チェックボックス部分タップでのみ完了トグル: 文字サイズに連動拡大)
                 Box(
                     modifier = Modifier
-                        .size(if (isLarge) 44.dp else 32.dp)
+                        .size(uiDimension(32.dp, 38.dp, 44.dp).scaledWithFont())
                         .clickable(onClick = onTap),
                     contentAlignment = Alignment.Center
                 ) {
                     SpaceXCheckbox(
                         checked = isCompleted,
-                        size = if (isLarge) 28.dp else 24.dp
+                        size = uiDimension(20.dp, 24.dp, 28.dp).scaledWithFont()
                     )
                 }
 
@@ -1272,7 +1279,7 @@ fun ChecklistItemRow(
                         Text(
                             text = "CARRYOVER // ${item.sourcePhaseName ?: "PREVIOUS"}",
                             color = TextSecondary,
-                            fontSize = if (isLarge) 10.sp else 8.5.sp,
+                            fontSize = uiFontSize(8.5.sp, 9.5.sp, 11.sp),
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.8.sp
                         )
@@ -1284,7 +1291,7 @@ fun ChecklistItemRow(
                             isCritical -> TextPrimary
                             else -> TextPrimary
                         },
-                        fontSize = if (isCritical) (if (isLarge) 16.sp else 14.sp) else (if (isLarge) 15.sp else 13.5.sp),
+                        fontSize = if (isCritical) uiFontSize(14.sp, 15.5.sp, 17.5.sp) else uiFontSize(13.sp, 14.5.sp, 16.sp),
                         fontWeight = if (isCritical) FontWeight.Bold else FontWeight.Normal,
                         textDecoration = if (isCompleted) TextDecoration.LineThrough else null,
                         letterSpacing = 0.3.sp,
@@ -1293,17 +1300,21 @@ fun ChecklistItemRow(
                 }
             }
 
-            // Delete action (テキストタップで編集可能なため鉛筆アイコンは廃止し、右端に安全なタッチ領域で削除ボタンを配置)
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier.size(if (isLarge) 40.dp else 32.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Delete item",
-                    tint = TextTertiary,
-                    modifier = Modifier.size(if (isLarge) 18.dp else 15.dp)
-                )
+            // Delete action (未完了タスクのみ「×」ボタンを表示。完了タスクは「履歴消去」で完全消去するため不要)
+            if (!isCompleted) {
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(uiDimension(30.dp, 35.dp, 40.dp).scaledWithFont())
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Delete item",
+                        tint = TextTertiary,
+                        modifier = Modifier.size(uiDimension(14.dp, 16.dp, 18.dp).scaledWithFont())
+                    )
+                }
+            } else {
+                Spacer(modifier = Modifier.width(uiDimension(6.dp, 8.dp, 10.dp)))
             }
         }
     }
@@ -1316,12 +1327,11 @@ fun DiscardedItemRow(
     onRestore: () -> Unit,
     onPermanentDelete: () -> Unit
 ) {
-    val isLarge = LocalLargeButtonMode.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .background(androidx.compose.ui.graphics.Color.Transparent)
-            .padding(horizontal = 6.dp, vertical = if (isLarge) 6.dp else 4.dp)
+            .padding(horizontal = 6.dp, vertical = uiDimension(3.dp, 5.dp, 6.dp))
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1330,7 +1340,7 @@ fun DiscardedItemRow(
             Text(
                 text = "TRASH",
                 color = TextDisabled,
-                fontSize = if (isLarge) 10.5.sp else 9.sp,
+                fontSize = uiFontSize(9.sp, 10.sp, 11.sp),
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp
             )
@@ -1340,7 +1350,7 @@ fun DiscardedItemRow(
             Text(
                 text = formatTaskText(item.title),
                 color = TextDisabled,
-                fontSize = if (isLarge) 14.sp else 12.sp,
+                fontSize = uiFontSize(12.5.sp, 13.5.sp, 15.sp),
                 textDecoration = TextDecoration.LineThrough,
                 modifier = Modifier.weight(1f),
                 style = TextStyle(lineBreak = SpaceXLineBreak)

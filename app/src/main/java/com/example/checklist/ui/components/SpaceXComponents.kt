@@ -32,8 +32,10 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.checklist.data.UiSize
 import com.example.checklist.theme.BorderProminent
 import com.example.checklist.theme.BorderSubtle
 import com.example.checklist.theme.SpaceBlack
@@ -46,7 +48,39 @@ val SpaceXShape = RoundedCornerShape(SpaceXCornerRadius)
 val SpaceXDialogShape = RoundedCornerShape(10.dp)
 val SpaceXSmallShape = RoundedCornerShape(4.dp)
 
+val LocalUiSize = androidx.compose.runtime.compositionLocalOf { UiSize.MEDIUM }
 val LocalLargeButtonMode = androidx.compose.runtime.compositionLocalOf { false }
+
+@Composable
+fun uiDimension(small: Dp, medium: Dp, large: Dp): Dp {
+    return when (LocalUiSize.current) {
+        UiSize.SMALL -> small
+        UiSize.MEDIUM -> medium
+        UiSize.LARGE -> large
+    }
+}
+
+@Composable
+fun uiFontSize(small: TextUnit, medium: TextUnit, large: TextUnit): TextUnit {
+    return when (LocalUiSize.current) {
+        UiSize.SMALL -> small
+        UiSize.MEDIUM -> medium
+        UiSize.LARGE -> large
+    }
+}
+
+/**
+ * 端末のフォントスケール設定（fontScale）に連動して Dp をスケーリングする拡張関数。
+ * 端末設定で文字サイズを拡大した際、アイコンや関連タッチ領域も自動的に追従して拡大される。
+ *
+ * @param minScale 最小スケール（1.0未満には縮小しない）
+ * @param maxScale 最大スケール（過剰な崩れを防ぐため上限を設ける。デフォルト1.8倍）
+ */
+@Composable
+fun Dp.scaledWithFont(minScale: Float = 1.0f, maxScale: Float = 1.8f): Dp {
+    val fontScale = androidx.compose.ui.platform.LocalDensity.current.fontScale.coerceIn(minScale, maxScale)
+    return this * fontScale
+}
 
 // SpaceX Minimal Outline Button
 @Composable
@@ -60,7 +94,7 @@ fun SpaceXButton(
     leadingIcon: ImageVector? = null,
     shape: Shape = SpaceXShape
 ) {
-    val isLarge = LocalLargeButtonMode.current
+    val uiSize = LocalUiSize.current
     val borderColor = if (enabled) {
         if (inverted) TextPrimary else if (prominent) TextPrimary else BorderProminent
     } else BorderSubtle
@@ -69,12 +103,25 @@ fun SpaceXButton(
     } else TextTertiary
     val containerBg = if (enabled && inverted) TextPrimary else SpaceBlack
 
-    val buttonHeight = if (isLarge) 56.dp else 48.dp
-    val fontSize = if (isLarge) 14.5.sp else 13.sp
-    val contentPadding = if (isLarge) {
-        PaddingValues(horizontal = 24.dp, vertical = 14.dp)
-    } else {
-        PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+    val buttonHeight = when (uiSize) {
+        UiSize.SMALL -> 44.dp
+        UiSize.MEDIUM -> 48.dp
+        UiSize.LARGE -> 56.dp
+    }
+    val fontSize = when (uiSize) {
+        UiSize.SMALL -> 12.sp
+        UiSize.MEDIUM -> 13.5.sp
+        UiSize.LARGE -> 15.sp
+    }
+    val contentPadding = when (uiSize) {
+        UiSize.SMALL -> PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+        UiSize.MEDIUM -> PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+        UiSize.LARGE -> PaddingValues(horizontal = 24.dp, vertical = 14.dp)
+    }
+    val iconSize = when (uiSize) {
+        UiSize.SMALL -> 15.dp
+        UiSize.MEDIUM -> 17.dp
+        UiSize.LARGE -> 19.dp
     }
 
     OutlinedButton(
@@ -95,7 +142,7 @@ fun SpaceXButton(
                 Icon(
                     imageVector = leadingIcon,
                     contentDescription = null,
-                    modifier = Modifier.size(if (isLarge) 18.dp else 16.dp),
+                    modifier = Modifier.size(iconSize),
                     tint = textColor
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -120,34 +167,55 @@ fun SpaceXTextButton(
     prominent: Boolean = false,
     shape: Shape = SpaceXShape
 ) {
-    val isLarge = LocalLargeButtonMode.current
+    val uiSize = LocalUiSize.current
+    val minHeight = when (uiSize) {
+        UiSize.SMALL -> 32.dp
+        UiSize.MEDIUM -> 38.dp
+        UiSize.LARGE -> 44.dp
+    }
+    val fontSize = when (uiSize) {
+        UiSize.SMALL -> 11.5.sp
+        UiSize.MEDIUM -> 12.5.sp
+        UiSize.LARGE -> 14.sp
+    }
+    val contentPadding = when (uiSize) {
+        UiSize.SMALL -> PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+        UiSize.MEDIUM -> PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+        UiSize.LARGE -> PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+    }
+
     TextButton(
         onClick = onClick,
-        modifier = modifier.heightIn(min = if (isLarge) 44.dp else 32.dp),
+        modifier = modifier.heightIn(min = minHeight),
         shape = shape,
         colors = ButtonDefaults.textButtonColors(
             contentColor = if (prominent) TextPrimary else TextSecondary
         ),
-        contentPadding = if (isLarge) PaddingValues(horizontal = 14.dp, vertical = 8.dp) else ButtonDefaults.TextButtonContentPadding
+        contentPadding = contentPadding
     ) {
         Text(
             text = text,
-            fontSize = if (isLarge) 13.5.sp else 12.sp,
+            fontSize = fontSize,
             fontWeight = FontWeight.Medium,
             letterSpacing = 1.0.sp
         )
     }
 }
 
-// SpaceX Minimal Wireframe Checkbox
+// SpaceX Minimal Wireframe Checkbox (文字サイズ連動)
 @Composable
 fun SpaceXCheckbox(
     checked: Boolean,
     modifier: Modifier = Modifier,
     size: Dp = 20.dp
 ) {
-    val isLarge = LocalLargeButtonMode.current
-    val effectiveSize = if (isLarge && size == 20.dp) 26.dp else size
+    val uiSize = LocalUiSize.current
+    val baseSize = when (uiSize) {
+        UiSize.SMALL -> if (size == 20.dp) 20.dp else size
+        UiSize.MEDIUM -> if (size == 20.dp) 24.dp else size
+        UiSize.LARGE -> if (size == 20.dp) 28.dp else size
+    }
+    val effectiveSize = baseSize.scaledWithFont()
     Box(
         modifier = modifier
             .size(effectiveSize)
@@ -163,7 +231,7 @@ fun SpaceXCheckbox(
             Icon(
                 imageVector = Icons.Default.Check,
                 contentDescription = "Checked",
-                modifier = Modifier.size(effectiveSize - 4.dp),
+                modifier = Modifier.size((effectiveSize - 4.dp).coerceAtLeast(12.dp)),
                 tint = TextPrimary
             )
         }
@@ -296,14 +364,22 @@ fun SpaceXDangerButton(
     modifier: Modifier = Modifier,
     shape: Shape = SpaceXShape
 ) {
-    val isLarge = LocalLargeButtonMode.current
+    val uiSize = LocalUiSize.current
     val dangerColor = Color(0xFFFF453A)
-    val buttonHeight = if (isLarge) 56.dp else 48.dp
-    val fontSize = if (isLarge) 14.5.sp else 13.sp
-    val contentPadding = if (isLarge) {
-        PaddingValues(horizontal = 24.dp, vertical = 14.dp)
-    } else {
-        PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+    val buttonHeight = when (uiSize) {
+        UiSize.SMALL -> 44.dp
+        UiSize.MEDIUM -> 48.dp
+        UiSize.LARGE -> 56.dp
+    }
+    val fontSize = when (uiSize) {
+        UiSize.SMALL -> 12.sp
+        UiSize.MEDIUM -> 13.5.sp
+        UiSize.LARGE -> 15.sp
+    }
+    val contentPadding = when (uiSize) {
+        UiSize.SMALL -> PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+        UiSize.MEDIUM -> PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+        UiSize.LARGE -> PaddingValues(horizontal = 24.dp, vertical = 14.dp)
     }
 
     OutlinedButton(

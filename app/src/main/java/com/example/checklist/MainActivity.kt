@@ -37,10 +37,12 @@ class MainActivity : ComponentActivity() {
 
             ChecklistTheme(
                 darkThemeConfig = state.settings.darkThemeConfig,
-                accentTheme = state.settings.accentTheme
+                accentTheme = state.settings.accentTheme,
+                uiSize = state.settings.uiSize
             ) {
                 androidx.compose.runtime.CompositionLocalProvider(
-                    com.example.checklist.ui.components.LocalLargeButtonMode provides state.settings.useLargeButtons
+                    com.example.checklist.ui.components.LocalUiSize provides state.settings.uiSize,
+                    com.example.checklist.ui.components.LocalLargeButtonMode provides (state.settings.uiSize == com.example.checklist.data.UiSize.LARGE)
                 ) {
                     Surface(
                         modifier = Modifier.fillMaxSize(),

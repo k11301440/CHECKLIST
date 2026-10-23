@@ -195,6 +195,10 @@ class ChecklistViewModel(application: Application) : AndroidViewModel(applicatio
         repository.setNotificationMode(mode)
     }
 
+    fun setUiSize(size: com.example.checklist.data.UiSize) {
+        repository.setUiSize(size)
+    }
+
     fun setUseLargeButtons(enabled: Boolean) {
         repository.setUseLargeButtons(enabled)
     }
