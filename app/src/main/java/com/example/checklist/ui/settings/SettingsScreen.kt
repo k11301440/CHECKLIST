@@ -973,7 +973,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "v1.0.3",
+                            text = "v1.0.4",
                             color = TextPrimary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
@@ -1540,6 +1540,37 @@ fun ReleaseNotesDialog(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
                 )
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // v1.0.4
+                Text(
+                    text = "v1.0.4",
+                    color = TextPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                val notesV104 = if (isEnglish) {
+                    """
+                    • Android 15 Edge-to-Edge Compliance: Optimized full-screen edge-to-edge layout with WindowInsets safe drawing padding across all screens, preventing UI overlap with status bars, navigation gestures, and display cutouts.
+                    • Dynamic System Bar Contrast: Automatically adapts status bar and navigation bar icon contrast (light/dark) dynamically to match selected theme modes.
+                    """.trimIndent()
+                } else {
+                    """
+                    ・Android 15 エッジ・ツー・エッジ完全準拠: 全画面にWindowInsetsセーフドローイングパディングを適用。ステータスバー、ジェスチャーナビゲーションバー、カメラノッチとのUI重なりを完全に防止。
+                    ・システムバーの動的コントラスト制御: 選択された明暗テーマ（ダーク・ライト）に応じて、ステータスバーおよびナビゲーションバーのアイコン色をリアルタイムに自動追従・最適化。
+                    """.trimIndent()
+                }
+                Text(
+                    text = notesV104,
+                    color = TextSecondary,
+                    fontSize = 11.5.sp,
+                    lineHeight = 18.sp,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+                SpaceXDivider()
                 Spacer(modifier = Modifier.height(14.dp))
 
                 // v1.0.3
