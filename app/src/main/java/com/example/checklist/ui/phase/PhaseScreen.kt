@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -183,6 +184,7 @@ fun PhaseScreen(
     var isNormalExpanded by remember { mutableStateOf(true) }
     var isCompletedExpanded by remember { mutableStateOf(true) }
     var showReviewDialog by remember { mutableStateOf(false) }
+    var showDayResultDialog by remember { mutableStateOf(false) }
     var showResetDefaultDialog by remember { mutableStateOf(false) }
     var showResetPhaseDialog by remember { mutableStateOf(false) }
     var showClearCompletedDialog by remember { mutableStateOf(false) }
@@ -343,7 +345,7 @@ fun PhaseScreen(
                         // フェーズ完了して次へ（普段はメニューに格納）
                         val isLast = selectedIndex >= state.phases.size - 1
                         val advanceLabel = if (isLast) {
-                            if (isEnglish) "Complete Day & Restart" else "1日のタスクをすべて完了"
+                            if (isEnglish) "Complete Day & Debrief" else "1日のタスクをすべて完了"
                         } else {
                             if (isEnglish) "Advance to Next Phase" else "次のフェーズへ"
                         }
@@ -351,10 +353,14 @@ fun PhaseScreen(
                             text = { Text(advanceLabel, color = TextPrimary, fontSize = 13.sp) },
                             onClick = {
                                 showMenu = false
-                                if (state.settings.confirmReviewOnAdvance) {
-                                    showReviewDialog = true
+                                if (isLast) {
+                                    showDayResultDialog = true
                                 } else {
-                                    viewModel.completePhase(currentPhase.id, false, null)
+                                    if (state.settings.confirmReviewOnAdvance) {
+                                        showReviewDialog = true
+                                    } else {
+                                        viewModel.completePhase(currentPhase.id, false, null)
+                                    }
                                 }
                             }
                         )
@@ -969,7 +975,7 @@ fun PhaseScreen(
         if (canShowBottomCompleteButton) {
             val isLastPhase = selectedIndex >= state.phases.size - 1
             val buttonLabel = when {
-                isLastPhase -> if (isEnglish) "COMPLETE DAY & RESTART" else "1日のタスクをすべて完了"
+                isLastPhase -> if (isEnglish) "COMPLETE DAY & DEBRIEF" else "1日のタスクをすべて完了"
                 currentPhase.isCompleted -> if (isEnglish) "PHASE COMPLETED (RE-EVALUATE)" else "フェーズ完了済み (再確認)"
                 else -> if (isEnglish) "ADVANCE TO NEXT PHASE" else "次のフェーズへ"
             }
@@ -979,10 +985,14 @@ fun PhaseScreen(
             SpaceXButton(
                 text = buttonLabel,
                 onClick = {
-                    if (state.settings.confirmReviewOnAdvance) {
-                        showReviewDialog = true
+                    if (isLastPhase) {
+                        showDayResultDialog = true
                     } else {
-                        viewModel.completePhase(currentPhase.id, false, null)
+                        if (state.settings.confirmReviewOnAdvance) {
+                            showReviewDialog = true
+                        } else {
+                            viewModel.completePhase(currentPhase.id, false, null)
+                        }
                     }
                 },
                 prominent = !currentPhase.isCompleted || shouldInvertHighlight,
@@ -992,6 +1002,19 @@ fun PhaseScreen(
                     .padding(vertical = 4.dp)
             )
         }
+    }
+
+    // DAY COMPLETION RESULT DIALOG (本日のリザルト確認画面)
+    if (showDayResultDialog) {
+        val lastPhaseId = currentPhase.id
+        DayCompletionResultDialog(
+            state = state,
+            onDismiss = { showDayResultDialog = false },
+            onAdvanceToNextDay = { hadIssue, note ->
+                showDayResultDialog = false
+                viewModel.completePhase(lastPhaseId, hadIssue, note)
+            }
+        )
     }
 
     // REVIEW DIALOG ("問題なかった？")
@@ -1710,6 +1733,296 @@ fun TemplateSelectDialog(
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     SpaceXTextButton(text = AppStrings.close(language), onClick = onDismiss)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DayCompletionResultDialog(
+    state: AppState,
+    onDismiss: () -> Unit,
+    onAdvanceToNextDay: (hadIssue: Boolean, note: String?) -> Unit
+) {
+    val language = state.settings.appLanguage
+    val isEnglish = language == AppLanguage.EN
+
+    // 各フェーズごとの集計
+    val phaseStats = remember(state.phases) {
+        state.phases.map { phase ->
+            val total = phase.items.count { !it.isDeleted }
+            val completed = phase.items.count { it.isCompleted && !it.isDeleted }
+            Triple(phase.name, completed, total)
+        }
+    }
+    val totalTasks = phaseStats.sumOf { it.third }
+    val totalCompleted = phaseStats.sumOf { it.second }
+    val totalUncompleted = (totalTasks - totalCompleted).coerceAtLeast(0)
+    val completionRate = if (totalTasks > 0) (totalCompleted.toFloat() / totalTasks * 100).toInt() else 100
+
+    var hadIssue by remember { mutableStateOf(false) }
+    var noteText by remember { mutableStateOf("") }
+    var showNoteInput by remember { mutableStateOf(false) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(SpaceBlack, shape = SpaceXShape)
+                .border(1.dp, BorderProminent, SpaceXShape)
+                .padding(uiDimension(18.dp, 22.dp, 26.dp))
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Header: DEBRIEF & DATE
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (isEnglish) "DAILY MISSION DEBRIEF" else "本日のリザルト",
+                        color = com.example.checklist.theme.SpaceXAccent,
+                        fontSize = uiFontSize(11.sp, 12.sp, 13.sp),
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.5.sp
+                    )
+                    Text(
+                        text = state.currentDate,
+                        color = TextTertiary,
+                        fontSize = uiFontSize(10.sp, 11.sp, 12.sp),
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = if (isEnglish) "Day Summary & Completion" else "1日の達成サマリー",
+                    color = TextPrimary,
+                    fontSize = uiFontSize(18.sp, 20.sp, 22.sp),
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Overall progress card
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(SurfaceDark, shape = SpaceXShape)
+                        .border(1.dp, BorderSubtle, SpaceXShape)
+                        .padding(14.dp)
+                ) {
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            Text(
+                                text = if (isEnglish) "OVERALL COMPLETION" else "総合達成率",
+                                color = TextSecondary,
+                                fontSize = uiFontSize(10.sp, 11.sp, 12.sp),
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
+                            Text(
+                                text = "$totalCompleted / $totalTasks ($completionRate%)",
+                                color = TextPrimary,
+                                fontSize = uiFontSize(14.sp, 15.sp, 16.5.sp),
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Custom Progress Bar
+                        val progressFraction = if (totalTasks > 0) (totalCompleted.toFloat() / totalTasks).coerceIn(0f, 1f) else 1f
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .background(SurfaceElevated, shape = SpaceXSmallShape)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(fraction = progressFraction)
+                                    .fillMaxHeight()
+                                    .background(com.example.checklist.theme.SpaceXAccent, shape = SpaceXSmallShape)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Carryover / Completion message
+                        if (totalUncompleted > 0) {
+                            Text(
+                                text = if (isEnglish)
+                                    "• $totalUncompleted uncompleted task(s) will be carried over to tomorrow."
+                                else
+                                    "・未完了タスク（${totalUncompleted}件）は翌日に自動引き継ぎされます。",
+                                color = TextSecondary,
+                                fontSize = uiFontSize(11.sp, 12.sp, 13.sp),
+                                lineHeight = 16.sp
+                            )
+                        } else {
+                            Text(
+                                text = if (isEnglish)
+                                    "✓ All tasks completed! Great work today."
+                                else
+                                    "✓ 全てのタスクを達成しました！本日もお疲れさまでした。",
+                                color = TextSecondary,
+                                fontSize = uiFontSize(11.sp, 12.sp, 13.sp),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Phase breakdown list
+                Text(
+                    text = if (isEnglish) "PHASE BREAKDOWN" else "フェーズ別内訳",
+                    color = TextTertiary,
+                    fontSize = uiFontSize(9.5.sp, 10.5.sp, 11.5.sp),
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(SurfaceDark, shape = SpaceXShape)
+                        .border(1.dp, BorderSubtle, SpaceXShape)
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    phaseStats.forEach { (name, completed, total) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 3.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = name,
+                                color = TextPrimary,
+                                fontSize = uiFontSize(12.sp, 13.sp, 14.sp),
+                                fontWeight = FontWeight.Medium
+                            )
+                            val isDone = total > 0 && completed == total
+                            Text(
+                                text = if (total == 0) "-" else "$completed / $total ${if (isDone) "✓" else ""}",
+                                color = if (isDone) com.example.checklist.theme.SpaceXAccent else TextSecondary,
+                                fontSize = uiFontSize(12.sp, 13.sp, 14.sp),
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = if (isDone) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Optional Review Note toggle / input
+                if (!showNoteInput) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showNoteInput = true }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isEnglish) "+ Add daily review memo..." else "+ 本日の振り返りメモを追加...",
+                            color = TextSecondary,
+                            fontSize = uiFontSize(11.sp, 12.sp, 13.sp),
+                            textDecoration = TextDecoration.Underline
+                        )
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { hadIssue = !hadIssue },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            SpaceXCheckbox(
+                                checked = hadIssue
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (isEnglish) "Flag as had issues/blockers" else "問題や課題があった",
+                                color = TextSecondary,
+                                fontSize = uiFontSize(11.5.sp, 12.5.sp, 13.5.sp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(60.dp)
+                                .border(1.dp, BorderSubtle, SpaceXShape)
+                                .background(SurfaceDark, shape = SpaceXShape)
+                                .padding(8.dp)
+                        ) {
+                            BasicTextField(
+                                value = noteText,
+                                onValueChange = { noteText = it },
+                                textStyle = TextStyle(
+                                    color = TextPrimary,
+                                    fontSize = uiFontSize(12.sp, 13.sp, 14.sp),
+                                    fontFamily = FontFamily.SansSerif
+                                ),
+                                cursorBrush = SolidColor(TextPrimary),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            if (noteText.isEmpty()) {
+                                Text(
+                                    text = if (isEnglish) "Enter notes (optional)..." else "メモを入力（任意）...",
+                                    color = TextTertiary,
+                                    fontSize = uiFontSize(11.5.sp, 12.5.sp, 13.5.sp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Actions: Advance to Next Day (PROMINENT) & Cancel/Close
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    SpaceXButton(
+                        text = if (isEnglish) "ADVANCE TO NEXT DAY" else "翌日のフェーズへ進む",
+                        onClick = {
+                            val finalHadIssue = hadIssue || (showNoteInput && noteText.isNotBlank())
+                            val finalNote = if (showNoteInput) noteText.trim().ifEmpty { null } else null
+                            onAdvanceToNextDay(finalHadIssue, finalNote)
+                        },
+                        prominent = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    SpaceXTextButton(
+                        text = if (isEnglish) "CANCEL & STAY TODAY" else "閉じる（当日にとどまる）",
+                        onClick = onDismiss,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
         }

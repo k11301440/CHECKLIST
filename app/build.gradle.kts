@@ -13,8 +13,8 @@ android {
         applicationId = "com.k11301440.checklist"
         minSdk = 26
         targetSdk = 36
-        versionCode = 16
-        versionName = "1.0.4"
+        versionCode = 17
+        versionName = "1.0.5"
     }
 
     val keystorePropertiesFile = rootProject.file("keystore.properties")

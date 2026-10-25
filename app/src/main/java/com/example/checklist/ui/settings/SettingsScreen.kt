@@ -973,7 +973,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "v1.0.4",
+                            text = "v1.0.5",
                             color = TextPrimary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
@@ -1540,6 +1540,37 @@ fun ReleaseNotesDialog(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
                 )
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // v1.0.5
+                Text(
+                    text = "v1.0.5",
+                    color = TextPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                val notesV105 = if (isEnglish) {
+                    """
+                    • Daily Mission Debrief: Added comprehensive day-end result & debrief dialog when completing the day, preventing accidental advances and clearly presenting task achievements and carryovers.
+                    • Keyboard Input Integration: Floating task input bar dynamically tracks software keyboard insets (IME), ensuring input visibility and keyboard dismiss behavior on modern Android devices.
+                    """.trimIndent()
+                } else {
+                    """
+                    ・デイリー達成リザルト画面の導入: 1日のタスク完了時に即時遷移せず、達成サマリーと振り返り（未完了引き継ぎ案内）を確認できる専用リザルト画面を実装。誤遷移を防止し、自身のペースで翌日へ進行可能に。
+                    ・新規タスク入力欄のキーボード連動向上: キーボード（IME）表示時に入力バーが自動でキーボード直上へ浮上し、入力中のテキストが隠れないよう最適化。入力完了後はスムーズに画面下部へ復帰。
+                    """.trimIndent()
+                }
+                Text(
+                    text = notesV105,
+                    color = TextSecondary,
+                    fontSize = 11.5.sp,
+                    lineHeight = 18.sp,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+                SpaceXDivider()
                 Spacer(modifier = Modifier.height(14.dp))
 
                 // v1.0.4

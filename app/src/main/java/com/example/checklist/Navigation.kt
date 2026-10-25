@@ -1,18 +1,14 @@
 package com.example.checklist
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.entryProvider
@@ -30,19 +26,11 @@ import com.example.checklist.ui.template.TemplateManageScreen
 
 @Composable
 fun Modifier.adaptiveSystemBarsPadding(): Modifier {
-    val density = LocalDensity.current
-    val imeBottom = WindowInsets.ime.getBottom(density)
-    val navBottom = WindowInsets.navigationBars.getBottom(density)
-    val bottomDp = with(density) {
-        if (imeBottom > 0) {
-            imeBottom.toDp()
-        } else {
-            navBottom.toDp()
-        }
-    }
     return this
         .statusBarsPadding()
-        .padding(bottom = bottomDp)
+        .displayCutoutPadding()
+        .navigationBarsPadding()
+        .imePadding()
 }
 
 @Composable
