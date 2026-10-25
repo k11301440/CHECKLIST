@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -58,6 +59,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -516,14 +519,14 @@ fun SettingsScreen(
                             )
                             ThemeOptionButton(
                                 text = if (isEnglish) "MEDIUM" else "中",
-                                subtext = if (isEnglish) "Default" else "標準 (デフォルト)",
+                                subtext = if (isEnglish) "Default" else "標準 (基本)",
                                 isSelected = state.settings.uiSize == UiSize.MEDIUM,
                                 onClick = { viewModel.setUiSize(UiSize.MEDIUM) },
                                 modifier = Modifier.weight(1f)
                             )
                             ThemeOptionButton(
                                 text = if (isEnglish) "LARGE" else "大",
-                                subtext = if (isEnglish) "Large" else "見やすい大表示",
+                                subtext = if (isEnglish) "Large" else "見やすい大",
                                 isSelected = state.settings.uiSize == UiSize.LARGE,
                                 onClick = { viewModel.setUiSize(UiSize.LARGE) },
                                 modifier = Modifier.weight(1f)
@@ -1232,8 +1235,15 @@ private fun ThemeOptionButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val uiSize = LocalUiSize.current
+    val minHeight = when (uiSize) {
+        UiSize.SMALL -> 46.dp
+        UiSize.MEDIUM -> 52.dp
+        UiSize.LARGE -> 58.dp
+    }
     Box(
         modifier = modifier
+            .heightIn(min = minHeight)
             .border(
                 width = if (isSelected) 2.dp else 1.dp,
                 color = if (isSelected) com.example.checklist.theme.SpaceXAccent else BorderSubtle,
@@ -1241,22 +1251,32 @@ private fun ThemeOptionButton(
             )
             .background(if (isSelected) SurfaceElevated else SurfaceDark, shape = SpaceXShape)
             .clickable(onClick = onClick)
-            .padding(vertical = uiDimension(8.dp, 10.dp, 13.dp), horizontal = 6.dp),
+            .padding(vertical = uiDimension(6.dp, 8.dp, 10.dp), horizontal = 4.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
             Text(
                 text = text,
                 color = if (isSelected) com.example.checklist.theme.SpaceXAccent else TextSecondary,
                 fontSize = uiFontSize(11.sp, 12.sp, 13.sp),
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                letterSpacing = 0.8.sp
+                letterSpacing = if (uiSize == UiSize.LARGE) 0.3.sp else 0.6.sp,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = subtext,
                 color = TextTertiary,
-                fontSize = uiFontSize(9.sp, 10.sp, 11.sp)
+                fontSize = uiFontSize(8.5.sp, 9.5.sp, 10.5.sp),
+                lineHeight = uiFontSize(11.sp, 12.sp, 13.sp),
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }

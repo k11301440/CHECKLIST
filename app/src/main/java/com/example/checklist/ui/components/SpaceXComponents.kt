@@ -31,6 +31,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -103,31 +105,37 @@ fun SpaceXButton(
     } else TextTertiary
     val containerBg = if (enabled && inverted) TextPrimary else SpaceBlack
 
-    val buttonHeight = when (uiSize) {
-        UiSize.SMALL -> 44.dp
+    val buttonMinHeight = when (uiSize) {
+        UiSize.SMALL -> 42.dp
         UiSize.MEDIUM -> 48.dp
-        UiSize.LARGE -> 56.dp
+        UiSize.LARGE -> 54.dp
     }
     val fontSize = when (uiSize) {
         UiSize.SMALL -> 12.sp
         UiSize.MEDIUM -> 13.5.sp
         UiSize.LARGE -> 15.sp
     }
+    // 横パディングを最適化し、UI「大」設定や狭幅端末でもテキストがはみ出さないように領域を確保
     val contentPadding = when (uiSize) {
-        UiSize.SMALL -> PaddingValues(horizontal = 16.dp, vertical = 10.dp)
-        UiSize.MEDIUM -> PaddingValues(horizontal = 20.dp, vertical = 12.dp)
-        UiSize.LARGE -> PaddingValues(horizontal = 24.dp, vertical = 14.dp)
+        UiSize.SMALL -> PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+        UiSize.MEDIUM -> PaddingValues(horizontal = 14.dp, vertical = 10.dp)
+        UiSize.LARGE -> PaddingValues(horizontal = 16.dp, vertical = 10.dp)
     }
     val iconSize = when (uiSize) {
         UiSize.SMALL -> 15.dp
         UiSize.MEDIUM -> 17.dp
         UiSize.LARGE -> 19.dp
     }
+    val letterSpacing = when (uiSize) {
+        UiSize.SMALL -> 0.8.sp
+        UiSize.MEDIUM -> 0.5.sp
+        UiSize.LARGE -> 0.2.sp
+    }
 
     OutlinedButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.height(buttonHeight),
+        modifier = modifier.heightIn(min = buttonMinHeight),
         shape = shape,
         border = BorderStroke(1.dp, borderColor),
         colors = ButtonDefaults.outlinedButtonColors(
@@ -137,7 +145,10 @@ fun SpaceXButton(
         ),
         contentPadding = contentPadding
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
             if (leadingIcon != null) {
                 Icon(
                     imageVector = leadingIcon,
@@ -145,14 +156,17 @@ fun SpaceXButton(
                     modifier = Modifier.size(iconSize),
                     tint = textColor
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(6.dp))
             }
             Text(
                 text = text,
                 color = textColor,
                 fontSize = fontSize,
                 fontWeight = FontWeight.SemiBold,
-                letterSpacing = 1.2.sp
+                letterSpacing = letterSpacing,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -179,9 +193,14 @@ fun SpaceXTextButton(
         UiSize.LARGE -> 14.sp
     }
     val contentPadding = when (uiSize) {
-        UiSize.SMALL -> PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-        UiSize.MEDIUM -> PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-        UiSize.LARGE -> PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+        UiSize.SMALL -> PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+        UiSize.MEDIUM -> PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+        UiSize.LARGE -> PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+    }
+    val letterSpacing = when (uiSize) {
+        UiSize.SMALL -> 0.8.sp
+        UiSize.MEDIUM -> 0.5.sp
+        UiSize.LARGE -> 0.2.sp
     }
 
     TextButton(
@@ -197,7 +216,10 @@ fun SpaceXTextButton(
             text = text,
             fontSize = fontSize,
             fontWeight = FontWeight.Medium,
-            letterSpacing = 1.0.sp
+            letterSpacing = letterSpacing,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -366,10 +388,10 @@ fun SpaceXDangerButton(
 ) {
     val uiSize = LocalUiSize.current
     val dangerColor = Color(0xFFFF453A)
-    val buttonHeight = when (uiSize) {
-        UiSize.SMALL -> 44.dp
+    val buttonMinHeight = when (uiSize) {
+        UiSize.SMALL -> 42.dp
         UiSize.MEDIUM -> 48.dp
-        UiSize.LARGE -> 56.dp
+        UiSize.LARGE -> 54.dp
     }
     val fontSize = when (uiSize) {
         UiSize.SMALL -> 12.sp
@@ -377,14 +399,19 @@ fun SpaceXDangerButton(
         UiSize.LARGE -> 15.sp
     }
     val contentPadding = when (uiSize) {
-        UiSize.SMALL -> PaddingValues(horizontal = 16.dp, vertical = 10.dp)
-        UiSize.MEDIUM -> PaddingValues(horizontal = 20.dp, vertical = 12.dp)
-        UiSize.LARGE -> PaddingValues(horizontal = 24.dp, vertical = 14.dp)
+        UiSize.SMALL -> PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+        UiSize.MEDIUM -> PaddingValues(horizontal = 14.dp, vertical = 10.dp)
+        UiSize.LARGE -> PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+    }
+    val letterSpacing = when (uiSize) {
+        UiSize.SMALL -> 0.8.sp
+        UiSize.MEDIUM -> 0.5.sp
+        UiSize.LARGE -> 0.2.sp
     }
 
     OutlinedButton(
         onClick = onClick,
-        modifier = modifier.height(buttonHeight),
+        modifier = modifier.heightIn(min = buttonMinHeight),
         shape = shape,
         border = BorderStroke(1.dp, dangerColor),
         colors = ButtonDefaults.outlinedButtonColors(
@@ -398,7 +425,10 @@ fun SpaceXDangerButton(
             color = dangerColor,
             fontSize = fontSize,
             fontWeight = FontWeight.Bold,
-            letterSpacing = 1.2.sp
+            letterSpacing = letterSpacing,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
