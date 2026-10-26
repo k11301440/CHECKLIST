@@ -487,7 +487,7 @@ fun SettingsScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 12.dp)
+                            .padding(horizontal = 14.dp, vertical = 14.dp)
                     ) {
                         Text(
                             text = if (isEnglish) "DISPLAY & UI SIZE" else "表示とUIサイズ（文字・ボタン）",
@@ -508,7 +508,7 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.height(10.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             ThemeOptionButton(
                                 text = if (isEnglish) "SMALL" else "小",
