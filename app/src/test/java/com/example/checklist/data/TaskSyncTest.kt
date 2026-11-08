@@ -454,6 +454,8 @@ class TaskSyncTest {
 
         // 午後(2)でタスクを完了(クリア)にする
         phases = TaskSync.completeItemInPhase(phases, phaseId = "p2", itemId = "CARRY1", now = 12345L)
+        // ChecklistRepository.persist と同様に reconcile を通しても過去フェーズの未完了が維持されることを検証
+        phases = TaskSync.reconcile(state(phases)).phases
 
         // 午後(2)は完了
         val afternoonItem = phases[2].items.first { it.id == "CARRY1" }

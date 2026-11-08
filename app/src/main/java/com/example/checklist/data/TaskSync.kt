@@ -149,19 +149,16 @@ object TaskSync {
     private data class Status(
         val title: String,
         val priority: Priority,
-        val isCompleted: Boolean,
-        val completedAt: Long?,
         val isDeleted: Boolean
     )
 
     /**
      * 自動整合エンジン (保存直前・読み込み時に実行)。
      * - 同一フェーズ内の同一 ID 重複を 1 件に統合
-     * - 同一 ID の全インスタンスで 完了 / 破棄 を OR 同期 (古い状態による巻き戻り防止)
+     * - 破棄 (isDeleted) を OR 同期 (どこかで破棄されたら全フェーズで破棄扱い)
      * - タイトル・優先度は発生元 (非キャリーオーバー) インスタンスの内容に統一
-     *
-     * 注意: 完了/破棄は OR 合成のため、「戻す」系の操作 (undo / restore / reset) は
-     * 必ず [updateLinked] で全インスタンスを同時に更新すること。
+     * - 注意: 完了状態 (isCompleted, completedAt) はフェーズごとに独立して保持する。
+     *   (あるフェーズでタスクをクリアした際、過去フェーズなど繰り越していた期間全てにクリア判定が付くのを防止)
      */
     fun reconcile(state: AppState): AppState {
         val byId = LinkedHashMap<String, Status>()
@@ -173,16 +170,9 @@ object TaskSync {
                 val takeContent = prev == null || (!item.isCarryover && item.id !in originSeen)
                 if (!item.isCarryover) originSeen.add(item.id)
 
-                val completed = (prev?.isCompleted == true) || item.isCompleted
-                val completedAt = if (completed) {
-                    listOfNotNull(prev?.completedAt, item.completedAt).maxOrNull()
-                } else null
-
                 byId[item.id] = Status(
                     title = if (takeContent) item.title else prev.title,
                     priority = if (takeContent) item.priority else prev.priority,
-                    isCompleted = completed,
-                    completedAt = completedAt,
                     isDeleted = (prev?.isDeleted == true) || item.isDeleted
                 )
             }
@@ -194,13 +184,10 @@ object TaskSync {
                 if (!seen.add(item.id)) return@mapNotNull null
                 val s = byId.getValue(item.id)
                 if (item.title == s.title && item.priority == s.priority &&
-                    item.isCompleted == s.isCompleted && item.completedAt == s.completedAt &&
                     item.isDeleted == s.isDeleted
                 ) item else item.copy(
                     title = s.title,
                     priority = s.priority,
-                    isCompleted = s.isCompleted,
-                    completedAt = s.completedAt,
                     isDeleted = s.isDeleted
                 )
             }
