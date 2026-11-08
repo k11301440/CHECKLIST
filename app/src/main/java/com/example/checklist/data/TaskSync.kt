@@ -29,9 +29,12 @@ object TaskSync {
 
     /**
      * 指定フェーズ (phaseId) でタスクを完了にした際の更新処理。
-     * - 完了操作を行ったフェーズ以前 (または全フェーズ) に存在する同一 ID のインスタンスを完了にする
-     * - 完了操作を行ったフェーズより後のフェーズにある未完了キャリーオーバーコピーは不要になるため除去する
-     *   (先のフェーズを覗き見した後に元フェーズで完了にした場合、先のフェーズに完了済みコピーが残留して件数が膨らむのを防止)
+     * - 完了操作を行ったフェーズ自身 (idx == completedPhaseIdx) でのみ対象タスクを完了にする。
+     * - 完了操作を行ったフェーズより前の過去フェーズ (idx < completedPhaseIdx) は、
+     *   その時点では未完了だった実績を保つため、完了判定を付けず未完了を維持する。
+     *   (繰り越したタスクをクリアした際に、繰り越していた過去の全期間にクリア判定が付くのを防止)
+     * - 完了操作を行ったフェーズより後の未来フェーズ (idx > completedPhaseIdx) にある
+     *   未完了キャリーオーバーコピーは、このフェーズで完了したため不要となり除去する。
      */
     fun completeItemInPhase(
         phases: List<Phase>,
@@ -44,6 +47,7 @@ object TaskSync {
             if (phase.items.none { it.id == itemId }) {
                 phase
             } else if (completedPhaseIdx >= 0 && idx > completedPhaseIdx) {
+                // 未来フェーズ: 未完了の持越コピーを除去
                 phase.copy(
                     items = phase.items.mapNotNull { item ->
                         if (item.id == itemId) {
@@ -51,7 +55,11 @@ object TaskSync {
                         } else item
                     }
                 )
+            } else if (completedPhaseIdx >= 0 && idx < completedPhaseIdx) {
+                // 過去フェーズ: 繰越期間中の過去フェーズには完了判定を付けず未完了を維持
+                phase
             } else {
+                // 操作フェーズ自身 (または completedPhaseIdx < 0): 完了にする
                 phase.copy(
                     items = phase.items.map { item ->
                         if (item.id == itemId) item.copy(isCompleted = true, completedAt = now) else item
@@ -253,6 +261,7 @@ object TaskSync {
     /**
      * 日別レコード作成。キャリーオーバーで複数フェーズに存在する同一タスクは
      * 合計値では 1 件として数える (二重計上防止)。
+     * いずれかのフェーズで完了していれば 1 日全体として完了と集計する。
      */
     fun createDailyRecord(
         date: String,
@@ -260,7 +269,15 @@ object TaskSync {
         now: Long = System.currentTimeMillis(),
         includeSnapshot: Boolean = true
     ): DailyRecord {
-        val unique = phases.flatMap { it.items }.filterNot { it.isDeleted }.distinctBy { it.id }
+        val allValid = phases.flatMap { it.items }.filterNot { it.isDeleted }
+        val byId = allValid.groupBy { it.id }
+        val totalUnique = byId.size
+        val completedUnique = byId.values.count { list -> list.any { it.isCompleted } }
+        val reqPendingUnique = byId.values.count { list ->
+            val isReq = list.any { it.priority == Priority.REQUIRED }
+            val isDone = list.any { it.isCompleted }
+            isReq && !isDone
+        }
         val summaries = phases.map { p ->
             PhaseDailySummary(
                 phaseName = p.name,
@@ -274,9 +291,9 @@ object TaskSync {
         return DailyRecord(
             dateString = date,
             completedAt = now,
-            totalItems = unique.size,
-            completedItems = unique.count { it.isCompleted },
-            requiredPendingItems = unique.count { it.priority == Priority.REQUIRED && !it.isCompleted },
+            totalItems = totalUnique,
+            completedItems = completedUnique,
+            requiredPendingItems = reqPendingUnique,
             phaseSummaries = summaries,
             phasesSnapshot = if (includeSnapshot) phases else emptyList()
         )
@@ -329,10 +346,11 @@ object TaskSync {
         if (phases.isEmpty()) return phases
         val end = targetIndex.coerceIn(0, phases.lastIndex)
         val trimmed = trimFutureUnfinishedCarryover(phases, end, settings).toMutableList()
+        val completedIds = trimmed.flatMap { it.items }.filter { it.isCompleted }.map { it.id }.toSet()
         for (i in 0 until end) {
             val src = trimmed[i]
             val dst = trimmed[i + 1]
-            val carry = selectCarryover(src.items, src.name, settings)
+            val carry = selectCarryover(src.items, src.name, settings).filterNot { it.id in completedIds }
             if (carry.isNotEmpty()) {
                 trimmed[i + 1] = dst.copy(items = mergeCarryover(dst.items, carry))
             }
@@ -415,14 +433,15 @@ object TaskSync {
             val syncedSnapItems = snapPhase.items.map { item ->
                 val cur = currentItemsById[item.id]
                 if (cur != null) {
-                    // 翌日側で新たに完了または破棄された場合はその変更を反映、それ以外はスナップショットの完了状態を維持
-                    val completed = item.isCompleted || cur.isCompleted
-                    val completedAt = if (completed) (item.completedAt ?: cur.completedAt) else null
+                    // 過去日のスナップショットの完了状態 (isCompleted, completedAt) は、
+                    // その日時点の実績を正しく維持する。
+                    // 翌日以降に繰り越されたタスクが翌日側で完了されたとしても、
+                    // 過去日側まで完了済みに書き換えない (繰越期間全てにクリア判定が付くのを防止)。
                     item.copy(
                         title = cur.title,
                         priority = cur.priority,
-                        isCompleted = completed,
-                        completedAt = completedAt,
+                        isCompleted = item.isCompleted,
+                        completedAt = item.completedAt,
                         isDeleted = item.isDeleted || cur.isDeleted
                     )
                 } else item
@@ -434,9 +453,17 @@ object TaskSync {
         return releaseDueScheduled(rewound.copy(phases = restoredPhases), targetDate)
     }
 
-    /** 全フェーズから翌日への持越対象を ID 重複なしで抽出 (最初に現れたインスタンス = 発生元を優先) */
-    fun collectDayCarryover(phases: List<Phase>, settings: AppSettings): List<ChecklistItem> =
-        phases.flatMap { p -> selectCarryover(p.items, p.name, settings) }.distinctBy { it.id }
+    /**
+     * 全フェーズから翌日への持越対象を ID 重複なしで抽出。
+     * 当日中のいずれかのフェーズで完了済み (isCompleted = true) になっているタスクは、
+     * 過去フェーズに未完了の元インスタンスが残っていても翌日へは持ち越さない。
+     */
+    fun collectDayCarryover(phases: List<Phase>, settings: AppSettings): List<ChecklistItem> {
+        val completedIds = phases.flatMap { it.items }.filter { it.isCompleted }.map { it.id }.toSet()
+        return phases.flatMap { p -> selectCarryover(p.items, p.name, settings) }
+            .filterNot { it.id in completedIds }
+            .distinctBy { it.id }
+    }
 
     fun buildNextDayState(
         current: AppState,

@@ -1,12 +1,8 @@
 package com.example.checklist.ui.settings
 
 import android.Manifest
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -803,85 +799,6 @@ fun SettingsScreen(
                     }
                 }
             }
-            // 4.8. BETA FEEDBACK & CONTACT (テスター用 問い合わせ・フィードバック)
-            item {
-                SettingsSectionHeader(if (isEnglish) "BETA TEST FEEDBACK & SUPPORT" else "ベータ版 お問い合わせ・フィードバック")
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, BorderSubtle, SpaceXShape)
-                        .background(SurfaceDark, shape = SpaceXShape)
-                        .padding(14.dp)
-                ) {
-                    Text(
-                        text = if (isEnglish) "TESTER SUPPORT & BUG REPORTS" else "テスター専用サポート / 不具合報告",
-                        color = TextPrimary,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = if (isEnglish)
-                            "Please report any bugs, feedback, or suggestions during the beta test via Email or Discord below."
-                        else
-                            "クローズドベータテスト期間中の不具合報告やご要望は、下記メールまたはDiscordまでお気軽にお寄せください。",
-                        color = TextSecondary,
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp,
-                        letterSpacing = 0.2.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        // メール送信ボタン
-                        SpaceXButton(
-                            text = if (isEnglish) "EMAIL SUPPORT" else "メールで報告",
-                            onClick = {
-                                val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
-                                    data = Uri.parse("mailto:k11301440+checklist@gmail.com")
-                                    putExtra(Intent.EXTRA_SUBJECT, "[CHECKLIST Beta] フィードバック・不具合報告")
-                                    putExtra(Intent.EXTRA_TEXT, "【端末情報】\nAndroid SDK: ${Build.VERSION.SDK_INT}\nアプリ版: v0.9.1-beta\n\n【内容】\n")
-                                }
-                                try {
-                                    context.startActivity(Intent.createChooser(emailIntent, "Send feedback via..."))
-                                } catch (e: Exception) {
-                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    clipboard.setPrimaryClip(ClipData.newPlainText("Feedback Email", "k11301440+checklist@gmail.com"))
-                                    Toast.makeText(context, "メールアドレスをコピーしました (k11301440+checklist@gmail.com)", Toast.LENGTH_LONG).show()
-                                }
-                            },
-                            prominent = true,
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        // Discord ボタン
-                        SpaceXButton(
-                            text = "DISCORD",
-                            onClick = {
-                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                clipboard.setPrimaryClip(ClipData.newPlainText("Discord ID", "wattanave"))
-                                Toast.makeText(context, "Discord ID「wattanave」をコピーしました", Toast.LENGTH_LONG).show()
-                            },
-                            prominent = false,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "EMAIL: k11301440+checklist@gmail.com / DISCORD: tomy (wattanave)",
-                        color = TextTertiary,
-                        fontSize = 10.sp,
-                        letterSpacing = 0.5.sp
-                    )
-                }
-            }
 
             // 5. HELP, LEGAL & VERSION (チュートリアル・航空思想・規約・バージョン)
             item {
@@ -976,7 +893,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "v1.0.5",
+                            text = "v1.0.6",
                             color = TextPrimary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
@@ -1560,6 +1477,39 @@ fun ReleaseNotesDialog(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
                 )
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // v1.0.6
+                Text(
+                    text = "v1.0.6",
+                    color = TextPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                val notesV106 = if (isEnglish) {
+                    """
+                    • Official Production Release: Transitioned to official production release following successful closed beta testing, streamlining settings interface.
+                    • Task Lifecycle & History Integrity: Carried-over tasks completed in later phases preserve historical uncompleted states in earlier phases for accurate daily records.
+                    • Daily Debrief Metrics Precision: Enhanced deduplicated task completion accounting across multi-phase records.
+                    """.trimIndent()
+                } else {
+                    """
+                    ・製品版正式リリース: クローズドベータテストの完了に伴い、設定画面のテスター向けフィードバック窓口を整理し正式版UIへ移行。
+                    ・タスク完了判定と繰越実績の整合性強化: 繰り越したタスクを後続フェーズで完了した際、過去フェーズの未完了実績ログを正確に保持するよう改善。
+                    ・デイリーサマリー集計の精度向上: 複数フェーズを横断するタスクの完了状態集計を最適化。
+                    """.trimIndent()
+                }
+                Text(
+                    text = notesV106,
+                    color = TextSecondary,
+                    fontSize = 11.5.sp,
+                    lineHeight = 18.sp,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+                SpaceXDivider()
                 Spacer(modifier = Modifier.height(14.dp))
 
                 // v1.0.5
